@@ -18,6 +18,7 @@
 namespace dvt
 {
     struct RestoreTab;
+    struct DiskTab;
 
     // a volume (or a chosen folder: Letter 0) of the source / target lists
     struct Volume
@@ -33,6 +34,7 @@ namespace dvt
         MainWindow win;
         wstring root;                         // the folder of the exe
         RestoreTab* restore = nullptr;
+        DiskTab* disk = nullptr;
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown

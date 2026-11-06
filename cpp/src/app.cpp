@@ -6,6 +6,7 @@
 #include "helper.h"
 #include "lang.h"
 #include "settings.h"
+#include "tab_disk.h"
 #include "tab_restore.h"
 #include <shellapi.h>
 #include <algorithm>
@@ -27,7 +28,8 @@ namespace dvt
         // the order of the tabs; the ones not ported yet say so
         HWND page = win.AddPage(L::T(L"bk.tab_apply"));
         restore = new RestoreTab(*this, page);
-        for (const wchar_t* key : { L"dk.tab", L"bk.tab_capture", L"ex.tab", L"sj.tab", L"in.tab", L"br.tab" })
+        disk = new DiskTab(*this, win.AddPage(L::T(L"dk.tab")));
+        for (const wchar_t* key : { L"bk.tab_capture", L"ex.tab", L"sj.tab", L"in.tab", L"br.tab" })
         {
             HWND p = win.AddPage(L::T(key));
             HWND note = Label(p, L::T(L"cpp.not_ported"), FontUI, color::Dim);

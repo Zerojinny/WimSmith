@@ -35,6 +35,8 @@ namespace dvt
         void Create();
         // a new tab; returns its page (a panel with 8 px padding around it)
         HWND AddPage(const wstring& title);
+        void SelectPage(HWND page);
+        bool PageShown(HWND page) const;
         void Log(const wstring& text);        // "HH:mm:ss  text" to the log and the footer
         void SetStatus(const wstring& text);  // the state at the left of the footer
         std::function<bool()> busy;           // a job runs (set by App)

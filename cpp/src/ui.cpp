@@ -940,7 +940,9 @@ namespace ui
     HWND Edit(HWND parent, DWORD style)
     {
         HWND h = Child(L"EDIT", parent, L"", WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL | style);
-        SetWindowTheme(h, L"DarkMode_Explorer", nullptr);
+        // dark scroll bars; a single line edit keeps the classic look, so that
+        // WM_CTLCOLORSTATIC colors it when disabled (the theme would draw it grey)
+        SetWindowTheme(h, style & ES_MULTILINE ? L"DarkMode_Explorer" : L"", style & ES_MULTILINE ? nullptr : L"");
         SetWindowSubclass(h, EditSub, 1, 0);
         return h;
     }
@@ -982,6 +984,14 @@ namespace ui
         auto it = upDowns.find(h);
         if (it != upDowns.end()) SendMessageW(it->second, UDM_SETPOS32, 0, (LPARAM)value);
         else SetText(h, std::to_wstring(value));
+    }
+
+    void NumberStep(HWND h, int step)
+    {
+        auto it = upDowns.find(h);
+        if (it == upDowns.end()) return;
+        UDACCEL a = { 0, (UINT)step };
+        SendMessageW(it->second, UDM_SETACCEL, 1, (LPARAM)&a);
     }
 
     static HWND CheckCore(HWND parent, const wstring& text, bool radio, int group)

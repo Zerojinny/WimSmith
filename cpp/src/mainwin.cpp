@@ -159,6 +159,17 @@ namespace dvt
         return page;
     }
 
+    void MainWindow::SelectPage(HWND page)
+    {
+        for (size_t i = 0; i < pages.size(); i++) if (pages[i] == page) TabSelect(tabs, (int)i);
+    }
+
+    bool MainWindow::PageShown(HWND page) const
+    {
+        int sel = TabIndex(tabs);
+        return sel >= 0 && sel < (int)pages.size() && pages[sel] == page;
+    }
+
     void MainWindow::ShowPage()
     {
         int sel = TabIndex(tabs);

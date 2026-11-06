@@ -107,6 +107,7 @@ namespace ui
     wstring ComboItem(HWND h, int index);
     int NumberValue(HWND h);
     void SetNumber(HWND h, int value);
+    void NumberStep(HWND h, int step);                // the step of the arrows
     int TabAdd(HWND tabs, const wstring& text);
     int TabIndex(HWND tabs);
     void TabSelect(HWND tabs, int index);             // fires OnChange
