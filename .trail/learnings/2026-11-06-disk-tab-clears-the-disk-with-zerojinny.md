@@ -1,0 +1,27 @@
+---
+title: "Disk tab clears the disk with Storage cmdlets but creates partitions with diskpart, and never preselects a disk"
+author: Zerojinny
+date: 2026-11-06
+cost: { minutes: 10, tokens: 158176 }
+id: l-28eb1e5d
+scope: repo
+status: active
+src: agent
+touches:
+  - backup/icon/make_icon.ps1
+  - src/DiskJob.cs
+  - src/BackupPanel.Disk.cs
+---
+
+## Decided
+- Clearing and initializing use PowerShell (Clear-Disk -RemoveData -RemoveOEM, then Initialize-Disk GPT/MBR), then every partition Initialize-Disk may have added (an MSR) is removed, so the layout always starts from an empty table.
+- Partitions are created by a diskpart script that follows Microsoft's deployment scripts: "create partition efi" formats the ESP as FAT32 without access problems, and "set id" / "gpt attributes=0x8000000000000001" give the recovery partition its type, which New-Partition / Set-Partition cannot do for every case (MBR type 0x27, GPT attributes).
+- The helper checks the disk again (boot/system disk, the disk of 7z_wimlib, read-only, offline) and refuses when the disk's size differs from the size the GUI saw: disk numbers can change when a USB disk is replugged.
+- The disk list never picks a disk on its own; the first entry is "(choose the disk to clear)". Unusable disks are listed with the reason instead of being hidden.
+- After a Windows layout, only the restore target is set (new letter, W: when free); the existing UpdateBoot / DefaultSysPart logic then picks UEFI + ESP on GPT and BIOS + the active system reserved partition on MBR.
+
+## Watch out
+- Windows formats FAT32 only up to 32 GB and MBR uses only 2 TiB: both are refused before the job starts.
+- The end-to-end run (elevated diskpart) was not tested in the session that added it; test on a VHD first.
+
+In the code: src/DiskJob.cs (DiskPlan.Script, QueryDisks, DiskProblem, PlanProblem, WimLib.Disk, RunDiskpart), src/BackupPanel.Disk.cs (BuildDiskTab, StartDisk, DiskDone), src/BackupPanel.cs (ConfirmTyped titleKey, LETTER line in ReadHelperLines, elevate for mode disk).

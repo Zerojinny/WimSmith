@@ -1,0 +1,2 @@
+// 7z_wimlib (C++) - resources: the icon (the manifest is embedded by the linker)
+1 ICON "..\\DVT.ico"
