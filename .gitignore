@@ -2,8 +2,9 @@
 #  7z_wimlib - files that must never be committed
 # ============================================================
 
-# build result (build_gui.bat)
+# build result (build.bat) and its object files
 7z_wimlib.exe
+obj/
 # the same under its old name (backup/ui-classic)
 Z_wimlib.exe
 
@@ -16,6 +17,5 @@ lib/
 pe_tools/
 libwim-15.dll
 
-# the C++ port (cpp\build.bat): its exe and object files
+# the exe of the C++ port before it became 7z_wimlib.exe
 7z_wimlib_native.exe
-cpp/obj/

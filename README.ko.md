@@ -22,47 +22,36 @@
 
 ## 필요한 것
 
-- Windows 10/11 x64, .NET Framework 4.x(기본 포함).
+- Windows 8.1 / 10 / 11 x64. `7z_wimlib.exe`는 exe 하나로 된 네이티브 프로그램(C++, 정적 C 런타임)이라 .NET Framework 같은 런타임이 필요 없습니다. x64 WinPE에서도 실행되도록 만들었습니다(WinPE에서는 아직 시험하지 않음).
 - `7z_wimlib.exe` 옆의 `lib\` 폴더에 외부 프로그램을 둡니다: `libwim-15.dll`([wimlib](https://wimlib.net), x64)과 `7z.exe`, `7z.dll`, `7zFM.exe`([7-Zip](https://www.7-zip.org), x64). 없는 파일은 처음 필요할 때 **최신 버전을 자동으로 받습니다**(wimlib은 wimlib.net, 7-Zip은 7-zip.org / GitHub 릴리스에서 받아 `7zr.exe`로 풀며, 설치하지 않습니다). 버전은 `lib\versions.ini`에 기록하고, 예전 `pe_tools\` 폴더의 `libwim-15.dll`은 시작할 때 `lib\`로 옮깁니다. 인터넷에 연결되어 있지 않으면 이 파일들을 직접 넣으세요. 이 저장소에는 들어 있지 않으며, 각 프로그램의 라이선스 문서를 `lib\`에 함께 둡니다([외부 프로그램](#외부-프로그램) 참고).
 - 백업, 복구, 디스크 탭에는 관리자 권한이 필요합니다(매번 Windows가 묻습니다). 내보내기, 나누기 / 합치기, 정보, 검증, 탐색은 필요 없습니다.
 
 ## 빌드
 
 ```
-build_gui.bat
+build.bat
 ```
 
-.NET Framework의 C# 컴파일러로 `src\*.cs`를 이 폴더의 `7z_wimlib.exe`로 빌드합니다(Visual Studio 필요 없음). 언어 파일 `lang\*.ini`는 exe에 들어가며, exe 옆에 `lang\` 폴더가 있으면 그쪽을 먼저 읽습니다.
+Visual Studio 2017 이상의 Visual C++(Community 또는 Build Tools, "C++를 사용한 데스크톱 개발" 워크로드, vswhere로 찾음)로 `src\*.cpp`를 이 폴더의 `7z_wimlib.exe`(x64)로 빌드합니다. 오브젝트 파일은 `obj\`에 생깁니다. 언어 파일 `lang\*.ini`는 exe에 들어가며, exe 옆에 `lang\` 폴더가 있으면 그쪽을 먼저 읽습니다.
 
-### C++ 전환 (진행 중)
+wimlib은 실행할 때 불러오는 별도 DLL(`lib\libwim-15.dll`)로 둡니다.
 
-.NET Framework 없이 exe 하나로 실행되도록(WinPE 포함) 7z_wimlib를 C++(Win32 API, 정적 C 런타임)로 옮기고 있습니다. C# 버전은 `backup\cs-winforms`에 보관합니다.
-
-```
-cpp\build.bat
-```
-
-Visual Studio 2017 이상의 Visual C++(Community 또는 Build Tools, "C++를 사용한 데스크톱 개발", vswhere로 찾음)로 `cpp\src\*.cpp`를 `7z_wimlib_native.exe`(x64)로 빌드합니다.
-
-- 1단계(완료): 도우미(백업, 복구, 내보내기, 나누기 / 합치기, 검증, 디스크). `7z_wimlib.exe` 옆에 `7z_wimlib_native.exe`가 있으면 창은 작업마다 자기 대신 이것을 실행합니다(로그에 "도우미: 7z_wimlib_native.exe (C++)"). 지우면 C# 도우미로 돌아갑니다.
-- 2단계(진행 중): 창. 완료: 틀(탭, 하단 상태 줄, 로그 창, 언어 선택, `7z_wimlib.ini` 설정, 다크 테마), 작업 실행(도우미, 진행, 취소, 완료 후 동작), 7개 탭 전부(복구, 디스크, 백업, 내보내기, 나누기/합치기, 정보와 검증, 7-Zip 탐색)., `lib\` 관리(예전 `libwim-15.dll` 옮기기, 없는 wimlib / 7-Zip을 WinHTTP로 받기, 빠진 라이선스 문서 받기; wimlib zip은 `lib\7z.exe` 또는 Windows의 `tar.exe`로 풂). 그 뒤 C++ exe가 `7z_wimlib.exe`가 됩니다.
-
-wimlib은 이전처럼 실행할 때 불러오는 별도 DLL(`lib\libwim-15.dll`)로 둡니다.
+C++로 옮기기 전의 C# / .NET Framework 버전은 그것을 빌드하는 `build_gui.bat`과 함께 `backup\cs-winforms\`에 보관합니다.
 
 ## 파일
 
 | 경로 | 내용 |
 |---|---|
-| `src\Program.cs` | 시작점, 설정(`7z_wimlib.ini`), `--wim-helper` |
-| `src\MainForm.cs` | 창, 상태 표시줄, 언어 선택 |
-| `src\BackupPanel.cs` | 백업 / 복구 / 내보내기 / 정보 화면 |
-| `src\WimBrowser.cs` | 탐색 탭 (7-Zip) |
-| `src\Libs.cs` | `lib\` 폴더: wimlib, 7-Zip 옮기기와 내려받기 |
-| `src\Theme.cs` | 어두운 화면(색, 탭, 진행 막대, 어두운 제목 표시줄 / 스크롤 막대) |
-| `src\LogWindow.cs` | 로그 창 ([로그 보기]를 누를 때까지 숨김) |
-| `src\BackupPanel.Disk.cs`, `src\DiskJob.cs` | 디스크 탭, 디스크 목록(Get-Disk), 초기화(Clear-Disk / Initialize-Disk), 파티션 생성(diskpart) |
-| `src\WimLib.cs` | wimlib 호출, 관리자 권한 도우미, 파티션, bcdboot |
-| `src\Lang.cs`, `src\Ui.cs`, `src\Controls.cs` | 언어 파일, UI 도우미 |
+| `src\main.cpp` | 시작점: 창, 또는 `--wim-helper` |
+| `src\app.*`, `src\mainwin.*` | 탭들이 함께 쓰는 것(볼륨, 확인 창, 작업 실행), 주 창, 하단 상태 줄, 로그 창 |
+| `src\tab_*.*` | 탭: 복구, 디스크, 백업, 내보내기, 나누기 / 합치기, 정보, 탐색 |
+| `src\helper.*` | 관리자 권한 도우미(job.ini -> status.txt): 백업, 복구, 내보내기, 나누기 / 합치기, 검증, bcdboot |
+| `src\disk.*` | 디스크 탭: 디스크와 파티션 목록(PowerShell), diskpart 스크립트, 디스크 작업 |
+| `src\wim.*`, `src\wimread.cpp` | wimlib(`lib\libwim-15.dll`, 실행할 때 불러옴), WIM 파일·이미지 정보 |
+| `src\libs.*` | `lib\` 폴더: wimlib, 7-Zip 옮기기와 내려받기(WinHTTP), 라이선스 문서 |
+| `src\ui.*` | Win32 위의 화면 도구: 어두운 컨트롤, 탭, 목록, 대화 상자, 줄 배치 |
+| `src\lang.*`, `src\settings.*`, `src\util.cpp`, `src\common.h` | 언어 파일, `7z_wimlib.ini`, 문자열 / 파일 / 프로세스 도우미 |
+| `app.rc`, `app.manifest` | 아이콘과 exe에 넣는 언어 파일, 매니페스트(DPI, 공용 컨트롤 6, Windows 버전) |
 | `lang\en.ini`, `lang\ko.ini` | 문구(en.ini가 기준) |
 
 관리자 권한 도우미는 `%TEMP%\DVT_wim_job\<시각>`(job.ini, status.txt, wimlib_errors.txt)에서 작업합니다. 성공하면 이 폴더를 지우고, 실패하면 남깁니다.

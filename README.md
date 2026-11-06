@@ -22,47 +22,36 @@ A small Windows tool to back up a volume or folder to a WIM image and restore it
 
 ## Requirements
 
-- Windows 10/11 x64 with .NET Framework 4.x (built in).
+- Windows 8.1 / 10 / 11 x64. `7z_wimlib.exe` is a single native exe (C++, static C runtime) and needs no runtime such as the .NET Framework; it is meant to run in an x64 WinPE as well (not tested there yet).
 - `lib\` next to `7z_wimlib.exe` holds the third-party programs: `libwim-15.dll` ([wimlib](https://wimlib.net), x64) and `7z.exe`, `7z.dll`, `7zFM.exe` ([7-Zip](https://www.7-zip.org), x64). A missing one is **downloaded automatically in its newest version** when it is first needed (wimlib from wimlib.net, 7-Zip from 7-zip.org / its GitHub releases, unpacked with `7zr.exe`; nothing is installed). `lib\versions.ini` records the versions; a `libwim-15.dll` in the old `pe_tools\` folder is moved into `lib\` at start. Without an internet connection, put the files there by hand. They are not part of this repository; their license texts are kept next to them in `lib\` (see [Third-party programs](#third-party-programs)).
 - Administrator rights for backup, restore and the disk tab (Windows asks each time); export, split / join, info, verify and browse do not need them.
 
 ## Build
 
 ```
-build_gui.bat
+build.bat
 ```
 
-Compiles `src\*.cs` into `7z_wimlib.exe` in this folder with the C# compiler of the .NET Framework (no Visual Studio needed). The language files `lang\*.ini` are embedded; an edited `lang\` folder next to the exe is used first.
+Compiles `src\*.cpp` into `7z_wimlib.exe` (x64) in this folder with the Visual C++ of Visual Studio 2017 or later (Community or Build Tools, workload "Desktop development with C++"; found with vswhere). The object files go to `obj\`. The language files `lang\*.ini` are embedded; an edited `lang\` folder next to the exe is used first.
 
-### C++ port (in progress)
+wimlib stays a separate DLL loaded at run time (`lib\libwim-15.dll`).
 
-7z_wimlib is being ported to C++ (Win32 API, static C runtime), so that it runs as a single exe without the .NET Framework, also in WinPE. The C# version is kept in `backup\cs-winforms`.
-
-```
-cpp\build.bat
-```
-
-Compiles `cpp\src\*.cpp` into `7z_wimlib_native.exe` (x64) with the Visual C++ of Visual Studio 2017 or later (Community or Build Tools, "Desktop development with C++"; found with vswhere).
-
-- Step 1, done: the helper (backup, restore, export, split / join, verify, disk). When `7z_wimlib_native.exe` is next to `7z_wimlib.exe`, the window starts it for its jobs instead of itself (the log says "Helper: 7z_wimlib_native.exe (C++)"); delete it to go back to the C# helper.
-- Step 2, in progress: the window. Done: the frame (tabs, footer, log window, language choice, settings in `7z_wimlib.ini`, dark look), the jobs (the helper, progress, cancel, after done), all seven tabs (restore, disk, backup, export, split / join, info with verify, browse with 7-Zip)., and `lib\` (moving an old `libwim-15.dll`, downloading a missing wimlib / 7-Zip with WinHTTP, fetching missing license texts; the wimlib zip is unpacked with `lib\7z.exe` or the `tar.exe` of Windows). Then the C++ exe becomes `7z_wimlib.exe`.
-
-wimlib stays a separate DLL loaded at run time (`lib\libwim-15.dll`), as before.
+The former C# / .NET Framework version (up to the C++ port) is kept in `backup\cs-winforms\`, with the `build_gui.bat` that builds it.
 
 ## Files
 
 | Path | Content |
 |---|---|
-| `src\Program.cs` | entry point, settings (`7z_wimlib.ini`), `--wim-helper` |
-| `src\MainForm.cs` | window, status bar, language choice |
-| `src\BackupPanel.cs` | backup / restore / export / info page |
-| `src\WimBrowser.cs` | browse tab (7-Zip) |
-| `src\Libs.cs` | `lib\` folder: moving and downloading wimlib and 7-Zip |
-| `src\Theme.cs` | dark look (colors, tabs, progress bar, dark title bar / scroll bars) |
-| `src\LogWindow.cs` | log window (hidden until [Show log]) |
-| `src\BackupPanel.Disk.cs`, `src\DiskJob.cs` | disk tab; disks (Get-Disk), clearing (Clear-Disk / Initialize-Disk) and partitions (diskpart) |
-| `src\WimLib.cs` | wimlib calls, elevated helper, partitions, bcdboot |
-| `src\Lang.cs`, `src\Ui.cs`, `src\Controls.cs` | language files, UI helpers |
+| `src\main.cpp` | entry point: the window, or `--wim-helper` |
+| `src\app.*`, `src\mainwin.*` | what the tabs share (volumes, confirmations, running a job), the main window, footer and log window |
+| `src\tab_*.*` | the tabs: restore, disk, backup, export, split / join, info, browse |
+| `src\helper.*` | the elevated helper (job.ini -> status.txt): backup, restore, export, split / join, verify, bcdboot |
+| `src\disk.*` | disk tab: disks and partitions (PowerShell), the diskpart script, the disk job |
+| `src\wim.*`, `src\wimread.cpp` | wimlib (`lib\libwim-15.dll`, loaded at run time), WIM file and image information |
+| `src\libs.*` | `lib\` folder: moving and downloading wimlib and 7-Zip (WinHTTP), license texts |
+| `src\ui.*` | the window toolkit on Win32: dark controls, tabs, lists, dialogs, row layout |
+| `src\lang.*`, `src\settings.*`, `src\util.cpp`, `src\common.h` | language files, `7z_wimlib.ini`, text / file / process helpers |
+| `app.rc`, `app.manifest` | icon and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
 
 The elevated helper works in `%TEMP%\DVT_wim_job\<time>` (job.ini, status.txt, wimlib_errors.txt); the folder is deleted after a successful job and kept after a failed one.

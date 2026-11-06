@@ -1930,7 +1930,15 @@ namespace Dvt
             helperStatusFile = Path.Combine(workDir, "status.txt");
             Log(L.F("bk.log_work", Ui.ShortPath(workDir)));
 
-            ProcessStartInfo psi = new ProcessStartInfo(Application.ExecutablePath, "--wim-helper \"" + workDir + "\"");
+            // the C++ helper (cppuild.bat) does the job when it is next to this exe
+            string helperExe = Application.ExecutablePath;
+            string native = Path.Combine(rootDir, "7z_wimlib_native.exe");
+            if (File.Exists(native))
+            {
+                helperExe = native;
+                Log(L.F("bk.log_native_helper", Path.GetFileName(native)));
+            }
+            ProcessStartInfo psi = new ProcessStartInfo(helperExe, "--wim-helper \"" + workDir + "\"");
             psi.UseShellExecute = true;
             // backup / restore / disk need administrator rights; export, split and join do not
             bool elevate = jobMode == "capture" || jobMode == "apply" || jobMode == "disk";

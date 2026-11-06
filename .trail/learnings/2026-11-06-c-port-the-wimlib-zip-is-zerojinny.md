@@ -11,14 +11,14 @@ src: agent
 touches:
   - README.ko.md
   - README.md
-  - cpp/build.bat
-  - cpp/src/app.cpp
-  - cpp/src/libs.cpp
-  - cpp/src/libs.h
-  - cpp/src/tab_browse.cpp
-  - cpp/src/app.h
-  - cpp/src/common.h
-  - cpp/src/mainwin.cpp
+  - build.bat
+  - src/app.cpp
+  - src/libs.cpp
+  - src/libs.h
+  - src/tab_browse.cpp
+  - src/app.h
+  - src/common.h
+  - src/mainwin.cpp
 ---
 
 ## Decided
@@ -30,4 +30,4 @@ touches:
 - The header text of a dark ListView stays dark: its items are owner drawn (HDF_OWNERDRAW, WM_DRAWITEM goes to the list, so the list is subclassed).
 - Screenshots for checks use PrintWindow(PW_RENDERFULLCONTENT): CopyFromScreen captured another program the user had open over the window.
 
-In the code: cpp/src/libs.cpp (DownloadWimlib, Download7zip, RunDialog), cpp/src/ui.cpp (ListDraw, ListSub).
+In the code: src/libs.cpp (DownloadWimlib, Download7zip, RunDialog), src/ui.cpp (ListDraw, ListSub).
