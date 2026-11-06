@@ -45,7 +45,7 @@ cpp\build.bat
 Compiles `cpp\src\*.cpp` into `7z_wimlib_native.exe` (x64) with the Visual C++ of Visual Studio 2017 or later (Community or Build Tools, "Desktop development with C++"; found with vswhere).
 
 - Step 1, done: the helper (backup, restore, export, split / join, verify, disk). When `7z_wimlib_native.exe` is next to `7z_wimlib.exe`, the window starts it for its jobs instead of itself (the log says "Helper: 7z_wimlib_native.exe (C++)"); delete it to go back to the C# helper.
-- Step 2, in progress: the window. Done: the frame (tabs, footer, log window, language choice, settings in `7z_wimlib.ini`, dark look), the jobs (the helper, progress, cancel, after done), the restore, disk, backup, export and split / join tabs. The tabs follow one by one; a tab that is not ported yet says so. Then the C++ exe becomes `7z_wimlib.exe`.
+- Step 2, in progress: the window. Done: the frame (tabs, footer, log window, language choice, settings in `7z_wimlib.ini`, dark look), the jobs (the helper, progress, cancel, after done), the restore, disk, backup, export, split / join and info tabs (with verify). The tabs follow one by one; a tab that is not ported yet says so. Then the C++ exe becomes `7z_wimlib.exe`.
 
 wimlib stays a separate DLL loaded at run time (`lib\libwim-15.dll`), as before.
 

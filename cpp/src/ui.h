@@ -93,6 +93,14 @@ namespace ui
     HWND Check(HWND parent, const wstring& text);
     HWND Radio(HWND parent, const wstring& text, int group);
     HWND Tabs(HWND parent);
+    // a details list (dark; the selected row in the accent tone, also
+    // without focus); columns: { title, width at 96 DPI }, right aligned when width < 0
+    HWND List(HWND parent, const std::vector<std::pair<wstring, int>>& columns);
+    int ListAdd(HWND list, const std::vector<wstring>& cells, bool bold = false);
+    void ListClear(HWND list);
+    int ListSelected(HWND list);                      // -1 = none
+    void ListSelect(HWND list, int index);
+    void OnListDoubleClick(HWND list, Fn f);          // OnChange: the selection
     HWND Progress(HWND parent);
     void Tooltip(HWND control, const wstring& text);
 

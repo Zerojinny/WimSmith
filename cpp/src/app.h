@@ -22,6 +22,7 @@ namespace dvt
     struct BackupTab;
     struct ExportTab;
     struct SplitJoinTab;
+    struct InfoTab;
 
     // a volume (or a chosen folder: Letter 0) of the source / target lists
     struct Volume
@@ -41,6 +42,8 @@ namespace dvt
         BackupTab* backup = nullptr;
         ExportTab* exportTab = nullptr;
         SplitJoinTab* splitJoin = nullptr;
+        InfoTab* infoTab = nullptr;
+        HWND browsePage = nullptr;
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown
@@ -59,6 +62,8 @@ namespace dvt
         // empty restore tab (backup) or an empty info tab (export, join) takes it
         void WimWritten(const wstring& wim, bool toRestore = true);
         static int Processors();
+        // the browse tab with an image of a WIM file (0 = the file)
+        void Browse(const wstring& wim, int image);
         static wstring Gb(long long bytes);
         static wstring Group(long long n);    // 1,234,567
         static std::vector<Volume> Volumes(bool readyOnly);

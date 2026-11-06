@@ -44,6 +44,8 @@ namespace ui
     static std::map<HWND, HWND> upDowns;      // number edit -> its arrows
     static std::map<COLORREF, HBRUSH> brushes;
     static HWND hovered;
+    static std::map<HWND, std::vector<bool>> boldRows;      // list -> rows in bold
+    static std::map<HWND, Fn> listDouble;
     static std::map<HWND, std::pair<Fn, Fn>> keyHandlers;   // Enter / Esc of a window
     static std::map<HWND, int> modalResults;
 
@@ -79,7 +81,7 @@ namespace ui
     {
         handlers.clear(); foreColors.clear(); backColors.clear(); layouts.clear(); painters.clear();
         minSizes.clear(); closers.clear(); destroyers.clear(); timers.clear(); buttonKinds.clear();
-        upDowns.clear(); keyHandlers.clear(); modalResults.clear(); hovered = nullptr;
+        upDowns.clear(); boldRows.clear(); listDouble.clear(); keyHandlers.clear(); modalResults.clear(); hovered = nullptr;
     }
 
     COLORREF BackOf(HWND h)
@@ -1032,6 +1034,185 @@ namespace ui
         HWND h = CreateWindowExW(0, TabsClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 10, 10, parent, nullptr, Inst, nullptr);
         return h;
     }
+
+    // the list draws its rows itself; a selected row gets the accent tone
+    // (also without focus), a bold row the bold font
+    static LRESULT ListDraw(HWND list, NMLVCUSTOMDRAW* cd)
+    {
+        int row = (int)cd->nmcd.dwItemSpec;
+        auto bold = [list, row]
+        {
+            auto b = boldRows.find(list);
+            return b != boldRows.end() && row < (int)b->second.size() && b->second[row];
+        };
+        switch (cd->nmcd.dwDrawStage)
+        {
+        case CDDS_PREPAINT:
+            return CDRF_NOTIFYITEMDRAW;
+        case CDDS_ITEMPREPAINT:
+            // a selected row is drawn cell by cell below (the theme would draw it blue)
+            if (ListView_GetItemState(list, row, LVIS_SELECTED)) return CDRF_NOTIFYSUBITEMDRAW;
+            cd->clrTextBk = color::Panel;
+            cd->clrText = color::Text;
+            if (bold()) { SelectObject(cd->nmcd.hdc, FontBold); return CDRF_NEWFONT; }
+            return CDRF_DODEFAULT;
+        case CDDS_ITEMPREPAINT | CDDS_SUBITEM:
+        {
+            int col = cd->iSubItem;
+            RECT r;
+            ListView_GetSubItemRect(list, row, col, col == 0 ? LVIR_LABEL : LVIR_BOUNDS, &r);
+            if (col == 0)
+            {
+                // the first column: from the left edge of the row
+                RECT whole;
+                ListView_GetItemRect(list, row, &whole, LVIR_BOUNDS);
+                r.left = whole.left;
+            }
+            HDC dc = cd->nmcd.hdc;
+            FillRect(dc, &r, Brush(color::Selected));
+            wchar_t text[512] = { 0 };
+            ListView_GetItemText(list, row, col, text, 512);
+            LVCOLUMNW c = {};
+            c.mask = LVCF_FMT;
+            ListView_GetColumn(list, col, &c);
+            RECT t = { r.left + S(6), r.top, r.right - S(6), r.bottom };
+            SetBkMode(dc, TRANSPARENT);
+            SetTextColor(dc, color::White);
+            HGDIOBJ o = SelectObject(dc, bold() ? FontBold : FontUI);
+            DrawTextW(dc, text, -1, &t, DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX
+                | ((c.fmt & LVCFMT_JUSTIFYMASK) == LVCFMT_RIGHT ? DT_RIGHT : DT_LEFT));
+            SelectObject(dc, o);
+            return CDRF_SKIPDEFAULT;
+        }
+        }
+        return CDRF_DODEFAULT;
+    }
+
+    // the header of a list: drawn here (the dark theme leaves its text dark);
+    // its WM_DRAWITEM goes to the list, its parent
+    static LRESULT CALLBACK ListSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR)
+    {
+        if (m == WM_DRAWITEM)
+        {
+            const DRAWITEMSTRUCT* d = (const DRAWITEMSTRUCT*)lp;
+            if (d->CtlType != ODT_HEADER) return DefSubclassProc(h, m, wp, lp);
+            RECT r = d->rcItem;
+            FillRect(d->hDC, &r, Brush(color::Button));
+            RECT sep = { r.right - 1, r.top + S(4), r.right, r.bottom - S(4) };
+            FillRect(d->hDC, &sep, Brush(color::Border));
+            RECT line = { r.left, r.bottom - 1, r.right, r.bottom };
+            FillRect(d->hDC, &line, Brush(color::Border));
+            wchar_t text[256] = { 0 };
+            HDITEMW it = {};
+            it.mask = HDI_TEXT | HDI_FORMAT;
+            it.pszText = text;
+            it.cchTextMax = 256;
+            Header_GetItem(d->hwndItem, d->itemID, &it);
+            RECT t = { r.left + S(6), r.top, r.right - S(6), r.bottom };
+            SetBkMode(d->hDC, TRANSPARENT);
+            SetTextColor(d->hDC, color::Dim);
+            HGDIOBJ o = SelectObject(d->hDC, FontUI);
+            DrawTextW(d->hDC, text, -1, &t, DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX
+                | ((it.fmt & HDF_JUSTIFYMASK) == HDF_RIGHT ? DT_RIGHT : DT_LEFT));
+            SelectObject(d->hDC, o);
+            return TRUE;
+        }
+        if (m == WM_NOTIFY)
+        {
+            // the empty part right of the last column
+            NMHDR* n = (NMHDR*)lp;
+            if (n->code == NM_CUSTOMDRAW && n->hwndFrom == ListView_GetHeader(h))
+            {
+                NMCUSTOMDRAW* cd = (NMCUSTOMDRAW*)lp;
+                if (cd->dwDrawStage == CDDS_PREPAINT)
+                {
+                    RECT rc;
+                    GetClientRect(n->hwndFrom, &rc);
+                    FillRect(cd->hdc, &rc, Brush(color::Button));
+                    return CDRF_DODEFAULT;
+                }
+            }
+        }
+        return DefSubclassProc(h, m, wp, lp);
+    }
+
+    HWND List(HWND parent, const std::vector<std::pair<wstring, int>>& columns)
+    {
+        HWND h = Child(WC_LISTVIEWW, parent, L"", WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SINGLESEL);
+        ListView_SetExtendedListViewStyle(h, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+        SetWindowTheme(h, L"DarkMode_Explorer", nullptr);
+        HWND header = ListView_GetHeader(h);
+        if (header) SetWindowTheme(header, L"DarkMode_ItemsView", nullptr);
+        ListView_SetBkColor(h, color::Panel);
+        ListView_SetTextBkColor(h, color::Panel);
+        ListView_SetTextColor(h, color::Text);
+        for (size_t i = 0; i < columns.size(); i++)
+        {
+            LVCOLUMNW c = {};
+            c.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_FMT;
+            c.fmt = columns[i].second < 0 ? LVCFMT_RIGHT : LVCFMT_LEFT;
+            c.cx = S(columns[i].second < 0 ? -columns[i].second : columns[i].second);
+            c.pszText = (LPWSTR)columns[i].first.c_str();
+            ListView_InsertColumn(h, (int)i, &c);
+            if (header)
+            {
+                HDITEMW hi = {};
+                hi.mask = HDI_FORMAT;
+                Header_GetItem(header, (int)i, &hi);
+                hi.fmt |= HDF_OWNERDRAW;
+                Header_SetItem(header, (int)i, &hi);
+            }
+        }
+        SetWindowSubclass(h, ListSub, 1, 0);
+        // no dotted focus frame around the selected row
+        SendMessageW(h, WM_CHANGEUISTATE, MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS), 0);
+        handlers[h].notify = [h](NMHDR* n) -> LRESULT
+        {
+            if (n->code == NM_CUSTOMDRAW) return ListDraw(h, (NMLVCUSTOMDRAW*)n);
+            if (n->code == LVN_ITEMCHANGED)
+            {
+                NMLISTVIEW* lv = (NMLISTVIEW*)n;
+                if ((lv->uChanged & LVIF_STATE) && ((lv->uOldState ^ lv->uNewState) & LVIS_SELECTED)) Fire(h, false);
+            }
+            if (n->code == NM_DBLCLK)
+            {
+                auto it = listDouble.find(h);
+                if (it != listDouble.end()) { Fn f = it->second; f(); }
+            }
+            return 0;
+        };
+        return h;
+    }
+
+    int ListAdd(HWND list, const std::vector<wstring>& cells, bool bold)
+    {
+        LVITEMW it = {};
+        it.mask = LVIF_TEXT;
+        it.iItem = ListView_GetItemCount(list);
+        it.pszText = (LPWSTR)(cells.empty() ? L"" : cells[0].c_str());
+        int row = ListView_InsertItem(list, &it);
+        for (size_t i = 1; i < cells.size(); i++) ListView_SetItemText(list, row, (int)i, (LPWSTR)cells[i].c_str());
+        std::vector<bool>& b = boldRows[list];
+        if ((int)b.size() <= row) b.resize(row + 1, false);
+        b[row] = bold;
+        return row;
+    }
+
+    void ListClear(HWND list)
+    {
+        ListView_DeleteAllItems(list);
+        boldRows[list].clear();
+    }
+
+    int ListSelected(HWND list) { return ListView_GetNextItem(list, -1, LVNI_SELECTED); }
+
+    void ListSelect(HWND list, int index)
+    {
+        ListView_SetItemState(list, index, LVIS_SELECTED, LVIS_SELECTED);
+        ListView_EnsureVisible(list, index, FALSE);
+    }
+
+    void OnListDoubleClick(HWND list, Fn f) { listDouble[list] = f; }
 
     HWND Progress(HWND parent)
     {

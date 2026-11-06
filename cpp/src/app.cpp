@@ -9,6 +9,7 @@
 #include "tab_backup.h"
 #include "tab_disk.h"
 #include "tab_export.h"
+#include "tab_info.h"
 #include "tab_splitjoin.h"
 #include "tab_restore.h"
 #include <shellapi.h>
@@ -35,12 +36,10 @@ namespace dvt
         backup = new BackupTab(*this, win.AddPage(L::T(L"bk.tab_capture")));
         exportTab = new ExportTab(*this, win.AddPage(L::T(L"ex.tab")));
         splitJoin = new SplitJoinTab(*this, win.AddPage(L::T(L"sj.tab")));
-        for (const wchar_t* key : { L"in.tab", L"br.tab" })
-        {
-            HWND p = win.AddPage(L::T(key));
-            HWND note = Label(p, L::T(L"cpp.not_ported"), FontUI, color::Dim);
-            SetLayout(p, [note](int w, int) { Move(note, 0, S(8), w, S(40)); });
-        }
+        infoTab = new InfoTab(*this, win.AddPage(L::T(L"in.tab")));
+        browsePage = win.AddPage(L::T(L"br.tab"));
+        HWND note = Label(browsePage, L::T(L"cpp.not_ported"), FontUI, color::Dim);
+        SetLayout(browsePage, [note](int w, int) { Move(note, 0, S(8), w, S(40)); });
         Log(L::T(L"bk.note"));
         Relayout(win.hwnd);
     }
@@ -51,6 +50,7 @@ namespace dvt
         backup->Refresh();
         exportTab->Refresh();
         splitJoin->Refresh();
+        infoTab->Refresh();
     }
 
     // ---------- shared ----------
@@ -97,6 +97,13 @@ namespace dvt
         wstring cur = Trim(GetText(restore->txtWim));
         if (EqualsI(cur, wim) || (toRestore && cur.empty())) { SetText(restore->txtWim, wim); restore->ReadImages(false); }
         if (EqualsI(Trim(GetText(exportTab->txtSrc)), wim)) exportTab->ReadImages(false);
+        wstring info = Trim(GetText(infoTab->txtWim));
+        if (EqualsI(info, wim) || (!toRestore && info.empty())) { SetText(infoTab->txtWim, wim); infoTab->ReadInfo(false); }
+    }
+
+    void App::Browse(const wstring&, int)
+    {
+        win.SelectPage(browsePage);
     }
 
     int App::Processors()
