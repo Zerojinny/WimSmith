@@ -20,6 +20,7 @@
 // ============================================================
 #include "helper.h"
 #include "disk.h"
+#include "storage.h"
 #include "wim.h"
 #include <algorithm>
 #include <cstring>
@@ -394,82 +395,6 @@ namespace dvt
         return rc;
     }
 
-    static wstring HtmlDecode(const wstring& s)
-    {
-        wstring r;
-        for (size_t i = 0; i < s.size(); i++)
-        {
-            if (s[i] == L'&')
-            {
-                size_t semi = s.find(L';', i);
-                if (semi != wstring::npos && semi - i <= 10)
-                {
-                    wstring e = s.substr(i + 1, semi - i - 1);
-                    wchar_t c = 0;
-                    if (e == L"lt") c = L'<';
-                    else if (e == L"gt") c = L'>';
-                    else if (e == L"amp") c = L'&';
-                    else if (e == L"quot") c = L'"';
-                    else if (e == L"apos") c = L'\'';
-                    else if (e.size() > 1 && e[0] == L'#')
-                        c = (wchar_t)wcstoul(e.c_str() + (e[1] == L'x' || e[1] == L'X' ? 2 : 1), nullptr, e[1] == L'x' || e[1] == L'X' ? 16 : 10);
-                    if (c) { r += c; i = semi; continue; }
-                }
-            }
-            r += s[i];
-        }
-        return r;
-    }
-
-    static void ReplaceAll(wstring& s, const wstring& a, const wstring& b)
-    {
-        for (size_t p = s.find(a); p != wstring::npos; p = s.find(a, p + b.size())) s.replace(p, a.size(), b);
-    }
-
-    // stderr as CLIXML: only the error lines (not the progress records)
-    static wstring ClixmlErrors(const wstring& xml)
-    {
-        const wstring open = L"<S S=\"Error\">", close = L"</S>";
-        wstring r;
-        for (size_t p = xml.find(open); p != wstring::npos; p = xml.find(open, p))
-        {
-            size_t a = p + open.size(), b = xml.find(close, a);
-            if (b == wstring::npos) break;
-            wstring part = HtmlDecode(xml.substr(a, b - a));
-            ReplaceAll(part, L"_x000D_", L"\r");
-            ReplaceAll(part, L"_x000A_", L"\n");
-            r += part;
-            p = b + close.size();
-        }
-        return r;
-    }
-
-    // PowerShell (encoded, no quoting problems)
-    int RunPs(const wstring& script, wstring& output, wstring& error)
-    {
-        wstring ps = Combine(SystemDir(), L"WindowsPowerShell\\v1.0\\powershell.exe");
-        wstring full = L"$ProgressPreference='SilentlyContinue'\n" + script;
-        wstring args = L"-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
-            + Base64(full.data(), full.size() * sizeof(wchar_t));
-        std::string out, err;
-        int rc = RunProcess(ps, args, out, err);
-        output = FromUtf8(out);
-        error = FromCodePage(err, CP_OEMCP);
-        if (error.compare(0, 9, L"#< CLIXML") == 0) error = ClixmlErrors(error);
-        return rc;
-    }
-
-    // errors go to status.txt when log is set
-    int RunPs(const wstring& script, bool log)
-    {
-        wstring output, error;
-        int rc = RunPs(script, output, error);
-        if (log)
-            for (const wstring& l : SplitLines(error))
-                if (!Trim(l).empty()) Status(L"  " + TrimEnd(l));
-        return rc;
-    }
-
     wchar_t FreeLetter()
     {
         for (const wchar_t* c = L"STUVWXYZRQPONMLKJIHGFED"; *c; c++)
@@ -800,42 +725,40 @@ namespace dvt
 
         wchar_t sysLetter = sys->Letter;
         bool assigned = false;
-        wstring sel = L"-DiskNumber " + Num(disk) + L" -PartitionNumber " + Num(part);
         int rc = 0;
         if (sysLetter == 0)
         {
             sysLetter = FreeLetter();
             if (sysLetter == 0) { Status(L"No free drive letter for the system partition."); return 1; }
             Status(L"Drive letter " + wstring(1, sysLetter) + L": for " + where);
-            rc = RunPs(L"Add-PartitionAccessPath " + sel + L" -AccessPath '" + wstring(1, sysLetter) + L":\\' -ErrorAction Stop", true);
-            if (rc != 0)
-                rc = RunPs(L"Set-Partition " + sel + L" -NewDriveLetter " + wstring(1, sysLetter) + L" -ErrorAction Stop", true);
-            if (rc != 0) { Status(L"The drive letter was not assigned."); return rc; }
+            DWORD e = storage::AddLetter(disk, offset, sysLetter);
+            if (e != 0) { Status(L"The drive letter was not assigned: " + ErrorMessage(e)); return (int)e; }
             assigned = true;
         }
         // the letter given above is removed again, whatever happens
         struct Unassign
         {
-            bool& on; const wstring& sel; wchar_t letter;
+            bool& on; wchar_t letter;
             ~Unassign()
             {
                 if (!on) return;
                 try
                 {
-                    if (RunPs(L"Remove-PartitionAccessPath " + sel + L" -AccessPath '" + wstring(1, letter) + L":\\' -ErrorAction Stop", true) == 0)
-                        Status(L"Drive letter " + wstring(1, letter) + L": removed again.");
+                    DWORD e = storage::RemoveLetter(letter);
+                    Status(e == 0 ? L"Drive letter " + wstring(1, letter) + L": removed again."
+                        : L"Drive letter " + wstring(1, letter) + L": was not removed: " + ErrorMessage(e));
                 }
                 catch (...) {}
             }
-        } unassign{ assigned, sel, sysLetter };
+        } unassign{ assigned, sysLetter };
 
         if (assigned && !WaitFolder(wstring(1, sysLetter) + L":\\")) { Status(wstring(1, sysLetter) + L": is not ready."); return 21; }
         // BIOS starts the active partition of an MBR disk
         if (fw != L"UEFI" && !sys->Gpt() && !sys->Active)
         {
             Status(L"Disk " + Num(disk) + L": partition " + Num(part) + L" is made the active partition.");
-            rc = RunPs(L"Set-Partition " + sel + L" -IsActive $true -ErrorAction Stop", true);
-            if (rc != 0) { Status(L"The partition was not made active."); return rc; }
+            DWORD e = storage::SetActive(disk, part);
+            if (e != 0) { Status(L"The partition was not made active: " + ErrorMessage(e)); return (int)e; }
         }
         wstring args = windows + L" /s " + wstring(1, sysLetter) + L": /f " + fw;
         wstring bootLang = Lower(Get(job, L"boot_lang"));
@@ -904,9 +827,9 @@ namespace dvt
 
             Progress(-1, L"format", true);
             Status(L"Formatting " + l + L": (NTFS, label \"" + label + L"\")");
-            int frc = RunPs(L"Format-Volume -DriveLetter " + l + L" -FileSystem NTFS -NewFileSystemLabel '" + label
-                + L"' -Force -Confirm:$false -ErrorAction Stop | Out-Null", true);
-            if (frc != 0) return Finish(frc, L"Format " + l + L": failed (code " + Num(frc) + L").");
+            wstring reason;
+            DWORD frc = storage::Format(letter, L"NTFS", label, reason);
+            if (frc != 0) return Finish((int)frc, L"Format " + l + L": failed: " + reason + L" (code " + Num(frc) + L").");
             if (!WaitReady(letter, L"NTFS")) return Finish(21, l + L": is not ready after the format.");
             long long free = DriveFreeBytes(l + L":\\");
             if (need > 0 && free >= 0 && free < need)

@@ -25,8 +25,6 @@ namespace dvt
     int Finish(int code, const wstring& text);
 
     // ---- tools of Windows (helper.cpp) ----
-    int RunPs(const wstring& script, bool log);
-    int RunPs(const wstring& script, wstring& output, wstring& error);
     wchar_t FreeLetter();
     bool WaitReady(wchar_t letter, const wstring& fileSystem);
 

@@ -1,14 +1,14 @@
 // ============================================================
 //  7z_wimlib - disk.h
-//  Disks and partitions (Get-Disk / Get-Partition of the Storage
-//  module) and the layouts of the disk tab (disk.cpp).
+//  Disks and partitions (read with storage.cpp, the IOCTLs of Windows)
+//  and the layouts of the disk tab (disk.cpp).
 // ============================================================
 #pragma once
 #include "common.h"
 
 namespace dvt
 {
-    // a local disk (Get-Disk)
+    // a local disk (the fields as Get-Disk names them)
     struct DiskInfo
     {
         int Number = -1;
@@ -17,7 +17,7 @@ namespace dvt
         bool IsBoot = false, IsSystem = false, Offline = false, ReadOnly = false;
     };
 
-    // a partition of a local disk (Get-Partition), for the boot files
+    // a partition of a local disk (as Get-Partition), for the boot files
     struct DiskPartition
     {
         int Disk = -1, Number = -1;

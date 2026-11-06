@@ -46,7 +46,7 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 | `src\app.*`, `src\mainwin.*` | what the tabs share (volumes, confirmations, running a job), the main window, footer and log window |
 | `src\tab_*.*` | the tabs: restore, disk, backup, export, split / join, info, browse |
 | `src\helper.*` | the elevated helper (job.ini -> status.txt): backup, restore, export, split / join, verify, bcdboot |
-| `src\disk.*` | disk tab: disks and partitions (PowerShell), the diskpart script, the disk job |
+| `src\disk.*`, `src\storage.*` | disk tab: disks, partitions and volumes (IOCTLs of Windows, no PowerShell), clearing / initializing a disk, formatting (FormatEx), drive letters, the diskpart script, the disk job |
 | `src\wim.*`, `src\wimread.cpp` | wimlib (`lib\libwim-15.dll`, loaded at run time), WIM file and image information |
 | `src\libs.*` | `lib\` folder: moving and downloading wimlib and 7-Zip (WinHTTP), license texts |
 | `src\ui.*` | the window toolkit on Win32: dark controls, tabs, lists, dialogs, row layout |

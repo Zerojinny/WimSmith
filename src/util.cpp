@@ -143,25 +143,6 @@ namespace dvt
         return TryParseLong(s, v) ? v : fallback;
     }
 
-    wstring Base64(const void* data, size_t size)
-    {
-        static const char t[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        const unsigned char* d = (const unsigned char*)data;
-        wstring r;
-        r.reserve((size + 2) / 3 * 4);
-        for (size_t i = 0; i < size; i += 3)
-        {
-            unsigned v = (unsigned)d[i] << 16;
-            if (i + 1 < size) v |= (unsigned)d[i + 1] << 8;
-            if (i + 2 < size) v |= d[i + 2];
-            r += (wchar_t)t[(v >> 18) & 63];
-            r += (wchar_t)t[(v >> 12) & 63];
-            r += i + 1 < size ? (wchar_t)t[(v >> 6) & 63] : L'=';
-            r += i + 2 < size ? (wchar_t)t[v & 63] : L'=';
-        }
-        return r;
-    }
-
     // ---------- paths ----------
 
     // as Path.GetFullPath of .NET Framework: characters that are not valid

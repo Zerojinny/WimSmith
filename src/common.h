@@ -47,7 +47,6 @@ namespace dvt
     bool TryParseLong(const wstring& s, long long& v);
     long long ParseLong(const wstring& s, long long fallback);
     inline wstring Num(long long v) { return std::to_wstring(v); }
-    wstring Base64(const void* data, size_t size);
 
     // ---- paths ----
     wstring FullPath(const wstring& p);       // "" when the path is not valid

@@ -14,7 +14,7 @@ touches:
 ---
 
 ## Decided
-- Clearing and initializing use PowerShell (Clear-Disk -RemoveData -RemoveOEM, then Initialize-Disk GPT/MBR), then every partition Initialize-Disk may have added (an MSR) is removed, so the layout always starts from an empty table.
+- Clearing and initializing (since 2026-11-07, no PowerShell; it is missing in WinPE): storage::ClearAndInitialize locks / dismounts the volumes of the disk, IOCTL_DISK_DELETE_DRIVE_LAYOUT, zeroes the first and last MB (as diskpart "clean": MBR, both GPT headers), then IOCTL_DISK_CREATE_DISK GPT/MBR. The IOCTL adds no MSR, so the table starts empty (the PowerShell version had to remove the MSR Initialize-Disk added). Before: Clear-Disk -RemoveData -RemoveOEM + Initialize-Disk.
 - Partitions are created by a diskpart script that follows Microsoft's deployment scripts: "create partition efi" formats the ESP as FAT32 without access problems, and "set id" / "gpt attributes=0x8000000000000001" give the recovery partition its type, which New-Partition / Set-Partition cannot do for every case (MBR type 0x27, GPT attributes).
 - The helper checks the disk again (boot/system disk, the disk of 7z_wimlib, read-only, offline) and refuses when the disk's size differs from the size the GUI saw: disk numbers can change when a USB disk is replugged.
 - The disk list never picks a disk on its own; the first entry is "(choose the disk to clear)". Unusable disks are listed with the reason instead of being hidden.

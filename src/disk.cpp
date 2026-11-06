@@ -2,15 +2,18 @@
 //  7z_wimlib - disk.cpp
 //  The disk tab: clear a whole disk, initialize it as GPT or MBR and
 //  create the partitions of a layout (Windows, Windows + data, data).
-//   - QueryDisks / QueryPartitions: Get-Disk / Get-Partition (no
-//     administrator rights needed).
-//   - Disk (helper, mode = disk, elevated): Clear-Disk + Initialize-Disk
-//     of the Storage module, then the partitions with diskpart (the
-//     scripts of Microsoft's deployment documents). The new Windows (or
-//     data) partition gets a drive letter, reported as "LETTER <x>".
+//   - QueryDisks / QueryPartitions: the IOCTLs of storage.cpp (no
+//     administrator rights, no PowerShell).
+//   - Disk (helper, mode = disk, elevated): the disk is cleared and
+//     initialized by storage::ClearAndInitialize (as diskpart "clean" +
+//     "convert"), then the partitions are made with diskpart (the scripts
+//     of Microsoft's deployment documents). The new Windows (or data)
+//     partition gets a drive letter, reported as "LETTER <x>".
 // ============================================================
 #include "disk.h"
 #include "helper.h"
+#include "storage.h"
+#include <algorithm>
 #include <climits>
 
 namespace dvt
@@ -22,9 +25,7 @@ namespace dvt
     bool DiskPartition::IsEsp() const { return EqualsI(GptType, EspGuid) || MbrType == 0xEF; }
     bool DiskPartition::IsMsr() const { return EqualsI(GptType, MsrGuid); }
 
-    static bool IsTrue(const wstring& s) { return EqualsI(s, L"True"); }
-
-    static bool TryInt(const Job& job, const wchar_t* key, int& v)
+        static bool TryInt(const Job& job, const wchar_t* key, int& v)
     {
         wstring s;
         long long n = 0;
@@ -149,72 +150,84 @@ namespace dvt
     }
 
     // ---------- disks and partitions ----------
+    // (storage.cpp: IOCTLs without access rights, no PowerShell)
+
+    // the system partition of the running Windows, and the disks of its Windows volume
+    static void RunningWindows(storage::Extent& sys, bool& hasSys, std::vector<int>& winDisks)
+    {
+        hasSys = storage::SystemPartition(sys);
+        winDisks = storage::WindowsDisks();
+    }
 
     bool QueryDisks(std::vector<DiskInfo>& list, wstring& error)
     {
-        const wchar_t* script =
-            L"$ErrorActionPreference='SilentlyContinue'\n"
-            L"[Console]::OutputEncoding=[Text.Encoding]::UTF8\n"
-            L"foreach($d in Get-Disk){ $l=@(Get-Partition -DiskNumber $d.Number | %{ ([string]$_.DriveLetter).Trim([char]0) } | ?{ $_ }) -join ','\n"
-            L" '{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}' -f $d.Number,$d.Size,$d.PartitionStyle,$d.BusType,$d.IsBoot,$d.IsSystem,"
-            L"$d.IsOffline,$d.IsReadOnly,$l,$d.FriendlyName }";
         list.clear();
-        wstring output;
-        try { RunPs(script, output, error); }
-        catch (const HelperError& e) { error = e.msg; return false; }
-        for (const wstring& line : SplitLines(output))
+        storage::Extent sys;
+        bool hasSys;
+        std::vector<int> winDisks;
+        RunningWindows(sys, hasSys, winDisks);
+        std::vector<storage::Volume> vols = storage::Volumes();
+        for (const storage::Disk& s : storage::Disks())
         {
-            std::vector<wstring> f = Split(Trim(line), L'|', 10);
-            if (f.size() < 10) continue;
+            if (s.Size <= 0) continue;
             DiskInfo d;
-            d.Number = (int)ParseLong(f[0], -1);
-            d.Size = ParseLong(f[1], 0);
-            d.Style = Upper(f[2]);
-            d.Bus = f[3];
-            d.IsBoot = IsTrue(f[4]);
-            d.IsSystem = IsTrue(f[5]);
-            d.Offline = IsTrue(f[6]);
-            d.ReadOnly = IsTrue(f[7]);
-            d.Letters = Upper(f[8]);
-            d.Name = Trim(f[9]);
-            if (d.Number >= 0 && d.Size > 0) list.push_back(d);
+            d.Number = s.Number;
+            d.Size = s.Size;
+            d.Style = s.Style;
+            d.Bus = s.Bus;
+            d.Name = s.Name;
+            d.Offline = s.Offline;
+            d.ReadOnly = s.ReadOnly;
+            d.IsBoot = std::find(winDisks.begin(), winDisks.end(), s.Number) != winDisks.end();
+            d.IsSystem = hasSys && sys.Disk == s.Number;
+            // the drive letters of the volumes on the disk, in the order of the disk
+            std::vector<std::pair<long long, wchar_t>> letters;
+            for (const storage::Volume& v : vols)
+            {
+                if (!v.Letter) continue;
+                for (const storage::Extent& e : v.Extents)
+                    if (e.Disk == s.Number) { letters.push_back({ e.Offset, v.Letter }); break; }
+            }
+            std::sort(letters.begin(), letters.end());
+            for (const auto& l : letters) d.Letters += (d.Letters.empty() ? L"" : L",") + wstring(1, l.second);
+            list.push_back(d);
         }
-        if (list.empty()) { if (error.empty()) error = L"Get-Disk returned nothing."; return false; }
+        if (list.empty()) { error = L"No disk was found."; return false; }
         error.clear();
         return true;
     }
 
     bool QueryPartitions(std::vector<DiskPartition>& list, wstring& error)
     {
-        const wchar_t* script =
-            L"$ErrorActionPreference='SilentlyContinue'\n"
-            L"[Console]::OutputEncoding=[Text.Encoding]::UTF8\n"
-            L"foreach($d in Get-Disk){ foreach($p in @(Get-Partition -DiskNumber $d.Number)){ $v=Get-Volume -Partition $p\n"
-            L" '{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}' -f $p.DiskNumber,$p.PartitionNumber,([string]$p.DriveLetter).Trim([char]0),"
-            L"$p.GptType,$p.MbrType,$p.IsActive,$p.IsSystem,$p.Size,$p.Offset,$v.FileSystem,$d.PartitionStyle } }";
         list.clear();
-        wstring output;
-        try { RunPs(script, output, error); }
-        catch (const HelperError& e) { error = e.msg; return false; }
-        for (const wstring& line : SplitLines(output))
-        {
-            std::vector<wstring> f = Split(Trim(line), L'|');
-            if (f.size() < 11) continue;
-            DiskPartition p;
-            p.Disk = (int)ParseLong(f[0], -1);
-            p.Number = (int)ParseLong(f[1], -1);
-            p.Letter = !f[2].empty() && IsCharAlphaW(f[2][0]) ? UpperChar(f[2][0]) : 0;
-            p.GptType = f[3];
-            p.MbrType = (int)ParseLong(f[4], 0);
-            p.Active = IsTrue(f[5]);
-            p.IsSystem = IsTrue(f[6]);
-            p.Size = ParseLong(f[7], 0);
-            p.Offset = ParseLong(f[8], -1);
-            p.FileSystem = f[9];
-            p.Style = Upper(f[10]);
-            if (p.Disk >= 0 && p.Number >= 0) list.push_back(p);
-        }
-        if (list.empty()) { if (error.empty()) error = L"Get-Partition returned nothing."; return false; }
+        storage::Extent sys;
+        bool hasSys;
+        std::vector<int> winDisks;
+        RunningWindows(sys, hasSys, winDisks);
+        std::vector<storage::Volume> vols = storage::Volumes();
+        for (const storage::Disk& s : storage::Disks())
+            for (const storage::Partition& x : s.Partitions)
+            {
+                DiskPartition p;
+                p.Disk = s.Number;
+                p.Number = x.Number;
+                p.GptType = x.GptType;
+                p.MbrType = x.MbrType;
+                p.Active = x.Active;
+                p.IsSystem = hasSys && sys.Disk == s.Number && sys.Offset == x.Offset;
+                p.Size = x.Length;
+                p.Offset = x.Offset;
+                p.Style = s.Style;
+                for (const storage::Volume& v : vols)
+                    for (const storage::Extent& e : v.Extents)
+                        if (e.Disk == s.Number && e.Offset == x.Offset)
+                        {
+                            p.Letter = v.Letter;
+                            p.FileSystem = v.FileSystem;
+                        }
+                list.push_back(p);
+            }
+        if (list.empty()) { error = L"No partition was found."; return false; }
         error.clear();
         return true;
     }
@@ -283,7 +296,7 @@ namespace dvt
         Progress(-1, L"disk", true);
         std::vector<DiskInfo> disks;
         wstring err;
-        if (!QueryDisks(disks, err)) return Finish(1, L"Get-Disk failed: " + err);
+        if (!QueryDisks(disks, err)) return Finish(1, L"The disks were not read: " + err);
         const DiskInfo* d = nullptr;
         for (const DiskInfo& x : disks) if (x.Number == number) d = &x;
         if (!d) return Finish(2, L"Disk " + Num(number) + L" was not found.");
@@ -299,16 +312,11 @@ namespace dvt
         Status(L"Disk " + n + L": " + d->Name + L", " + Num(d->Size / MiB) + L" MB, " + d->Style
             + (d->Letters.empty() ? wstring() : L", volumes " + d->Letters));
         Status(L"Clearing disk " + n + L" and initializing it as " + style);
-        wstring ps =
-            L"$ErrorActionPreference='Stop'\n"
-            L"$d=Get-Disk -Number " + n + L"\n"
-            L"if($d.IsBoot -or $d.IsSystem){ throw 'Disk " + n + L" is the boot or system disk.' }\n"
-            L"if($d.PartitionStyle -ne 'RAW'){ Clear-Disk -Number " + n + L" -RemoveData -RemoveOEM -Confirm:$false }\n"
-            L"Initialize-Disk -Number " + n + L" -PartitionStyle " + style + L"\n"
-            // Initialize-Disk may add an MSR of its own: the layout creates its own partitions
-            L"@(Get-Partition -DiskNumber " + n + L" -ErrorAction SilentlyContinue) | Remove-Partition -Confirm:$false\n";
-        int rc = RunPs(ps, true);
-        if (rc != 0) return Finish(rc, L"Clearing / initializing disk " + n + L" failed (code " + Num(rc) + L").");
+        // the disk was checked above (not the boot / system disk, nor that of 7z_wimlib)
+        wstring step;
+        DWORD ce = storage::ClearAndInitialize(number, plan.Gpt, step);
+        if (ce != 0) return Finish((int)ce, L"Clearing / initializing disk " + n + L" failed (" + step + L"): " + ErrorMessage(ce));
+        int rc = 0;
 
         wchar_t letter = !DriveExists(L'W') ? L'W' : FreeLetter();
         if (letter == 0) return Finish(87, L"No free drive letter for the new partition.");

@@ -179,7 +179,7 @@ namespace dvt
 
     // ---------- disks ----------
 
-    // Get-Disk takes a few seconds: read in the background
+    // the disks are read in the background (a slow or sleeping disk may hold it up)
     void DiskTab::LoadDisks()
     {
         if (disksLoading) return;

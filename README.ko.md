@@ -46,7 +46,7 @@ C++로 옮기기 전의 C# / .NET Framework 버전은 그것을 빌드하는 `bu
 | `src\app.*`, `src\mainwin.*` | 탭들이 함께 쓰는 것(볼륨, 확인 창, 작업 실행), 주 창, 하단 상태 줄, 로그 창 |
 | `src\tab_*.*` | 탭: 복구, 디스크, 백업, 내보내기, 나누기 / 합치기, 정보, 탐색 |
 | `src\helper.*` | 관리자 권한 도우미(job.ini -> status.txt): 백업, 복구, 내보내기, 나누기 / 합치기, 검증, bcdboot |
-| `src\disk.*` | 디스크 탭: 디스크와 파티션 목록(PowerShell), diskpart 스크립트, 디스크 작업 |
+| `src\disk.*`, `src\storage.*` | 디스크 탭: 디스크·파티션·볼륨 읽기(Windows IOCTL, PowerShell 없음), 디스크 지우기·초기화, 포맷(FormatEx), 드라이브 문자, diskpart 스크립트, 디스크 작업 |
 | `src\wim.*`, `src\wimread.cpp` | wimlib(`lib\libwim-15.dll`, 실행할 때 불러옴), WIM 파일·이미지 정보 |
 | `src\libs.*` | `lib\` 폴더: wimlib, 7-Zip 옮기기와 내려받기(WinHTTP), 라이선스 문서 |
 | `src\ui.*` | Win32 위의 화면 도구: 어두운 컨트롤, 탭, 목록, 대화 상자, 줄 배치 |
