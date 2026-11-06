@@ -4,6 +4,7 @@
 // ============================================================
 #include "tab_browse.h"
 #include "lang.h"
+#include "libs.h"
 #include <algorithm>
 #include <commctrl.h>
 #include <shellapi.h>
@@ -259,9 +260,10 @@ namespace dvt
 
     bool BrowseTab::Ensure7zip()
     {
-        // (the C# version downloads a missing 7-Zip; not ported yet)
-        if (FileExists(SevenZip()) && FileExists(Combine(app.ToolDir(), L"7z.dll"))) return true;
-        wstring msg = L::F(L"br.no_7zip", L"Not found: " + SevenZip());
+        // lib\7z.exe: downloaded when missing
+        wstring err = libs::Ensure7zip(app.root);
+        if (err.empty()) return true;
+        wstring msg = L::F(L"br.no_7zip", err);
         wstring one = msg;
         for (size_t q; (q = one.find(L"\r\n")) != wstring::npos;) one.replace(q, 2, L" ");
         app.Log(one);

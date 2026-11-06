@@ -5,6 +5,7 @@
 #include "app.h"
 #include "helper.h"
 #include "lang.h"
+#include "libs.h"
 #include "settings.h"
 #include "tab_backup.h"
 #include "tab_disk.h"
@@ -26,6 +27,7 @@ namespace dvt
     void App::Create()
     {
         root = ExeDir();
+        libs::Migrate(root);                  // libwim-15.dll of pe_tools\ -> lib\ (once)
         win.Create();
         win.busy = [this] { return Busy(); };
         OnClick(win.btnCancel, [this] { CancelJob(); });
@@ -40,6 +42,7 @@ namespace dvt
         infoTab = new InfoTab(*this, win.AddPage(L::T(L"in.tab")));
         browse = new BrowseTab(*this, win.AddPage(L::T(L"br.tab")));
         Log(L::T(L"bk.note"));
+        libs::FetchMissingLicenses(root);     // license texts of wimlib / 7-Zip, when missing (background)
         Relayout(win.hwnd);
     }
 
@@ -69,8 +72,9 @@ namespace dvt
 
     bool App::LoadWimlib()
     {
-        // (the C# version downloads a missing libwim-15.dll; not ported yet)
-        wstring err = wl::Load(ToolDir(), false);
+        // lib\libwim-15.dll: downloaded when missing
+        wstring err = libs::EnsureWimlib(root);
+        if (err.empty()) err = wl::Load(ToolDir(), false);
         if (err.empty()) return true;
         Log(err);
         Info(L::F(L"bk.no_wimlib", err, ToolDir()), MB_ICONWARNING);

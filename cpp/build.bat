@@ -53,7 +53,7 @@ if errorlevel 1 goto :fail
 cl /nologo /std:c++17 /utf-8 /W4 /O2 /MT /EHsc /DUNICODE /D_UNICODE /DWINVER=0x0603 /D_WIN32_WINNT=0x0603 ^
     /Fo"%OBJ%\\" src\*.cpp "%OBJ%\app.res" /Fe"%OUT_EXE%" ^
     /link /SUBSYSTEM:WINDOWS /MANIFEST:EMBED /MANIFESTINPUT:"%~dp0..\app.manifest" ^
-    kernel32.lib user32.lib gdi32.lib shell32.lib comctl32.lib uxtheme.lib dwmapi.lib ole32.lib
+    kernel32.lib user32.lib gdi32.lib shell32.lib comctl32.lib uxtheme.lib dwmapi.lib ole32.lib winhttp.lib
 if errorlevel 1 goto :fail
 if not exist "%OUT_EXE%" goto :fail
 echo.
