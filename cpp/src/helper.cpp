@@ -30,7 +30,6 @@ namespace dvt
 
     wstring statusFile, cancelFile, errorFile;
 
-    static const int ErrPartsMissing = -2;   // a missing part of a split WIM: not a wimlib code
 
     // ---------- job.ini ----------
 
@@ -190,7 +189,7 @@ namespace dvt
     // opens a WIM file to read it. A part of a split WIM (.swm, any part)
     // is opened as its first part, the other parts are referenced; total /
     // found tell a missing part (rc = ErrPartsMissing).
-    static int OpenRead(const wstring& file, int openFlags, ProgressFunc pf, Wim& wim, int& total, int& found)
+    int wl::OpenRead(const wstring& file, int openFlags, ProgressFunc pf, Wim& wim, int& total, int& found)
     {
         total = 1;
         found = 1;

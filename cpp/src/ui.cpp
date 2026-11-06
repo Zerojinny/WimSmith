@@ -7,6 +7,7 @@
 #include <uxtheme.h>
 #include <dwmapi.h>
 #include <windowsx.h>
+#include <shobjidl.h>
 #include <algorithm>
 #include <map>
 
@@ -43,6 +44,8 @@ namespace ui
     static std::map<HWND, HWND> upDowns;      // number edit -> its arrows
     static std::map<COLORREF, HBRUSH> brushes;
     static HWND hovered;
+    static std::map<HWND, std::pair<Fn, Fn>> keyHandlers;   // Enter / Esc of a window
+    static std::map<HWND, int> modalResults;
 
     HBRUSH Brush(COLORREF c)
     {
@@ -76,7 +79,7 @@ namespace ui
     {
         handlers.clear(); foreColors.clear(); backColors.clear(); layouts.clear(); painters.clear();
         minSizes.clear(); closers.clear(); destroyers.clear(); timers.clear(); buttonKinds.clear();
-        upDowns.clear(); hovered = nullptr;
+        upDowns.clear(); keyHandlers.clear(); modalResults.clear(); hovered = nullptr;
     }
 
     COLORREF BackOf(HWND h)
@@ -186,6 +189,32 @@ namespace ui
         return DefSubclassProc(h, m, wp, lp);
     }
 
+    // a combo box in which text can be typed: its edit part reports its colors
+    // to the combo box. Disabled, Windows would draw it white with the text
+    // still selected; here: the dark field, the text dim, nothing selected.
+    static LRESULT CALLBACK EditComboSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR)
+    {
+        switch (m)
+        {
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORSTATIC:
+        {
+            HDC dc = (HDC)wp;
+            SetTextColor(dc, m == WM_CTLCOLOREDIT && IsWindowEnabled(h) ? color::Text : color::Dim);
+            SetBkColor(dc, color::Panel);
+            return (LRESULT)Brush(color::Panel);
+        }
+        case WM_ENABLE:
+        case WM_SETTEXT:
+        {
+            LRESULT r = DefSubclassProc(h, m, wp, lp);
+            if (!IsWindowEnabled(h)) SendMessageW(h, CB_SETEDITSEL, 0, MAKELPARAM(0xFFFF, 0));
+            return r;
+        }
+        }
+        return DefSubclassProc(h, m, wp, lp);
+    }
+
     // links and clickable labels: the hand cursor
     static LRESULT CALLBACK LinkSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR)
     {
@@ -202,7 +231,17 @@ namespace ui
         case WM_COMMAND:
         {
             HWND c = (HWND)lp;
-            if (!c) return false;
+            if (!c)
+            {
+                // Enter / Esc (IsDialogMessage): IDOK / IDCANCEL to the window
+                auto k = keyHandlers.find(hwnd);
+                int id = LOWORD(wp);
+                if (k == keyHandlers.end() || (id != IDOK && id != IDCANCEL)) return false;
+                Fn f = id == IDOK ? k->second.first : k->second.second;
+                if (f) f();
+                r = 0;
+                return true;
+            }
             int code = HIWORD(wp);
             if (code == BN_CLICKED || code == BN_DOUBLECLICKED || code == STN_CLICKED) Fire(c, true);
             else if (code == EN_CHANGE || code == CBN_SELCHANGE || code == CBN_EDITCHANGE)
@@ -809,7 +848,7 @@ namespace ui
 
     int MessageLoop()
     {
-        MSG msg;
+        MSG msg = {};
         while (GetMessageW(&msg, nullptr, 0, 0) > 0)
         {
             HWND top = GetAncestor(msg.hwnd, GA_ROOT);
@@ -910,6 +949,7 @@ namespace ui
     {
         HWND h = Child(L"COMBOBOX", parent, L"", WS_TABSTOP | WS_VSCROLL | CBS_AUTOHSCROLL | (editable ? CBS_DROPDOWN : CBS_DROPDOWNLIST));
         SetWindowTheme(h, L"DarkMode_CFD", nullptr);
+        if (editable) SetWindowSubclass(h, EditComboSub, 1, 0);
         return h;
     }
 
@@ -1081,13 +1121,188 @@ namespace ui
         MoveWindow(h, x, y, std::max(0, w), std::max(0, hgt), TRUE);
     }
 
-    // ---------- messages ----------
+    int TextHeightWrapped(HFONT font, const wstring& text, int width)
+    {
+        HDC dc = GetDC(nullptr);
+        HGDIOBJ o = SelectObject(dc, font ? font : FontUI);
+        RECT r = { 0, 0, std::max(1, width), 0 };
+        DrawTextW(dc, text.c_str(), (int)text.size(), &r, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX | DT_EDITCONTROL);
+        SelectObject(dc, o);
+        ReleaseDC(nullptr, dc);
+        return r.bottom;
+    }
 
-    void Info(const wstring& text, UINT icon) { MessageBoxW(Main, text.c_str(), L"7z_wimlib", MB_OK | icon); }
+    // ---------- messages and dialogs ----------
+
+    static HWND ActiveOwner()
+    {
+        HWND a = GetActiveWindow();
+        return a && IsWindowEnabled(a) ? a : Main;
+    }
+
+    void Info(const wstring& text, UINT icon) { MessageBoxW(ActiveOwner(), text.c_str(), L"7z_wimlib", MB_OK | icon); }
 
     bool YesNo(const wstring& text, UINT icon)
     {
-        return MessageBoxW(Main, text.c_str(), L"7z_wimlib", MB_YESNO | icon) == IDYES;
+        return MessageBoxW(ActiveOwner(), text.c_str(), L"7z_wimlib", MB_YESNO | icon) == IDYES;
+    }
+
+    void OnKeys(HWND top, Fn ok, Fn cancel) { keyHandlers[top] = std::make_pair(ok, cancel); }
+
+    void EndModal(HWND dlg, int result) { modalResults[dlg] = result; }
+
+    HWND Dialog(const wstring& title, int w, int h)
+    {
+        HWND d = TopWindow(title, w, h, Main, WS_POPUP | WS_CAPTION | WS_SYSMENU);
+        RECT o, me;
+        GetWindowRect(Main, &o);
+        GetWindowRect(d, &me);
+        SetWindowPos(d, nullptr, o.left + ((o.right - o.left) - (me.right - me.left)) / 2,
+            o.top + ((o.bottom - o.top) - (me.bottom - me.top)) / 2, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        OnClose(d, [d] { EndModal(d, 0); return false; });
+        return d;
+    }
+
+    int RunModal(HWND dlg)
+    {
+        HWND owner = GetWindow(dlg, GW_OWNER);
+        modalResults.erase(dlg);
+        if (owner) EnableWindow(owner, FALSE);
+        ShowWindow(dlg, SW_SHOW);
+        SetForegroundWindow(dlg);
+        MSG msg = {};
+        bool quit = false;
+        while (modalResults.find(dlg) == modalResults.end())
+        {
+            if (GetMessageW(&msg, nullptr, 0, 0) <= 0) { quit = true; break; }
+            if (IsDialogMessageW(dlg, &msg)) continue;
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        int result = quit ? 0 : modalResults[dlg];
+        modalResults.erase(dlg);
+        if (owner) EnableWindow(owner, TRUE);
+        DestroyWindow(dlg);
+        if (owner) SetActiveWindow(owner);
+        if (quit) PostQuitMessage((int)msg.wParam);
+        return result;
+    }
+
+    // ---------- file dialogs (IFileDialog) ----------
+
+    static bool RunFileDialog(IFileDialog* d, const Filters& filters, const wstring& initialDir)
+    {
+        std::vector<COMDLG_FILTERSPEC> spec;
+        for (const auto& f : filters) spec.push_back(COMDLG_FILTERSPEC{ f.first.c_str(), f.second.c_str() });
+        if (!spec.empty()) d->SetFileTypes((UINT)spec.size(), spec.data());
+        if (!initialDir.empty() && dvt::DirExists(initialDir))
+        {
+            IShellItem* folder = nullptr;
+            if (SUCCEEDED(SHCreateItemFromParsingName(initialDir.c_str(), nullptr, IID_PPV_ARGS(&folder))))
+            {
+                d->SetFolder(folder);
+                folder->Release();
+            }
+        }
+        return SUCCEEDED(d->Show(ActiveOwner()));
+    }
+
+    static wstring ItemPath(IShellItem* item)
+    {
+        wstring r;
+        PWSTR p = nullptr;
+        if (item && SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &p))) { r = p; CoTaskMemFree(p); }
+        return r;
+    }
+
+    bool OpenFile(const Filters& filters, const wstring& initialDir, wstring& file)
+    {
+        IFileOpenDialog* d = nullptr;
+        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
+        DWORD o = 0;
+        d->GetOptions(&o);
+        d->SetOptions(o | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST);
+        bool ok = false;
+        if (RunFileDialog(d, filters, initialDir))
+        {
+            IShellItem* item = nullptr;
+            if (SUCCEEDED(d->GetResult(&item))) { file = ItemPath(item); item->Release(); ok = !file.empty(); }
+        }
+        d->Release();
+        return ok;
+    }
+
+    bool OpenFiles(const Filters& filters, const wstring& initialDir, std::vector<wstring>& files)
+    {
+        IFileOpenDialog* d = nullptr;
+        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
+        DWORD o = 0;
+        d->GetOptions(&o);
+        d->SetOptions(o | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_ALLOWMULTISELECT);
+        files.clear();
+        if (RunFileDialog(d, filters, initialDir))
+        {
+            IShellItemArray* items = nullptr;
+            if (SUCCEEDED(d->GetResults(&items)))
+            {
+                DWORD n = 0;
+                items->GetCount(&n);
+                for (DWORD i = 0; i < n; i++)
+                {
+                    IShellItem* item = nullptr;
+                    if (SUCCEEDED(items->GetItemAt(i, &item))) { wstring p = ItemPath(item); if (!p.empty()) files.push_back(p); item->Release(); }
+                }
+                items->Release();
+            }
+        }
+        d->Release();
+        return !files.empty();
+    }
+
+    bool SaveFile(const Filters& filters, const wstring& initialDir, const wstring& fileName, bool overwritePrompt, wstring& file)
+    {
+        IFileSaveDialog* d = nullptr;
+        if (FAILED(CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
+        DWORD o = 0;
+        d->GetOptions(&o);
+        o |= FOS_FORCEFILESYSTEM;
+        if (overwritePrompt) o |= FOS_OVERWRITEPROMPT; else o &= ~FOS_OVERWRITEPROMPT;
+        d->SetOptions(o);
+        if (!fileName.empty()) d->SetFileName(fileName.c_str());
+        // the extension of the first filter is added when none is typed
+        if (!filters.empty())
+        {
+            wstring ext = filters[0].second;
+            size_t dot = ext.find(L'.');
+            size_t semi = ext.find(L';');
+            if (dot != wstring::npos) d->SetDefaultExtension(ext.substr(dot + 1, semi == wstring::npos ? wstring::npos : semi - dot - 1).c_str());
+        }
+        bool ok = false;
+        if (RunFileDialog(d, filters, initialDir))
+        {
+            IShellItem* item = nullptr;
+            if (SUCCEEDED(d->GetResult(&item))) { file = ItemPath(item); item->Release(); ok = !file.empty(); }
+        }
+        d->Release();
+        return ok;
+    }
+
+    bool PickFolder(const wstring& title, const wstring& initialDir, wstring& folder)
+    {
+        IFileOpenDialog* d = nullptr;
+        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
+        DWORD o = 0;
+        d->GetOptions(&o);
+        d->SetOptions(o | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+        if (!title.empty()) d->SetTitle(title.c_str());
+        bool ok = false;
+        if (RunFileDialog(d, Filters(), initialDir))
+        {
+            IShellItem* item = nullptr;
+            if (SUCCEEDED(d->GetResult(&item))) { folder = ItemPath(item); item->Release(); ok = !folder.empty(); }
+        }
+        d->Release();
+        return ok;
     }
 
     // ---------- row layout ----------

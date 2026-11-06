@@ -58,6 +58,7 @@ namespace dvt
         const int MsgBeginVerifyImage = 27, MsgVerifyStreams = 29;
         const int StatusContinue = 0, StatusAbort = 1;
         const int ErrAborted = 76;
+        const int ErrPartsMissing = -2;   // a missing part of a split WIM: not a wimlib code
 
         // loads <toolDir>\libwim-15.dll and initializes wimlib; "" = ready, else the reason
         wstring Load(const wstring& toolDir, bool acquirePrivileges);
@@ -86,5 +87,21 @@ namespace dvt
             Wim(const Wim&) = delete;
             Wim& operator=(const Wim&) = delete;
         };
+
+        // opens a WIM file to read it; a part of a split WIM (any part) is
+        // opened as its first part and the others are referenced (helper.cpp).
+        // total / found: the parts (rc = ErrPartsMissing when one is missing)
+        int OpenRead(const wstring& file, int openFlags, ProgressFunc pf, Wim& wim, int& total, int& found);
+
+        // an image of a WIM file (wimread.cpp)
+        struct WimImage
+        {
+            int Index = 0;
+            wstring Name, Description;
+            long long TotalBytes = -1;
+        };
+        // the images (index, name, size), read in the GUI process; 0 or the
+        // wimlib code (ErrPartsMissing: total / found tell the parts)
+        int ReadImages(const wstring& wimFile, std::vector<WimImage>& list, int& total, int& found);
     }
 }

@@ -119,9 +119,24 @@ namespace ui
     int CheckWidth(HWND check);                       // box + text
     void Move(HWND h, int x, int y, int w, int hgt);  // in pixels (already scaled)
 
-    // ---- messages ----
+    int TextHeightWrapped(HFONT font, const wstring& text, int width);
+
+    // ---- messages and dialogs ----
     void Info(const wstring& text, UINT icon = MB_ICONINFORMATION);
     bool YesNo(const wstring& text, UINT icon = MB_ICONQUESTION);
+    // Enter / Esc in a window (IsDialogMessage sends IDOK / IDCANCEL)
+    void OnKeys(HWND top, Fn ok, Fn cancel);
+    // a window as a modal dialog over Main: returns the value given to EndModal (0 = closed)
+    int RunModal(HWND dlg);
+    void EndModal(HWND dlg, int result);
+    HWND Dialog(const wstring& title, int w, int h);   // fixed size, no taskbar button, over Main
+
+    // file dialogs; filters: { name, "*.wim;*.esd" } ...; false = cancelled
+    typedef std::vector<std::pair<wstring, wstring>> Filters;
+    bool OpenFile(const Filters& filters, const wstring& initialDir, wstring& file);
+    bool OpenFiles(const Filters& filters, const wstring& initialDir, std::vector<wstring>& files);
+    bool SaveFile(const Filters& filters, const wstring& initialDir, const wstring& fileName, bool overwritePrompt, wstring& file);
+    bool PickFolder(const wstring& title, const wstring& initialDir, wstring& folder);
 
     // ---- row layout of a tab (C# Grid / AddRow) ----
     // An item of a row: width (96-DPI px, 0 = the width of its text),

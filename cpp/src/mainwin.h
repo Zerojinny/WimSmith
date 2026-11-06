@@ -37,7 +37,8 @@ namespace dvt
         HWND AddPage(const wstring& title);
         void Log(const wstring& text);        // "HH:mm:ss  text" to the log and the footer
         void SetStatus(const wstring& text);  // the state at the left of the footer
-        bool Busy() const { return false; }   // a job runs (the job tabs are not ported yet)
+        std::function<bool()> busy;           // a job runs (set by App)
+        bool Busy() const { return busy && busy(); }
 
     private:
         std::vector<HWND> pages;

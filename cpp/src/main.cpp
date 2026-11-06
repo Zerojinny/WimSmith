@@ -9,11 +9,13 @@
 //       becomes 7z_wimlib.exe.
 //  The C# version is kept in backup\cs-winforms.
 // ============================================================
+#include "app.h"
 #include "helper.h"
 #include "lang.h"
 #include "mainwin.h"
 #include "settings.h"
 #include <shellapi.h>
+#include <objbase.h>
 
 using namespace dvt;
 
@@ -38,6 +40,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
     }
     if (!args.empty() && args[0] == L"--wim-helper") return RunHelper(args);
 
+    // the file dialogs (IFileDialog) need COM
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     ui::Init(inst);
     L::Init(ExeDir());
     while (true)
@@ -50,20 +54,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
             for (const std::wstring& p : L::Problems) text += p + L"\r\n";
             MessageBoxW(nullptr, text.c_str(), L"7z_wimlib", MB_OK | MB_ICONWARNING);
         }
-        MainWindow win;
-        win.Create();
-        // the order of the C# version; the tabs are ported one by one
-        for (const wchar_t* key : { L"bk.tab_apply", L"dk.tab", L"bk.tab_capture", L"ex.tab", L"sj.tab", L"in.tab", L"br.tab" })
-        {
-            HWND page = win.AddPage(L::T(key));
-            HWND note = ui::Label(page, L::T(L"cpp.not_ported"), ui::FontUI, ui::color::Dim);
-            ui::SetLayout(page, [note](int w, int) { ui::Move(note, 0, ui::S(8), w, ui::S(40)); });
-        }
-        ui::Relayout(win.hwnd);
-        ShowWindow(win.hwnd, SW_SHOW);
+        // the tabs live as long as the window: one App per language
+        App* app = new App();
+        app->Create();
+        ShowWindow(app->win.hwnd, SW_SHOW);
+        UpdateWindow(app->win.hwnd);
+        app->RefreshStatus();
         ui::MessageLoop();
+        bool again = app->win.restart;
         ui::Reset();
-        if (!win.restart) break;
+        // (the App and its tabs are left: a background read may still post to them)
+        if (!again) break;
     }
+    CoUninitialize();
     return 0;
 }
