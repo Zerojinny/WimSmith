@@ -20,6 +20,8 @@ namespace dvt
     struct RestoreTab;
     struct DiskTab;
     struct BackupTab;
+    struct ExportTab;
+    struct SplitJoinTab;
 
     // a volume (or a chosen folder: Letter 0) of the source / target lists
     struct Volume
@@ -37,6 +39,8 @@ namespace dvt
         RestoreTab* restore = nullptr;
         DiskTab* disk = nullptr;
         BackupTab* backup = nullptr;
+        ExportTab* exportTab = nullptr;
+        SplitJoinTab* splitJoin = nullptr;
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown
@@ -51,8 +55,9 @@ namespace dvt
         void Status(const wstring& text) { win.SetStatus(text); }
         // the images of a WIM file (false with a log line / message)
         bool Images(const wstring& wim, bool show, std::vector<wl::WimImage>& list);
-        // a WIM file was written: the tabs that show it read it again
-        void WimWritten(const wstring& wim);
+        // a WIM file was written: the tabs that show it read it again; an
+        // empty restore tab (backup) or an empty info tab (export, join) takes it
+        void WimWritten(const wstring& wim, bool toRestore = true);
         static int Processors();
         static wstring Gb(long long bytes);
         static wstring Group(long long n);    // 1,234,567

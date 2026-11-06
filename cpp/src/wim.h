@@ -99,7 +99,26 @@ namespace dvt
             int Index = 0;
             wstring Name, Description;
             long long TotalBytes = -1;
+            // filled by ReadInfo only
+            wstring Flags, DisplayName, ProductName, EditionId, InstallationType;
+            wstring Arch, Version, DefaultLanguage, Languages;
+            long long DirCount = -1, FileCount = -1;
+            long long Created = 0, Modified = 0;      // FILETIME (UTC), 0 = unknown
         };
+
+        // the header of a WIM file (struct wimlib_wim_info) and its images
+        struct WimFileInfo
+        {
+            wstring Guid;
+            int ImageCount = 0, BootIndex = 0, ChunkSize = 0, PartNumber = 0, TotalParts = 0, Compression = 0;
+            unsigned Version = 0;
+            long long TotalBytes = 0, FileBytes = -1;
+            bool Integrity = false, ReadOnlyFlag = false, Pipable = false, Spanned = false;
+            std::vector<WimImage> Images;
+            bool Solid() const { return Version == 0xE00; }   // solid resources (ESD)
+        };
+        // the header and the image details (no parts referenced); 0 or the wimlib code
+        int ReadInfo(const wstring& wimFile, WimFileInfo& info);
         // the images (index, name, size), read in the GUI process; 0 or the
         // wimlib code (ErrPartsMissing: total / found tell the parts)
         int ReadImages(const wstring& wimFile, std::vector<WimImage>& list, int& total, int& found);

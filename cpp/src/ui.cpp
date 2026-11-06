@@ -880,6 +880,27 @@ namespace ui
         return p;
     }
 
+    int GroupTop() { return TextHeight(FontBold) + S(4); }
+
+    HWND Group(HWND parent, const wstring& title)
+    {
+        HWND g = Panel(parent, color::Back);
+        painters[g] = [title](HDC dc, const RECT& r)
+        {
+            int th = TextHeight(FontBold), y = th / 2;
+            RECT frame = { 0, y, r.right, r.bottom };
+            FrameRect(dc, &frame, Brush(color::Line));
+            HGDIOBJ o = SelectObject(dc, FontBold);
+            RECT tr = { S(8), 0, S(8) + TextWidth(FontBold, title) + S(4), th };
+            FillRect(dc, &tr, Brush(color::Back));
+            SetBkMode(dc, TRANSPARENT);
+            SetTextColor(dc, color::Dim);
+            DrawTextW(dc, title.c_str(), -1, &tr, DT_CENTER | DT_TOP | DT_SINGLELINE | DT_NOPREFIX);
+            SelectObject(dc, o);
+        };
+        return g;
+    }
+
     void SetBack(HWND panel, COLORREF back) { backColors[panel] = back; InvalidateRect(panel, nullptr, TRUE); }
     void SetLayout(HWND panel, std::function<void(int, int)> f) { layouts[panel] = f; }
     void SetPaint(HWND panel, std::function<void(HDC, const RECT&)> f) { painters[panel] = f; }

@@ -66,6 +66,10 @@ namespace ui
     // ---- windows ----
     HWND TopWindow(const wstring& title, int w, int h, HWND owner, DWORD style = WS_OVERLAPPEDWINDOW);
     HWND Panel(HWND parent, COLORREF back);
+    // a titled box (a thin frame, the title in the dim color); its content
+    // starts GroupTop() below its top
+    HWND Group(HWND parent, const wstring& title);
+    int GroupTop();
     void SetBack(HWND panel, COLORREF back);
     COLORREF BackOf(HWND h);
     void SetLayout(HWND panel, std::function<void(int w, int h)> f);

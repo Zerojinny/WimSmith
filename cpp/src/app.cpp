@@ -8,6 +8,8 @@
 #include "settings.h"
 #include "tab_backup.h"
 #include "tab_disk.h"
+#include "tab_export.h"
+#include "tab_splitjoin.h"
 #include "tab_restore.h"
 #include <shellapi.h>
 #include <algorithm>
@@ -31,7 +33,9 @@ namespace dvt
         restore = new RestoreTab(*this, page);
         disk = new DiskTab(*this, win.AddPage(L::T(L"dk.tab")));
         backup = new BackupTab(*this, win.AddPage(L::T(L"bk.tab_capture")));
-        for (const wchar_t* key : { L"ex.tab", L"sj.tab", L"in.tab", L"br.tab" })
+        exportTab = new ExportTab(*this, win.AddPage(L::T(L"ex.tab")));
+        splitJoin = new SplitJoinTab(*this, win.AddPage(L::T(L"sj.tab")));
+        for (const wchar_t* key : { L"in.tab", L"br.tab" })
         {
             HWND p = win.AddPage(L::T(key));
             HWND note = Label(p, L::T(L"cpp.not_ported"), FontUI, color::Dim);
@@ -45,6 +49,8 @@ namespace dvt
     {
         restore->Refresh();
         backup->Refresh();
+        exportTab->Refresh();
+        splitJoin->Refresh();
     }
 
     // ---------- shared ----------
@@ -86,10 +92,11 @@ namespace dvt
         return false;
     }
 
-    void App::WimWritten(const wstring& wim)
+    void App::WimWritten(const wstring& wim, bool toRestore)
     {
         wstring cur = Trim(GetText(restore->txtWim));
-        if (cur.empty() || EqualsI(cur, wim)) { SetText(restore->txtWim, wim); restore->ReadImages(false); }
+        if (EqualsI(cur, wim) || (toRestore && cur.empty())) { SetText(restore->txtWim, wim); restore->ReadImages(false); }
+        if (EqualsI(Trim(GetText(exportTab->txtSrc)), wim)) exportTab->ReadImages(false);
     }
 
     int App::Processors()
