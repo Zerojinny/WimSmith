@@ -1,0 +1,286 @@
+// ============================================================
+//  7z_wimlib (C++) - tab_backup.cpp
+//  The backup tab (see tab_backup.h).
+// ============================================================
+#include "tab_backup.h"
+#include "helper.h"
+#include "lang.h"
+#include "settings.h"
+#include "tab_restore.h"
+#include <algorithm>
+
+namespace dvt
+{
+    using namespace ui;
+
+    static const int CompTypes[] = { wl::CompressionLzx, wl::CompressionXpress, wl::CompressionLzms };
+    static const wchar_t* const CompNames[] = { L"LZX", L"XPRESS", L"LZMS" };
+
+    static wstring SystemDrive()
+    {
+        wstring s = Env(L"SystemDrive");
+        return s.empty() ? L"C:" : s;
+    }
+
+    static wstring ThreadText(int threads)
+    {
+        return threads > 0 ? L::F(L"bk.threads_value", threads) : L::F(L"bk.threads_auto", (long long)App::Processors());
+    }
+
+    BackupTab::BackupTab(App& a, HWND p) : app(a), page(p), grid(p)
+    {
+        grid.labelWidth = 110;
+        cboSource = Combo(page);
+        btnFolder = Button(page, L::T(L"bk.btn_folder"));
+        btnSrcRefresh = Button(page, L::T(L"adk.btn_refresh"));
+        grid.Add(L::T(L"bk.row_source"), { Field(cboSource, 290), Btn(btnFolder, 110), Btn(btnSrcRefresh, 90) });
+        txtWim = Edit(page);
+        btnWim = Button(page, L::T(L"qbt.btn_browse"));
+        grid.Add(L::T(L"bk.row_wim"), { Field(txtWim, 400), Btn(btnWim, 100) });
+        txtName = Edit(page);
+        lblDesc = Label(page, L::T(L"bk.row_desc"));
+        txtDesc = Edit(page);
+        grid.Add(L::T(L"bk.row_name"), { Field(txtName, 200), Txt(lblDesc, 8, 4), Field(txtDesc, 260) });
+        cboComp = Combo(page);
+        for (const wchar_t* k : { L"bk.comp_lzx", L"bk.comp_xpress", L"bk.comp_lzms" }) ComboAdd(cboComp, L::T(k));
+        ComboSelect(cboComp, 0);
+        lblThreads = Label(page, L::T(L"bk.row_threads"));
+        numThreads = Number(page, 0, 64, 0);   // 0 = automatic (one per logical processor)
+        grid.Add(L::T(L"bk.row_comp"), { Field(cboComp, 280), Txt(lblThreads, 8, 4), Field(numThreads, 60) });
+        rbReplace = Radio(page, L::T(L"bk.existing_replace"), 1);
+        rbAppend = Radio(page, L::T(L"bk.existing_append"), 1);
+        SetChecked(rbReplace, true);
+        grid.Add(L::T(L"bk.row_existing"), { Box(rbReplace), Box(rbAppend) });
+        chkSnapshot = Check(page, L::T(L"bk.snapshot"));
+        SetChecked(chkSnapshot, GetSetting(L"backup.snapshot", L"0") == L"1");
+        grid.Add(L::T(L"bk.row_snapshot"), { Box(chkSnapshot) });
+        chkVerify = Check(page, L::T(L"vf.after_backup"));
+        grid.Add(L::T(L"vf.row"), { Box(chkVerify) });
+
+        // right: what the backup will do, the hint and [Start backup]
+        box = Panel(page, color::Panel);
+        SetPaint(box, [](HDC dc, const RECT& r) { FrameRect(dc, &r, Brush(color::Line)); });
+        title = Label(box, L::T(L"pv.title"), FontBold, color::Dim);
+        const wchar_t* keyNames[] = { L"pv.source", L"pv.target", L"pv.method", L"pv.rights", L"pv.verify" };
+        for (int i = 0; i < 5; i++)
+        {
+            keys[i] = Label(box, L::T(keyNames[i]), FontUI, color::Dim);
+            // a long path breaks anywhere (as an edit control does)
+            vals[i] = Label(box, L"", i == 1 ? FontMono : FontUI, color::Text, SS_LEFT | SS_EDITCONTROL);
+        }
+        hint = Label(box, L::F(L"bk.capture_hint", SystemDrive()), FontUI, color::Dim);
+        btnCapture = Button(box, L::T(L"bk.btn_capture"));
+        Primary(btnCapture, false);
+        SetLayout(page, [this](int w, int h) { Layout(w, h); });
+        SetLayout(box, [this](int w, int h) { LayoutBox(w, h); });
+
+        OnClick(btnFolder, [this] { ChooseSourceFolder(); });
+        OnClick(btnSrcRefresh, [this] { FillSources(); });
+        OnClick(btnWim, [this] { ChooseWim(); });
+        OnClick(btnCapture, [this] { StartCapture(); });
+        for (HWND h : { cboSource, cboComp, txtWim, numThreads, rbAppend, chkVerify }) OnChange(h, [this] { UpdatePreview(); });
+        // the running Windows drive is a source only with a snapshot
+        OnChange(chkSnapshot, [this]
+        {
+            SetSetting(L"backup.snapshot", Checked(chkSnapshot) ? L"1" : L"0");
+            FillSources();
+            UpdatePreview();
+        });
+        app.busyHandlers.push_back([this](bool busy) { SetBusy(busy); });
+
+        SYSTEMTIME t;
+        GetLocalTime(&t);
+        wchar_t name[32];
+        swprintf_s(name, L"backup_%04d-%02d-%02d", t.wYear, t.wMonth, t.wDay);
+        SetText(txtName, name);
+        FillSources();
+        UpdatePreview();
+    }
+
+    void BackupTab::Layout(int w, int h)
+    {
+        int boxW = S(300);
+        grid.Place(0, 0, std::max(0, w - boxW));
+        Move(box, std::max(0, w - boxW) + S(12), 0, boxW - S(12), h);
+    }
+
+    void BackupTab::LayoutBox(int w, int h)
+    {
+        int x = S(14), inner = w - 2 * S(14), y = S(12);
+        int th = TextHeight(FontBold);
+        Move(title, x, y, inner, th);
+        y += th + S(10);
+        int kw = S(62), vw = std::max(0, std::min(S(176), inner - kw));
+        for (int i = 0; i < 5; i++)
+        {
+            HFONT f = i == 1 ? FontMono : FontUI;
+            int vh = TextHeightWrapped(f, GetText(vals[i]), vw);
+            int kh = TextHeight(FontUI);
+            Move(keys[i], x, y, kw, kh);
+            Move(vals[i], x + kw, y, vw, vh);
+            y += std::max(kh, vh) + S(8);
+        }
+        // the button at the bottom (a row of 50 px, 8 px above it), the hint above it
+        int btnTop = h - S(14) - S(50) + S(8);
+        Move(btnCapture, x, btnTop, inner, S(42));
+        int hw = std::min(inner, S(262));
+        int hh = TextHeightWrapped(FontUI, GetText(hint), hw);
+        Move(hint, x, std::max(y, h - S(14) - S(50) - hh), hw, hh);
+        // the lines move when a value gets longer: the whole box again
+        RedrawWindow(box, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    }
+
+    void BackupTab::Refresh()
+    {
+        if (Trim(GetText(txtWim)).empty()) SetText(txtWim, app.DefaultWim());
+        FillSources();
+    }
+
+    const Volume* BackupTab::Source() const
+    {
+        int i = ComboIndex(cboSource);
+        return i >= 0 && i < (int)sources.size() ? &sources[i] : nullptr;
+    }
+
+    // the ready volumes except the Windows drive (allowed with a snapshot), plus a chosen folder
+    void BackupTab::FillSources()
+    {
+        const Volume* cur = Source();
+        wstring keep = cur ? cur->Path : wstring();
+        std::vector<Volume> list;
+        for (const Volume& v : sources) if (v.Letter == 0) list.push_back(v);
+        for (Volume v : App::Volumes(true))
+        {
+            if (!IsWindowsDrive(v.Letter)) list.push_back(v);
+            else if (Checked(chkSnapshot))
+            {
+                v.Text += L"  " + L::T(L"bk.vol_running");
+                list.push_back(v);
+            }
+        }
+        sources.clear();
+        ComboClear(cboSource);
+        sources = list;
+        for (const Volume& v : sources) ComboAdd(cboSource, v.Text);
+        for (size_t n = 0; n < sources.size(); n++)
+            if (EqualsI(sources[n].Path, keep)) { ComboSelect(cboSource, (int)n); break; }
+    }
+
+    void BackupTab::ChooseSourceFolder()
+    {
+        wstring folder;
+        if (!PickFolder(L::T(L"bk.select_source"), wstring(), folder)) return;
+        Volume v;
+        v.Path = folder;
+        v.Text = L::F(L"bk.source_folder", folder);
+        std::vector<Volume> list(1, v);
+        for (const Volume& s : sources) if (s.Letter != 0) list.push_back(s);
+        sources.clear();
+        ComboClear(cboSource);
+        sources = list;
+        for (const Volume& s : sources) ComboAdd(cboSource, s.Text);
+        ComboSelect(cboSource, 0);
+    }
+
+    void BackupTab::ChooseWim()
+    {
+        wstring cur = Trim(GetText(txtWim));
+        if (cur.empty()) cur = app.DefaultWim();
+        wstring full = FullPath(cur), file;
+        if (!SaveFile({ { L"WIM (*.wim)", L"*.wim" } }, cur.empty() ? wstring() : DirName(full),
+                cur.empty() ? wstring(L"backup.wim") : FileName(full), false, file)) return;
+        SetText(txtWim, file);
+    }
+
+    void BackupTab::UpdatePreview()
+    {
+        const Volume* src = Source();
+        SetText(vals[0], src ? src->Text : L"—");
+        wstring wim = Trim(GetText(txtWim));
+        SetText(vals[1], wim.empty() ? L"—" : wim);
+        bool exists = !wim.empty() && FileExists(wim);
+        bool append = exists && Checked(rbAppend);
+        wstring how = L::T(!exists ? L"pv.new" : append ? L"pv.append" : L"pv.replace");
+        int ci = std::max(0, std::min(2, ComboIndex(cboComp)));
+        wstring comp = append ? L::T(L"bk.comp_existing") : wstring(CompNames[ci]);
+        SetText(vals[2], how + L" · " + comp + L" · " + ThreadText(NumberValue(numThreads))
+            + (Checked(chkSnapshot) ? L" · " + L::T(L"pv.snapshot") : wstring()));
+        SetText(vals[3], L::T(L"pv.admin"));
+        SetText(vals[4], L::T(Checked(chkVerify) ? L"pv.on" : L"pv.off"));
+        SetColor(vals[4], Checked(chkVerify) ? color::AccentSoft : color::Dim);
+        Relayout(box);
+    }
+
+    void BackupTab::SetBusy(bool busy)
+    {
+        for (HWND c : { btnCapture, cboSource, txtWim, chkVerify, chkSnapshot }) Enable(c, !busy);
+    }
+
+    void BackupTab::StartCapture()
+    {
+        if (app.Busy()) return;
+        const Volume* src = Source();
+        wstring source = src ? src->Path : wstring();
+        wstring wim = Trim(GetText(txtWim)), name = Trim(GetText(txtName));
+        bool snapshot = Checked(chkSnapshot);
+        wstring why = CaptureProblem(source, wim, snapshot);
+        if (!why.empty()) { Info(L::F(why, source.empty() ? wstring(L"-") : source, wim), MB_ICONWARNING); return; }
+        if (!app.LoadWimlib()) return;
+
+        bool exists = FileExists(wim);
+        bool append = exists && Checked(rbAppend);
+        wstring what = L::T(L"bk.confirm_new");
+        int newIndex = 1;
+        if (append)
+        {
+            std::vector<wl::WimImage> old;
+            if (!app.Images(wim, true, old)) return;
+            for (const wl::WimImage& w : old)
+                if (!name.empty() && EqualsI(w.Name, name)) { Info(L::F(L"bk.err_name_used", name), MB_ICONWARNING); return; }
+            newIndex = (int)old.size() + 1;
+            what = L::F(L"bk.confirm_append", newIndex);
+        }
+        else if (exists) what = L::T(L"bk.confirm_replace");
+        if (snapshot) what += L"\r\n" + L::T(L"bk.confirm_snapshot");
+        int threads = NumberValue(numThreads);
+        wstring threadText = ThreadText(threads);
+        int ci = std::max(0, ComboIndex(cboComp));
+        if (!YesNo(L::F(L"bk.confirm_capture", source, wim, name.empty() ? L::T(L"bk.no_name") : name,
+                (append ? L::T(L"bk.comp_existing") : ComboItem(cboComp, ci)) + L", " + threadText, what), MB_ICONQUESTION))
+            return;
+
+        auto oneLine = [](wstring s) { for (wchar_t& c : s) if (c == L'\r' || c == L'\n') c = L' '; return s; };
+        Job job;
+        job[L"mode"] = L"capture";
+        job[L"source"] = source;
+        job[L"wim"] = wim;
+        job[L"name"] = oneLine(name);
+        job[L"description"] = oneLine(Trim(GetText(txtDesc)));
+        job[L"compression"] = Num(CompTypes[std::min(2, ci)]);
+        job[L"threads"] = Num(threads);
+        job[L"append"] = append ? L"1" : L"0";
+        job[L"verify"] = Checked(chkVerify) ? L"1" : L"0";
+        job[L"snapshot"] = snapshot ? L"1" : L"0";
+        app.job = App::JobInfo();
+        app.job.verify = Checked(chkVerify);
+        app.job.wim = wim;
+        app.job.image = newIndex;
+        app.onSuccess = [this](const wstring& elapsed) { return Done(elapsed); };
+        app.onFailure = nullptr;
+        app.Log(L::F(L"bk.log_start_capture", source, wim) + L"  (" + threadText + L")");
+        app.StartHelper(job);
+    }
+
+    // the new image; the folder of the new WIM file is the default folder next time
+    wstring BackupTab::Done(const wstring& elapsed)
+    {
+        const App::JobInfo& j = app.job;
+        wstring msg = L::F(L"bk.capture_done", j.wim, j.image) + (j.verify ? L"\r\n" + L::T(L"vf.capture_verified") : wstring())
+            + L"\r\n\r\n" + elapsed;
+        wstring full = FullPath(j.wim);
+        if (!full.empty()) SetSetting(L"image_folder", DirName(full));
+        app.WimWritten(j.wim);
+        UpdatePreview();
+        return msg;
+    }
+}

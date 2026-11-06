@@ -6,6 +6,7 @@
 #include "helper.h"
 #include "lang.h"
 #include "settings.h"
+#include "tab_backup.h"
 #include "tab_disk.h"
 #include "tab_restore.h"
 #include <shellapi.h>
@@ -29,7 +30,8 @@ namespace dvt
         HWND page = win.AddPage(L::T(L"bk.tab_apply"));
         restore = new RestoreTab(*this, page);
         disk = new DiskTab(*this, win.AddPage(L::T(L"dk.tab")));
-        for (const wchar_t* key : { L"bk.tab_capture", L"ex.tab", L"sj.tab", L"in.tab", L"br.tab" })
+        backup = new BackupTab(*this, win.AddPage(L::T(L"bk.tab_capture")));
+        for (const wchar_t* key : { L"ex.tab", L"sj.tab", L"in.tab", L"br.tab" })
         {
             HWND p = win.AddPage(L::T(key));
             HWND note = Label(p, L::T(L"cpp.not_ported"), FontUI, color::Dim);
@@ -42,6 +44,7 @@ namespace dvt
     void App::RefreshStatus()
     {
         restore->Refresh();
+        backup->Refresh();
     }
 
     // ---------- shared ----------
@@ -66,6 +69,33 @@ namespace dvt
         Log(err);
         Info(L::F(L"bk.no_wimlib", err, ToolDir()), MB_ICONWARNING);
         return false;
+    }
+
+    bool App::Images(const wstring& wim, bool show, std::vector<wl::WimImage>& list)
+    {
+        list.clear();
+        if (!LoadWimlib()) return false;
+        int total = 1, found = 1;
+        int rc = wl::ReadImages(wim, list, total, found);
+        if (rc == 0) return true;
+        wstring err = rc == wl::ErrPartsMissing ? L::F(L"sj.err_part_count", wim, total, found) : wl::ErrorText(rc);
+        wstring text = L::F(L"bk.read_failed", wim, err), one = text;
+        for (size_t p; (p = one.find(L"\r\n")) != wstring::npos;) one.replace(p, 2, L" ");
+        Log(one);
+        if (show) Info(text, MB_ICONWARNING);
+        return false;
+    }
+
+    void App::WimWritten(const wstring& wim)
+    {
+        wstring cur = Trim(GetText(restore->txtWim));
+        if (cur.empty() || EqualsI(cur, wim)) { SetText(restore->txtWim, wim); restore->ReadImages(false); }
+    }
+
+    int App::Processors()
+    {
+        DWORD n = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+        return n > 0 ? (int)n : 1;
     }
 
     wstring App::Gb(long long bytes)

@@ -19,6 +19,7 @@ namespace dvt
 {
     struct RestoreTab;
     struct DiskTab;
+    struct BackupTab;
 
     // a volume (or a chosen folder: Letter 0) of the source / target lists
     struct Volume
@@ -35,6 +36,7 @@ namespace dvt
         wstring root;                         // the folder of the exe
         RestoreTab* restore = nullptr;
         DiskTab* disk = nullptr;
+        BackupTab* backup = nullptr;
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown
@@ -47,6 +49,11 @@ namespace dvt
         wstring ShortPath(const wstring& path) const;
         void Log(const wstring& text) { win.Log(text); }
         void Status(const wstring& text) { win.SetStatus(text); }
+        // the images of a WIM file (false with a log line / message)
+        bool Images(const wstring& wim, bool show, std::vector<wl::WimImage>& list);
+        // a WIM file was written: the tabs that show it read it again
+        void WimWritten(const wstring& wim);
+        static int Processors();
         static wstring Gb(long long bytes);
         static wstring Group(long long n);    // 1,234,567
         static std::vector<Volume> Volumes(bool readyOnly);
