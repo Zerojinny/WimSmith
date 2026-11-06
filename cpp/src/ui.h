@@ -16,6 +16,7 @@
 #include "common.h"
 #include <functional>
 #include <initializer_list>
+#include <commctrl.h>
 
 namespace ui
 {
@@ -95,7 +96,9 @@ namespace ui
     HWND Tabs(HWND parent);
     // a details list (dark; the selected row in the accent tone, also
     // without focus); columns: { title, width at 96 DPI }, right aligned when width < 0
-    HWND List(HWND parent, const std::vector<std::pair<wstring, int>>& columns);
+    HWND List(HWND parent, const std::vector<std::pair<wstring, int>>& columns, DWORD style = LVS_SINGLESEL);
+    // more notifications of a list (LVN_GETDISPINFO, LVN_COLUMNCLICK, ...); true = handled
+    void OnListNotify(HWND list, std::function<bool(NMHDR*, LRESULT&)> f);
     int ListAdd(HWND list, const std::vector<wstring>& cells, bool bold = false);
     void ListClear(HWND list);
     int ListSelected(HWND list);                      // -1 = none

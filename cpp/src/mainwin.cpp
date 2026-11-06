@@ -144,6 +144,12 @@ namespace dvt
         OnClose(hwnd, [this]
         {
             if (Busy() && !YesNo(L::T(L"z.close_busy"), MB_ICONWARNING)) return false;
+            // 7-Zip of the browse tab: stopped with the window
+            if (extracting && extracting())
+            {
+                if (!YesNo(L::T(L"z.close_extract"), MB_ICONWARNING)) return false;
+                if (stopExtracting) stopExtracting();
+            }
             return true;
         });
         OnDestroy(hwnd, [] { PostQuitMessage(0); });
@@ -232,7 +238,7 @@ namespace dvt
     {
         int i = ComboIndex(cboLang);
         if (i < 0 || i >= (int)langCodes.size() || EqualsI(langCodes[i], L::Code)) return;
-        if (Busy())
+        if (Busy() || (extracting && extracting()))
         {
             Info(L::T(L"z.lang_busy"), MB_ICONWARNING);
             for (size_t n = 0; n < langCodes.size(); n++)

@@ -23,6 +23,7 @@ namespace dvt
     struct ExportTab;
     struct SplitJoinTab;
     struct InfoTab;
+    struct BrowseTab;
 
     // a volume (or a chosen folder: Letter 0) of the source / target lists
     struct Volume
@@ -43,7 +44,7 @@ namespace dvt
         ExportTab* exportTab = nullptr;
         SplitJoinTab* splitJoin = nullptr;
         InfoTab* infoTab = nullptr;
-        HWND browsePage = nullptr;
+        BrowseTab* browse = nullptr;
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown

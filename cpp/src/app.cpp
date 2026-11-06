@@ -9,6 +9,7 @@
 #include "tab_backup.h"
 #include "tab_disk.h"
 #include "tab_export.h"
+#include "tab_browse.h"
 #include "tab_info.h"
 #include "tab_splitjoin.h"
 #include "tab_restore.h"
@@ -37,9 +38,7 @@ namespace dvt
         exportTab = new ExportTab(*this, win.AddPage(L::T(L"ex.tab")));
         splitJoin = new SplitJoinTab(*this, win.AddPage(L::T(L"sj.tab")));
         infoTab = new InfoTab(*this, win.AddPage(L::T(L"in.tab")));
-        browsePage = win.AddPage(L::T(L"br.tab"));
-        HWND note = Label(browsePage, L::T(L"cpp.not_ported"), FontUI, color::Dim);
-        SetLayout(browsePage, [note](int w, int) { Move(note, 0, S(8), w, S(40)); });
+        browse = new BrowseTab(*this, win.AddPage(L::T(L"br.tab")));
         Log(L::T(L"bk.note"));
         Relayout(win.hwnd);
     }
@@ -51,6 +50,7 @@ namespace dvt
         exportTab->Refresh();
         splitJoin->Refresh();
         infoTab->Refresh();
+        browse->SetDefault(DefaultWim());
     }
 
     // ---------- shared ----------
@@ -101,9 +101,10 @@ namespace dvt
         if (EqualsI(info, wim) || (!toRestore && info.empty())) { SetText(infoTab->txtWim, wim); infoTab->ReadInfo(false); }
     }
 
-    void App::Browse(const wstring&, int)
+    void App::Browse(const wstring& wim, int image)
     {
-        win.SelectPage(browsePage);
+        win.SelectPage(browse->page);
+        browse->ShowWim(wim, image);
     }
 
     int App::Processors()
@@ -360,29 +361,6 @@ namespace dvt
             Info(head + L::F(L"bk.failed", (long long)(int)code, hasExit ? exit : wstring(L"-"), ShortPath(workDir)), MB_ICONERROR);
         }
         if (onFailure) onFailure();
-    }
-
-    static void DeleteTree(const wstring& dir)
-    {
-        WIN32_FIND_DATAW fd;
-        HANDLE h = FindFirstFileW(Combine(dir, L"*").c_str(), &fd);
-        if (h != INVALID_HANDLE_VALUE)
-        {
-            do
-            {
-                wstring n = fd.cFileName;
-                if (n == L"." || n == L"..") continue;
-                wstring p = Combine(dir, n);
-                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) DeleteTree(p);
-                else
-                {
-                    SetFileAttributesW(p.c_str(), FILE_ATTRIBUTE_NORMAL);
-                    if (!DeleteFileW(p.c_str())) { FindClose(h); throw HelperError{ L"Delete " + p + L": " + ErrorMessage(GetLastError()) }; }
-                }
-            } while (FindNextFileW(h, &fd));
-            FindClose(h);
-        }
-        if (!RemoveDirectoryW(dir.c_str())) throw HelperError{ L"Delete " + dir + L": " + ErrorMessage(GetLastError()) };
     }
 
     // after a successful job: the work folder (and DVT_wim_job when it is empty)

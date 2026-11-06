@@ -41,6 +41,8 @@ namespace dvt
         void SetStatus(const wstring& text);  // the state at the left of the footer
         std::function<bool()> busy;           // a job runs (set by App)
         bool Busy() const { return busy && busy(); }
+        std::function<bool()> extracting;     // 7-Zip extracts files on the browse tab
+        std::function<void()> stopExtracting;
 
     private:
         std::vector<HWND> pages;

@@ -398,6 +398,29 @@ namespace dvt
             nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr), data);
     }
 
+    void DeleteTree(const wstring& dir)
+    {
+        WIN32_FIND_DATAW fd;
+        HANDLE h = FindFirstFileW(Combine(dir, L"*").c_str(), &fd);
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            do
+            {
+                wstring n = fd.cFileName;
+                if (n == L"." || n == L"..") continue;
+                wstring p = Combine(dir, n);
+                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) DeleteTree(p);
+                else
+                {
+                    SetFileAttributesW(p.c_str(), FILE_ATTRIBUTE_NORMAL);
+                    if (!DeleteFileW(p.c_str())) { FindClose(h); throw HelperError{ L"Delete " + p + L": " + ErrorMessage(GetLastError()) }; }
+                }
+            } while (FindNextFileW(h, &fd));
+            FindClose(h);
+        }
+        if (!RemoveDirectoryW(dir.c_str())) throw HelperError{ L"Delete " + dir + L": " + ErrorMessage(GetLastError()) };
+    }
+
     // ---------- drives ----------
 
     UINT DriveTypeOf(wchar_t letter)

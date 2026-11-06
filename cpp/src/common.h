@@ -70,6 +70,7 @@ namespace dvt
     void CreateDirs(const wstring& dir);      // throws HelperError
     void DeleteFileOrThrow(const wstring& p); // a missing file is no error
     void MoveFileOrThrow(const wstring& from, const wstring& to);
+    void DeleteTree(const wstring& dir);      // a folder and all in it; throws HelperError
     bool ReadBytes(const wstring& p, std::string& data);
     wstring ReadTextFile(const wstring& p);   // UTF-8 / UTF-16 (BOM); throws HelperError
     bool WriteBytes(const wstring& p, const std::string& data);

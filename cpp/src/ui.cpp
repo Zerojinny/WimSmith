@@ -46,6 +46,7 @@ namespace ui
     static HWND hovered;
     static std::map<HWND, std::vector<bool>> boldRows;      // list -> rows in bold
     static std::map<HWND, Fn> listDouble;
+    static std::map<HWND, std::function<bool(NMHDR*, LRESULT&)>> listExtra;
     static std::map<HWND, std::pair<Fn, Fn>> keyHandlers;   // Enter / Esc of a window
     static std::map<HWND, int> modalResults;
 
@@ -81,7 +82,7 @@ namespace ui
     {
         handlers.clear(); foreColors.clear(); backColors.clear(); layouts.clear(); painters.clear();
         minSizes.clear(); closers.clear(); destroyers.clear(); timers.clear(); buttonKinds.clear();
-        upDowns.clear(); boldRows.clear(); listDouble.clear(); keyHandlers.clear(); modalResults.clear(); hovered = nullptr;
+        upDowns.clear(); boldRows.clear(); listDouble.clear(); listExtra.clear(); keyHandlers.clear(); modalResults.clear(); hovered = nullptr;
     }
 
     COLORREF BackOf(HWND h)
@@ -1070,6 +1071,20 @@ namespace ui
             }
             HDC dc = cd->nmcd.hdc;
             FillRect(dc, &r, Brush(color::Selected));
+            if (col == 0)
+            {
+                LVITEMW it = {};
+                it.mask = LVIF_IMAGE;
+                it.iItem = row;
+                HIMAGELIST il = ListView_GetImageList(list, LVSIL_SMALL);
+                if (il && ListView_GetItem(list, &it) && it.iImage >= 0)
+                {
+                    int cx = 16, cy = 16;
+                    ImageList_GetIconSize(il, &cx, &cy);
+                    ImageList_Draw(il, it.iImage, dc, r.left + S(4), r.top + (r.bottom - r.top - cy) / 2, ILD_TRANSPARENT);
+                    r.left += S(4) + cx;
+                }
+            }
             wchar_t text[512] = { 0 };
             ListView_GetItemText(list, row, col, text, 512);
             LVCOLUMNW c = {};
@@ -1136,9 +1151,11 @@ namespace ui
         return DefSubclassProc(h, m, wp, lp);
     }
 
-    HWND List(HWND parent, const std::vector<std::pair<wstring, int>>& columns)
+    void OnListNotify(HWND list, std::function<bool(NMHDR*, LRESULT&)> f) { listExtra[list] = f; }
+
+    HWND List(HWND parent, const std::vector<std::pair<wstring, int>>& columns, DWORD style)
     {
-        HWND h = Child(WC_LISTVIEWW, parent, L"", WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SINGLESEL);
+        HWND h = Child(WC_LISTVIEWW, parent, L"", WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS | style);
         ListView_SetExtendedListViewStyle(h, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
         SetWindowTheme(h, L"DarkMode_Explorer", nullptr);
         HWND header = ListView_GetHeader(h);
@@ -1169,6 +1186,15 @@ namespace ui
         handlers[h].notify = [h](NMHDR* n) -> LRESULT
         {
             if (n->code == NM_CUSTOMDRAW) return ListDraw(h, (NMLVCUSTOMDRAW*)n);
+            auto x = listExtra.find(h);
+            if (x != listExtra.end())
+            {
+                LRESULT r = 0;
+                auto f = x->second;
+                if (f(n, r)) return r;
+            }
+            // an owner data list tells a range of selected rows at once
+            if (n->code == LVN_ODSTATECHANGED) Fire(h, false);
             if (n->code == LVN_ITEMCHANGED)
             {
                 NMLISTVIEW* lv = (NMLISTVIEW*)n;
