@@ -423,6 +423,17 @@ namespace dvt
         return false;
     }
 
+    // a network path the elevated helper cannot open: it connects again, with
+    // the Windows user's credentials or those saved for the server
+    static wstring NotFound(const wstring& p)
+    {
+        wstring t = L"Not found: " + p;
+        if (p.compare(0, 2, L"\\\\") == 0)
+            t += L" (network path: the elevated helper has to connect to it again, with the credentials of the Windows user"
+                 L" or those saved for the server in the Credential Manager)";
+        return t;
+    }
+
     // ---------- capture ----------
 
     static int VerifyCore(const wstring& wimFile, wstring& step);
@@ -774,7 +785,7 @@ namespace dvt
     {
         wstring why = FolderTargetProblem(folder, wimFile, buildRoot);
         if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + folder + L")");
-        if (!FileExists(wimFile)) return Finish(2, L"Not found: " + wimFile);
+        if (!FileExists(wimFile)) return Finish(2, NotFound(wimFile));
         wstring dir = FullPath(folder);
 
         Wim wim;
@@ -811,7 +822,7 @@ namespace dvt
         wstring l = wstring(1, letter);
         wstring why = TargetProblem(letter, wimFile, Get(job, L"root"));
         if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + l + L":)");
-        if (!FileExists(wimFile)) return Finish(2, L"Not found: " + wimFile);
+        if (!FileExists(wimFile)) return Finish(2, NotFound(wimFile));
 
         {
             Wim wim;

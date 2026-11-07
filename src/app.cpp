@@ -200,6 +200,20 @@ namespace dvt
         values[L"tools"] = ToolDir();
         values[L"root"] = root;
         job.mode = values[L"mode"];
+        // backup / restore / disk need administrator rights; export, split, join and verify do not
+        bool elevate = job.mode == L"capture" || job.mode == L"apply" || job.mode == L"disk";
+        // the elevated helper does not see the network drives (and SUBST drives)
+        // of this session: their paths go to it as \\server\share\...
+        if (elevate)
+            for (const wchar_t* key : { L"wim", L"source", L"folder", L"tools", L"root" })
+            {
+                auto it = values.find(key);
+                if (it == values.end()) continue;
+                wstring p = SessionFreePath(it->second);
+                if (p == it->second) continue;
+                if (wcscmp(key, L"tools") != 0 && wcscmp(key, L"root") != 0) Log(L::F(L"bk.log_unc", it->second, p));
+                it->second = p;
+            }
         wchar_t tmp[MAX_PATH + 1];
         GetTempPathW(MAX_PATH + 1, tmp);
         SYSTEMTIME t;
@@ -219,16 +233,15 @@ namespace dvt
         statusFile = Combine(workDir, L"status.txt");
         Log(L::F(L"bk.log_work", ShortPath(workDir)));
 
-        wchar_t self[MAX_PATH * 2];
-        GetModuleFileNameW(nullptr, self, MAX_PATH * 2);
+        wchar_t selfBuf[MAX_PATH * 2];
+        GetModuleFileNameW(nullptr, selfBuf, MAX_PATH * 2);
+        wstring self = elevate ? SessionFreePath(selfBuf) : wstring(selfBuf);
         wstring args = L"--wim-helper \"" + workDir + L"\"";
-        // backup / restore / disk need administrator rights; export, split, join and verify do not
-        bool elevate = job.mode == L"capture" || job.mode == L"apply" || job.mode == L"disk";
         SHELLEXECUTEINFOW sei = { sizeof sei };
         sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
         sei.hwnd = win.hwnd;
         sei.lpVerb = elevate ? L"runas" : nullptr;
-        sei.lpFile = self;
+        sei.lpFile = self.c_str();
         sei.lpParameters = args.c_str();
         sei.lpDirectory = workDir.c_str();
         sei.nShow = SW_HIDE;

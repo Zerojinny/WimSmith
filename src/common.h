@@ -81,6 +81,10 @@ namespace dvt
     bool DriveExists(wchar_t letter);
     wstring DriveFileSystem(wchar_t letter);  // "" = not ready
     long long DriveFreeBytes(const wstring& root);
+    // a path on a mapped network drive (\\server\share\...) or a SUBST drive
+    // (its real folder) as a process of another logon session sees it: an
+    // elevated process does not see the drive letters of the normal session
+    wstring SessionFreePath(const wstring& p);
 
     // ---- processes ----
     // runs exe (no window), returns its exit code; stdout and stderr as bytes

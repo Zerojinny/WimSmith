@@ -3,6 +3,7 @@
 //  Text, paths, files, drives and processes (see common.h).
 // ============================================================
 #include "common.h"
+#include <winnetwk.h>
 #include <thread>
 
 namespace dvt
@@ -423,6 +424,37 @@ namespace dvt
         wchar_t fs[MAX_PATH + 1] = { 0 };
         if (!GetVolumeInformationW(r, nullptr, 0, nullptr, nullptr, nullptr, fs, MAX_PATH + 1)) return wstring();
         return fs;
+    }
+
+    wstring SessionFreePath(const wstring& p)
+    {
+        if (p.size() < 2 || p[1] != L':' || !IsCharAlphaW(p[0])) return p;
+        wstring drive = p.substr(0, 2), rest = p.substr(2);
+        if (GetDriveTypeW((drive + L"\\").c_str()) == DRIVE_REMOTE)
+        {
+            wchar_t unc[1024] = {};
+            DWORD n = 1024;
+            if (WNetGetConnectionW(drive.c_str(), unc, &n) == NO_ERROR && unc[0])
+            {
+                wstring u = unc;
+                while (u.size() > 2 && u.back() == L'\\') u.pop_back();
+                return u + (rest.empty() ? wstring(L"\\") : rest);
+            }
+            return p;
+        }
+        // SUBST: "\??\C:\folder"
+        wchar_t dev[1024] = {};
+        if (QueryDosDeviceW(drive.c_str(), dev, 1024))
+        {
+            wstring d = dev;
+            if (d.size() >= 6 && d.compare(0, 4, L"\\??\\") == 0 && d[5] == L':' && !EqualsI(d.substr(4, 2), drive))
+            {
+                d = d.substr(4);
+                while (!d.empty() && d.back() == L'\\') d.pop_back();
+                return SessionFreePath(d + (rest.empty() ? wstring(L"\\") : rest));
+            }
+        }
+        return p;
     }
 
     long long DriveFreeBytes(const wstring& root)
