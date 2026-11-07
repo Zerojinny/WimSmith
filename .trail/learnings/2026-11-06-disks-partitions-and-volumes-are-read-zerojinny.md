@@ -27,6 +27,7 @@ touches:
 - diskpart stays for creating the partitions (it is in WinPE, and "create partition efi" / "set id" / "gpt attributes" are its job).
 
 ## Watch out
+- IOCTL_DISK_CREATE_DISK writes no MBR boot code (bytes 0..439 stay zero), and bcdboot does not write it either: an MBR disk initialized that way never BIOS-boots (found 2026-11-07 on a VHD: partition active, VBR and bootmgr fine, sector 0 code all zeros). So MBR disks are only cleared natively and left RAW; the diskpart script starts with "rescan", "convert mbr" (VDS writes the boot code). GPT keeps CREATE_DISK (UEFI ignores the MBR code). WriteBootFiles checks sector 0 after a BIOS bcdboot and runs bootsect /nt60 X: /mbr when bootsect.exe exists (WinPE), else fails with a clear message.
 - Compared with the PowerShell output on this PC: identical disks/partitions, except the list is now sorted by disk number and the ESP's file system reads FAT32 (Get-Volume gave "" without admin). Reading took 16 ms instead of about 1.2 s.
 - Disk name: vendor + product of STORAGE_DEVICE_DESCRIPTOR, vendor dropped when it is "ATA"/"NVMe" or repeated in the product; matched Get-Disk FriendlyName on 5 disks (SATA, NVMe) and gives "Msft Virtual Disk" for a VHD.
 - The elevated paths (clear/initialize, FormatEx, mount points, set active) were written without admin in the session: test them on a VHD.

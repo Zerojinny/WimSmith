@@ -61,9 +61,14 @@ namespace dvt
         std::vector<int> WindowsDisks();
 
         // ---- elevated ----
-        // removes every partition and the partition tables, then writes an
-        // empty GPT / MBR table; 0 = done, else a Win32 error (step = what failed)
+        // removes every partition and the partition tables; gpt: then writes an
+        // empty GPT table. An MBR disk is left uninitialized (RAW): diskpart
+        // "convert mbr" initializes it, because IOCTL_DISK_CREATE_DISK writes no
+        // MBR boot code and BIOS could not start from the disk.
+        // 0 = done, else a Win32 error (step = what failed)
         DWORD ClearAndInitialize(int disk, bool gpt, wstring& step);
+        // the first sector of the disk has boot code (bytes 0..439 not all zero)
+        DWORD HasMbrBootCode(int disk, bool& has);
         // quick format; 0 = done, else a Win32 error (reason = what FormatEx said)
         DWORD Format(wchar_t letter, const wstring& fileSystem, const wstring& label, wstring& reason);
         // drive letter of the partition at (disk, offset)

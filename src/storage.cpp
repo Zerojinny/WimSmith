@@ -306,26 +306,35 @@ namespace dvt
                 if (!Zero(h.h, tail, (DWORD)(size - tail))) return GetLastError();
             }
             Ioctl(h.h, IOCTL_DISK_UPDATE_PROPERTIES, nullptr, 0, nullptr, 0);
+            // MBR: left RAW for diskpart, which writes the MBR boot code too
+            if (!gpt) { step.clear(); return 0; }
 
             CREATE_DISK cd = {};
             GUID g = {};
             CoCreateGuid(&g);
-            if (gpt)
-            {
-                cd.PartitionStyle = PARTITION_STYLE_GPT;
-                cd.Gpt.DiskId = g;
-                cd.Gpt.MaxPartitionCount = 128;
-            }
-            else
-            {
-                cd.PartitionStyle = PARTITION_STYLE_MBR;
-                cd.Mbr.Signature = g.Data1 ? g.Data1 : 0x7A57AB1E;
-            }
-            step = L"initialize disk " + Num(disk) + (gpt ? L" as GPT" : L" as MBR");
+            cd.PartitionStyle = PARTITION_STYLE_GPT;
+            cd.Gpt.DiskId = g;
+            cd.Gpt.MaxPartitionCount = 128;
+            step = L"initialize disk " + Num(disk) + L" as GPT";
             if (!Ioctl(h.h, IOCTL_DISK_CREATE_DISK, &cd, sizeof(cd), nullptr, 0)) return GetLastError();
             Ioctl(h.h, IOCTL_DISK_UPDATE_PROPERTIES, nullptr, 0, nullptr, 0);
             step.clear();
             return 0;
+        }
+
+        DWORD HasMbrBootCode(int disk, bool& has)
+        {
+            has = false;
+            Handle h(OpenDevice(DiskPath(disk), GENERIC_READ));
+            if (!h.ok()) return GetLastError();
+            const DWORD size = 4096;                 // a whole sector also on 4K disks
+            BYTE* b = (BYTE*)VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            if (!b) return GetLastError();
+            DWORD n = 0;
+            DWORD e = ReadFile(h.h, b, size, &n, nullptr) && n >= 512 ? 0 : GetLastError();
+            if (e == 0) for (int i = 0; i < 440; i++) if (b[i]) { has = true; break; }
+            VirtualFree(b, 0, MEM_RELEASE);
+            return e;
         }
 
         // ---------- format (fmifs.dll, as format.com) ----------

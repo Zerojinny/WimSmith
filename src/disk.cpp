@@ -4,9 +4,10 @@
 //  create the partitions of a layout (Windows, Windows + data, data).
 //   - QueryDisks / QueryPartitions: the IOCTLs of storage.cpp (no
 //     administrator rights, no PowerShell).
-//   - Disk (helper, mode = disk, elevated): the disk is cleared and
-//     initialized by storage::ClearAndInitialize (as diskpart "clean" +
-//     "convert"), then the partitions are made with diskpart (the scripts
+//   - Disk (helper, mode = disk, elevated): the disk is cleared by
+//     storage::ClearAndInitialize (as diskpart "clean"; GPT: also
+//     initialized), then diskpart makes the partitions ("convert mbr"
+//     first on MBR: it writes the MBR boot code BIOS needs; the scripts
 //     of Microsoft's deployment documents). The new Windows (or data)
 //     partition gets a drive letter, reported as "LETTER <x>".
 // ============================================================
@@ -97,7 +98,7 @@ namespace dvt
         return FreeBytes(diskSize) - WindowsBytes(diskSize);
     }
 
-    // diskpart script; the disk is already empty and initialized as GPT / MBR.
+    // diskpart script; the disk is already empty (GPT: initialized, MBR: RAW).
     // The Windows partition (or the only data partition) gets the letter; a
     // data partition next to Windows gets the next free one.
     wstring DiskPlan::Script(int disk, wchar_t letter, long long diskSize) const
@@ -105,7 +106,11 @@ namespace dvt
         wstring s;
         auto line = [&s](const wstring& l) { s += l + L"\r\n"; };
         wstring let(1, letter);
+        // MBR: the disk was left RAW (cleared just before: rescan first);
+        // "convert mbr" initializes it and writes the MBR boot code BIOS needs
+        if (!Gpt) line(L"rescan");
         line(L"select disk " + Num(disk));
+        if (!Gpt) line(L"convert mbr");
         if (Windows)
         {
             if (Gpt)

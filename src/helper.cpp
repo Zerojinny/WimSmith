@@ -777,6 +777,30 @@ namespace dvt
         Status(L"bcdboot " + args);
         rc = RunTool(Combine(SystemDir(), L"bcdboot.exe"), args);
         if (rc != 0) Status(L"bcdboot ended with code " + Num(rc) + L".");
+        // BIOS runs the code in the first sector of the disk, which bcdboot does not
+        // write: a disk initialized without it (all zeros) does not start
+        if (rc == 0 && fw != L"UEFI" && !sys->Gpt())
+        {
+            bool has = false;
+            DWORD e = storage::HasMbrBootCode(disk, has);
+            if (e != 0) Status(L"The MBR of disk " + Num(disk) + L" was not read: " + ErrorMessage(e));
+            else if (!has)
+            {
+                wstring bootsect = Combine(SystemDir(), L"bootsect.exe");
+                if (FileExists(bootsect))
+                {
+                    Status(L"Disk " + Num(disk) + L" has no MBR boot code: bootsect /nt60 " + wstring(1, sysLetter) + L": /mbr");
+                    RunTool(bootsect, L"/nt60 " + wstring(1, sysLetter) + L": /mbr");
+                    storage::HasMbrBootCode(disk, has);
+                }
+                if (!has)
+                {
+                    Status(L"Disk " + Num(disk) + L" has no MBR boot code (its first sector is empty), so BIOS cannot start it."
+                        L" Initialize the disk again on the disk tab, or run \"bootsect /nt60 " + wstring(1, sysLetter) + L": /mbr\" (Windows PE / Windows setup media).");
+                    rc = ERROR_INVALID_DATA;
+                }
+            }
+        }
         return rc;
     }
 
