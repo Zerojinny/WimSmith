@@ -35,6 +35,9 @@ namespace dvt
         bool disksKnown = false, disksRead = false, disksLoading = false, loaded = false;
         wstring settingsSaved;
         int jobDisk = -1;
+        // the box after the system partition size: MSR on GPT, "create" (system reserved) on MBR
+        bool msrOn = true, reservedOn = true, boxGpt = true;
+        void SyncSysBox();
         DiskPlan jobPlan;
 
         void Layout(int w, int h);

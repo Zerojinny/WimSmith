@@ -20,6 +20,8 @@ touches:
 - The disk list never picks a disk on its own; the first entry is "(choose the disk to clear)". Unusable disks are listed with the reason instead of being hidden.
 - After a Windows layout, only the restore target is set (new letter, W: when free); the existing UpdateBoot / DefaultSysPart logic then picks UEFI + ESP on GPT and BIOS + the active system reserved partition on MBR.
 
+- MBR: the system reserved partition can be left out (2026-11-07, user request; box "Create" in the system partition row, setting disk.reserved, job key reserved, missing key = on). Then diskpart makes the Windows partition active, and the restore tab picks the target itself for BIOS boot files unless the disk has a separate small (<= 4096 MB) active partition; the helper makes the chosen partition active and the confirmation says so.
+
 ## Watch out
 - Windows formats FAT32 only up to 32 GB and MBR uses only 2 TiB: both are refused before the job starts.
 - The end-to-end run (elevated diskpart) was not tested in the session that added it; test on a VHD first.

@@ -34,6 +34,7 @@ namespace dvt
 
     // what the disk tab creates
     //   Windows only : [EFI (+ MSR) | system reserved] + Windows [+ recovery]
+    //                  (MBR without system reserved: Windows itself is active)
     //   Windows+data : the same, Windows gets WindowsPercent of the free space, data the rest
     //   data only    : one partition on the whole disk
     struct DiskPlan
@@ -44,13 +45,15 @@ namespace dvt
         static const long long WindowsMin = 1073741824LL;     // 1 GB
         static const long long DataMin = 16LL * 1048576;
 
-        bool Gpt = true, Windows = true, Data = false, Msr = true, Recovery = false;
+        bool Gpt = true, Windows = true, Data = false, Msr = true, Reserved = true, Recovery = false;
         int SysMb = 260, RecoveryMb = 1024, WindowsPercent = 50;
         wstring Label = L"Windows", DataFs = L"NTFS", DataLabel = L"Data";
 
         static int DefaultSysMb(bool gpt) { return gpt ? 260 : 500; }
         wstring Layout() const { return !Windows ? L"data" : Data ? L"windows_data" : L"windows"; }
         bool HasMsr() const { return Gpt && Windows && Msr; }
+        // the EFI partition (GPT) or the system reserved partition (MBR, can be left out)
+        bool HasSys() const { return Windows && (Gpt || Reserved); }
 
         static DiskPlan FromJob(const Job& job);
         wstring WindowsLabel() const;

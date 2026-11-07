@@ -47,6 +47,7 @@ namespace dvt
         p.Data = layout != L"windows";
         if (TryInt(job, L"sys_mb", n)) p.SysMb = n;
         p.Msr = !TryGet(job, L"msr", v) || v != L"0";
+        p.Reserved = !TryGet(job, L"reserved", v) || v != L"0";
         if (TryInt(job, L"recovery_mb", n)) { p.RecoveryMb = n; p.Recovery = n > 0; }
         if (TryInt(job, L"win_pct", n)) p.WindowsPercent = n;
         if (TryGet(job, L"label", v)) p.Label = v;
@@ -73,7 +74,7 @@ namespace dvt
         long long used = 2 * MiB;
         if (Windows)
         {
-            used += SysMb * MiB;
+            if (HasSys()) used += SysMb * MiB;
             if (HasMsr()) used += MsrMb * MiB;
             if (Recovery) used += RecoveryMb * MiB;
         }
@@ -113,7 +114,7 @@ namespace dvt
                 line(L"format quick fs=fat32 label=\"System\"");
                 if (HasMsr()) line(L"create partition msr size=" + Num(MsrMb));
             }
-            else
+            else if (Reserved)
             {
                 line(L"create partition primary size=" + Num(SysMb));
                 line(L"format quick fs=ntfs label=\"System Reserved\"");
@@ -127,6 +128,8 @@ namespace dvt
             }
             line(L"format quick fs=ntfs label=\"" + WindowsLabel() + L"\"");
             line(L"assign letter=" + let);
+            // MBR without system reserved: BIOS starts the Windows partition
+            if (!Gpt && !Reserved) line(L"active");
             if (Recovery)
             {
                 line(Data ? L"create partition primary size=" + Num(RecoveryMb) : wstring(L"create partition primary"));
@@ -251,7 +254,7 @@ namespace dvt
     wstring PlanProblem(const DiskPlan& p, long long diskSize)
     {
         if (!p.Gpt && diskSize > DiskPlan::MbrMax) return L"dk.err_mbr_2tb";
-        if (p.Windows && (p.SysMb < (p.Gpt ? 100 : 50) || p.SysMb > 4096)) return L"dk.err_sys_size";
+        if (p.HasSys() && (p.SysMb < (p.Gpt ? 100 : 50) || p.SysMb > 4096)) return L"dk.err_sys_size";
         if (p.Recovery && (p.RecoveryMb < 300 || p.RecoveryMb > 65536)) return L"dk.err_recovery_size";
         if (p.Data && p.Windows && (p.WindowsPercent < 5 || p.WindowsPercent > 95)) return L"dk.err_percent";
         if (p.Windows && p.WindowsBytes(diskSize) < DiskPlan::WindowsMin) return L"dk.err_too_small";
@@ -273,7 +276,7 @@ namespace dvt
 
     // ---------- helper: mode = disk ----------
     // disk, disk_size (the size the GUI saw: a different disk under the
-    // same number is refused), style, layout, sys_mb, msr, recovery_mb,
+    // same number is refused), style, layout, sys_mb, msr, reserved, recovery_mb,
     // win_pct, label, data_fs, data_label
 
     // diskpart /s; its output (OEM code page) goes to status.txt

@@ -77,7 +77,7 @@ namespace dvt
         LoadSettings();
         OnClick(btnDiskRefresh, [this] { LoadDisks(); });
         OnClick(btnGo, [this] { StartDisk(); });
-        OnChange(rbGpt, [this] { if (Checked(rbGpt) || Checked(rbMbr)) { SetNumber(numSys, DiskPlan::DefaultSysMb(Checked(rbGpt))); UpdateUi(); } });
+        OnChange(rbGpt, [this] { if (Checked(rbGpt) || Checked(rbMbr)) { SetNumber(numSys, DiskPlan::DefaultSysMb(Checked(rbGpt))); SyncSysBox(); UpdateUi(); } });
         for (HWND rb : { rbLayWin, rbLayWinData, rbLayData }) OnChange(rb, [this, rb] { if (Checked(rb)) UpdateUi(); });
         for (HWND h : { numSys, numRec, numWinPct, chkRec, chkMsr, cboDataFs, cboDisk, txtDiskLabel, txtDataLabel })
             OnChange(h, [this] { UpdateUi(); });
@@ -123,6 +123,7 @@ namespace dvt
             { L"disk.layout", p.Layout() },
             { L"disk.sys_mb", Num(p.SysMb) },
             { L"disk.msr", p.Msr ? L"1" : L"0" },
+            { L"disk.reserved", p.Reserved ? L"1" : L"0" },
             { L"disk.recovery", p.Recovery ? L"1" : L"0" },
             { L"disk.recovery_mb", Num(p.RecoveryMb) },
             { L"disk.win_pct", Num(p.WindowsPercent) },
@@ -154,7 +155,11 @@ namespace dvt
         wstring layout = GetSetting(L"disk.layout", L"windows");
         SetChecked(layout == L"data" ? rbLayData : layout == L"windows_data" ? rbLayWinData : rbLayWin, true);
         LoadNumber(numSys, L"disk.sys_mb");
-        SetChecked(chkMsr, GetSetting(L"disk.msr", L"1") != L"0");
+        msrOn = GetSetting(L"disk.msr", L"1") != L"0";
+        reservedOn = GetSetting(L"disk.reserved", L"1") != L"0";
+        boxGpt = !mbr;
+        SetText(chkMsr, boxGpt ? L::F(L"dk.msr_make", DiskPlan::MsrMb) : L::T(L"dk.reserved_make"));
+        SetChecked(chkMsr, boxGpt ? msrOn : reservedOn);
         SetChecked(chkRec, GetSetting(L"disk.recovery", L"0") == L"1");
         LoadNumber(numRec, L"disk.recovery_mb");
         LoadNumber(numWinPct, L"disk.win_pct");
@@ -265,7 +270,9 @@ namespace dvt
         p.Windows = !Checked(rbLayData);
         p.Data = !Checked(rbLayWin);
         p.SysMb = NumberValue(numSys);
-        p.Msr = Checked(chkMsr);
+        // the box shows the MSR on GPT, the system reserved partition on MBR
+        p.Msr = boxGpt ? Checked(chkMsr) : msrOn;
+        p.Reserved = boxGpt ? reservedOn : Checked(chkMsr);
         p.Recovery = Checked(chkRec);
         p.RecoveryMb = NumberValue(numRec);
         p.WindowsPercent = NumberValue(numWinPct);
@@ -287,6 +294,17 @@ namespace dvt
         return bytes >= 10LL * 1073741824 ? App::Gb(bytes) : App::Group(bytes / MiB) + L" MB";
     }
 
+    // GPT <-> MBR: the box keeps one choice per style (MSR / system reserved)
+    void DiskTab::SyncSysBox()
+    {
+        bool gpt = Checked(rbGpt);
+        if (gpt == boxGpt) return;
+        (boxGpt ? msrOn : reservedOn) = Checked(chkMsr);
+        boxGpt = gpt;
+        SetText(chkMsr, gpt ? L::F(L"dk.msr_make", DiskPlan::MsrMb) : L::T(L"dk.reserved_make"));
+        SetChecked(chkMsr, gpt ? msrOn : reservedOn);
+    }
+
     // enables the rows of the layout and shows the partitions that will be created
     void DiskTab::UpdateUi()
     {
@@ -294,8 +312,8 @@ namespace dvt
         DiskPlan p = CurrentPlan();
         bool gpt = p.Gpt, idle = !app.Busy();
         SetText(lblSysKind, L::T(gpt ? L"dk.sys_esp" : L"dk.sys_reserved"));
-        Enable(numSys, idle && p.Windows);
-        Enable(chkMsr, idle && p.Windows && gpt);
+        Enable(numSys, idle && p.HasSys());
+        Enable(chkMsr, idle && p.Windows);
         Enable(chkRec, idle && p.Windows);
         Enable(numRec, idle && p.Windows && Checked(chkRec));
         Enable(txtDiskLabel, idle && p.Windows);
@@ -316,8 +334,8 @@ namespace dvt
                 add(L::F(L"dk.plan_esp", p.SysMb));
                 if (p.HasMsr()) add(L::F(L"dk.plan_msr", DiskPlan::MsrMb));
             }
-            else add(L::F(L"dk.plan_reserved", p.SysMb));
-            add(L::F(L"dk.plan_windows", p.WindowsLabel(), winSize));
+            else if (p.Reserved) add(L::F(L"dk.plan_reserved", p.SysMb));
+            add(L::F(p.HasSys() ? L"dk.plan_windows" : L"dk.plan_windows_active", p.WindowsLabel(), winSize));
             if (p.Recovery) add(L::F(L"dk.plan_recovery", p.RecoveryMb));
         }
         if (p.Data) add(L::F(L"dk.plan_data", p.DataLabelClean(), dataSize, p.DataFs));
@@ -326,6 +344,7 @@ namespace dvt
         for (size_t i = 0; i < lines.size(); i++) text += (i ? L"\r\n" : L"") + lines[i];
         // GPT without MSR: allowed, but Windows Setup and some tools expect it
         if (p.Windows && gpt && !p.Msr && why.empty()) text += L"\r\n" + L::T(L"dk.no_msr_note");
+        if (p.Windows && !gpt && !p.Reserved && why.empty()) text += L"\r\n" + L::T(L"dk.no_reserved_note");
         if (!why.empty()) text += L"\r\n" + PlanText(why, *d, p);
         SetText(lblPlan, text);
         SetColor(lblPlan, why.empty() ? color::Text : color::Danger);
@@ -367,6 +386,7 @@ namespace dvt
         job[L"layout"] = p.Layout();
         job[L"sys_mb"] = Num(p.SysMb);
         job[L"msr"] = p.Msr ? L"1" : L"0";
+        job[L"reserved"] = p.Reserved ? L"1" : L"0";
         job[L"recovery_mb"] = p.Recovery ? Num(p.RecoveryMb) : L"0";
         job[L"win_pct"] = Num(p.WindowsPercent);
         job[L"label"] = p.Label;
@@ -396,7 +416,7 @@ namespace dvt
             Info(L::F(L"dk.done_data", jobDisk, style, letter) + L"\r\n\r\n" + elapsed);
             return wstring();
         }
-        Info(L::F(L"dk.done_windows", jobDisk, style, letter, L::T(jobPlan.Gpt ? L"dk.done_uefi" : L"dk.done_bios"))
+        Info(L::F(L"dk.done_windows", jobDisk, style, letter, L::T(jobPlan.Gpt ? L"dk.done_uefi" : jobPlan.Reserved ? L"dk.done_bios" : L"dk.done_bios_self"))
             + (jobPlan.Data ? L"\r\n\r\n" + L::F(L"dk.done_with_data", jobPlan.DataLabelClean(), jobPlan.DataFs) : wstring())
             + L"\r\n\r\n" + elapsed);
         // the restore tab: the new partition as target; FillTargets reads the

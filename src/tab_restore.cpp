@@ -351,7 +351,10 @@ namespace dvt
         Enable(cboBootLang, volume && !fw.empty());
     }
 
-    // UEFI: the EFI partition of the target disk; BIOS: its active partition, else the target
+    // UEFI: the EFI partition of the target disk; BIOS: its system reserved
+    // partition (a small active partition), else the target itself (the
+    // helper makes it active)
+    static const long long ReservedMax = 4096LL * 1048576;   // the largest system partition of the disk tab
     int RestoreTab::DefaultSysPart(const DiskPartition& tp, const wstring& fw) const
     {
         int esp = -1, active = -1, self = -1;
@@ -360,7 +363,7 @@ namespace dvt
             const DiskPartition& p = sysItems[n].part;
             if (!sysItems[n].has || p.Disk != tp.Disk) continue;
             if (p.IsEsp() && esp < 0) esp = (int)n;
-            if (p.Active && active < 0) active = (int)n;
+            if (p.Active && active < 0 && p.Offset != tp.Offset && p.Size <= ReservedMax) active = (int)n;
             if (p.Offset == tp.Offset) self = (int)n;
         }
         if (fw == L"BIOS") return active >= 0 ? active : self;
@@ -419,6 +422,9 @@ namespace dvt
 
         wstring windows = DirExists(letter + L":\\Windows") ? L"\r\n\r\n" + L::F(L"bk.confirm_apply_windows", tgt.Letter) : wstring();
         windows += L"\r\n\r\n" + (hasSys ? L::F(L"bk.confirm_boot", FirmwareText(fw) + L", " + bootLang, sysText) : L::T(L"bk.confirm_no_boot"));
+        // BIOS on MBR starts the active partition: the helper makes the system partition active
+        if (hasSys && fw != L"UEFI" && !sys.Gpt() && !sys.Active)
+            windows += L"\r\n" + L::F(L"bk.confirm_make_active", sys.Disk, sys.Number);
         if (!YesNo(L::F(L"bk.confirm_apply", tgt.Letter, tgt.Text, imgText, wim, windows), MB_ICONWARNING)) return;
         if (!app.ConfirmTyped(L::F(L"bk.confirm_type", tgt.Letter), letter)) return;
 
