@@ -1,81 +1,62 @@
 # 7z_wimlib
 
-[wimlib](https://wimlib.net)으로 볼륨이나 폴더를 WIM 이미지로 백업하고 복구하는 작은 Windows 도구입니다. DVT GUI의 "백업 / 복구" 페이지를 떼어 내 만들었습니다.
+볼륨이나 폴더를 WIM 이미지로 백업하고, WIM 이미지를 볼륨이나 폴더에 복구하는 Windows 도구입니다. 설치 없이 exe 하나로 실행되며, Windows PE에서도 쓸 수 있습니다.
 
-[English](README.md) · 사용 방법: [MANUAL.ko.md](MANUAL.ko.md)
+[English](README.md) · 사용 설명서: [MANUAL.ko.md](MANUAL.ko.md)
 
-## 기능
+## 할 수 있는 일
 
-- **백업**: 볼륨이나 폴더를 새 WIM 파일로, 또는 기존 WIM 파일의 새 이미지로 저장합니다(LZX / XPRESS / LZMS, 스레드 수 지정). **VSS 스냅샷**을 켜면 볼륨 섀도 복사본(wimlib의 snapshot 옵션)에서 읽어, 사용 중인 파일도 그 시점 그대로 저장하고 실행 중인 Windows 드라이브도 저장할 수 있습니다(이때 WIM 파일은 다른 드라이브에 두어야 합니다). 스냅샷 없이는 실행 중인 Windows 드라이브를 저장할 수 없습니다.
-- **볼륨에 복구**: 볼륨을 포맷(NTFS)한 뒤 이미지 하나를 볼륨 루트에 적용합니다. 두 번 확인합니다. Windows 드라이브, 7z_wimlib이 있는 드라이브, WIM 파일이 있는 드라이브는 목록에 없습니다.
-- **폴더에 복구**: 포맷하지 않고 비어 있는 폴더 안에 이미지를 풉니다.
-- **디스크 (파티션)**: 디스크 전체를 지우고 GPT 또는 MBR로 초기화한 뒤 파티션을 만듭니다. 두 번 확인하며, 두 번째에는 디스크 번호를 직접 입력해야 합니다. *Windows 설치용*: GPT는 EFI 시스템(FAT32, 260 MB) + MSR(16 MB, 빼도 됨) + Windows(NTFS), MBR은 시스템 예약(NTFS, 500 MB, 활성) + Windows이고, Windows 뒤에 복구 파티션을 더할 수 있습니다. *Windows + 데이터*: 같은 구성 맨 끝에 데이터 파티션(NTFS / exFAT / FAT32)을 더합니다. 남는 공간 중 Windows가 정한 % 비율만큼, 데이터 파티션이 나머지를 가집니다. *데이터 파티션 1개*: 디스크 전체를 NTFS / exFAT / FAT32 파티션 하나로 만듭니다. 실행 중인 Windows의 디스크와 7z_wimlib가 있는 디스크는 고를 수 없습니다. Windows가 들어가는 구성으로 만들면 복구 탭이 새 파티션을 대상으로, 새 시스템 파티션에 UEFI(GPT) 또는 BIOS(MBR) 부트 파일을 쓰도록 설정됩니다.
-- 복구와 내보내기에는 나눈 WIM(`.swm`)도 쓸 수 있습니다. 아무 조각이나 고르면 같은 폴더에서 나머지 조각을 찾습니다(이름을 바꾸지 않은 모든 조각이 있어야 합니다).
-- **내보내기**: WIM / ESD 파일의 이미지 하나 또는 전체를 새 WIM 파일이나 기존 WIM 파일로 복사합니다(압축 방식 바꾸기, ESD -> WIM, 여러 파일을 하나로 모으기, 이름·설명 바꾸기). 부팅 이미지 표시는 유지합니다. 관리자 권한이 필요 없습니다.
-- **나누기 / 합치기**: WIM 파일을 정한 크기의 `.swm` 조각으로 나누고(예: FAT32 USB용 4000 MB), 조각들을 다시 하나의 WIM 파일로 합칩니다(아무 조각이나 고르면 나머지를 찾습니다). solid 리소스가 있는 WIM(ESD / LZMS solid)은 나눌 수 없으니 먼저 LZX로 내보내세요. 관리자 권한이 필요 없습니다.
-- **정보**: WIM 파일 정보(이미지 수, 압축, 크기, 부팅 이미지, GUID, 플래그)와 이미지별 정보(에디션, 아키텍처, 버전, 언어, 크기, 파일 수, 날짜)를 보여 줍니다. 클립보드로 복사하거나 고른 이미지를 복구 / 내보내기 탭으로 넘길 수 있습니다.
-- **검증**: 정보 탭의 [검증]은 WIM / ESD / SWM 파일의 모든 데이터를 읽어 SHA-1 해시와 이미지 메타데이터를 확인하고, 무결성 테이블이 있으면 그것도 확인합니다(`wimlib_verify_wim`). 백업 탭에서 "백업이 끝나면 WIM 파일을 검증"을 켜면 백업 직후 같은 검사를 합니다. 파일은 바꾸지 않습니다.
-- **탐색**: 7-Zip으로 이미지 안의 파일을 봅니다. 폴더 트리와 파일 목록, 선택한 파일 / 폴더를 폴더에 풀기, 파일 열기, 7-Zip 파일 관리자에서 열기. WIM 파일은 바꾸지 않습니다.
-- **부트 파일**: 볼륨에 복구한 뒤 `bcdboot`로 고른 시스템 파티션에 UEFI / BIOS 부트 파일을 씁니다(부트 관리자 언어 지정, 기본 `ko-kr`). 문자가 없는 파티션은 잠시 문자를 할당합니다.
-- **완료 후**: 아무것도 안 함 / 시스템 종료 / 다시 시작. 60초 카운트다운 중에 취소할 수 있습니다.
-- 한국어 / 영어 화면. 다크 / 라이트 테마(하단 바에서 고르며 `7z_wimlib.ini`에 `theme = dark | light`로 저장)이며, 백업 탭 오른쪽에 작업 미리보기가 있습니다. 예전 밝은 화면은 `backup\ui-classic\`에 보관되어 있습니다(그 폴더의 `build_gui.bat`으로 빌드).
+- **백업**: 볼륨이나 폴더를 WIM 파일로 저장합니다. VSS 스냅샷으로 실행 중인 Windows도 백업할 수 있습니다. 백업 뒤 검증과 무결성 테이블(`--check`)을 고를 수 있습니다.
+- **복구**: WIM / ESD / SWM 이미지를 볼륨(포맷 후)이나 빈 폴더에 풀고, UEFI / BIOS 부트 파일을 씁니다.
+- **디스크**: 디스크를 GPT 또는 MBR로 초기화하고 Windows 설치용 파티션을 만듭니다.
+- **내보내기**: 압축 방식 바꾸기, ESD → WIM 변환, 여러 WIM을 하나로 모으기.
+- **나누기 / 합치기**: FAT32 USB에 담을 수 있게 `.swm` 조각으로 나누고 다시 합칩니다.
+- **정보 / 검증**: WIM 파일과 이미지 정보를 보고, 파일이 손상되지 않았는지 확인합니다.
+- **탐색**: 이미지 안의 파일을 보고 필요한 파일만 꺼냅니다.
+
+한국어 / 영어 화면, 다크 / 라이트 테마를 지원합니다.
 
 ## 필요한 것
 
-- Windows 8.1 / 10 / 11 x64. `7z_wimlib.exe`는 exe 하나로 된 네이티브 프로그램(C++, 정적 C 런타임)이라 .NET Framework 같은 런타임이 필요 없습니다. x64 WinPE에서도 실행되도록 만들었습니다(WinPE에서는 아직 시험하지 않음).
-- `7z_wimlib.exe` 옆의 `lib\` 폴더에 외부 프로그램을 둡니다: `libwim-15.dll`([wimlib](https://wimlib.net), x64)과 `7z.exe`, `7z.dll`, `7zFM.exe`([7-Zip](https://www.7-zip.org), x64). 없는 파일은 처음 필요할 때 **최신 버전을 자동으로 받습니다**(wimlib은 wimlib.net, 7-Zip은 7-zip.org / GitHub 릴리스에서 받아 `7zr.exe`로 풀며, 설치하지 않습니다). 버전은 `lib\versions.ini`에 기록하고, 예전 `pe_tools\` 폴더의 `libwim-15.dll`은 시작할 때 `lib\`로 옮깁니다. 인터넷에 연결되어 있지 않으면 이 파일들을 직접 넣으세요. 이 저장소에는 들어 있지 않으며, 각 프로그램의 라이선스 문서를 `lib\`에 함께 둡니다([외부 프로그램](#외부-프로그램) 참고).
-- 백업, 복구, 디스크 탭에는 관리자 권한이 필요합니다(매번 Windows가 묻습니다). 내보내기, 나누기 / 합치기, 정보, 검증, 탐색은 필요 없습니다.
+- Windows 8.1 / 10 / 11 x64 또는 x64 Windows PE
+- 백업, 복구, 디스크 작업에는 관리자 권한 (실행할 때마다 Windows가 묻습니다)
 
-## 빌드
+.NET 같은 런타임은 필요 없습니다.
 
-```
-build.bat
-```
+## 배포 파일
 
-Visual Studio 2017 이상의 Visual C++(Community 또는 Build Tools, "C++를 사용한 데스크톱 개발" 워크로드, vswhere로 찾음)로 `src\*.cpp`를 이 폴더의 `7z_wimlib.exe`(x64)로 빌드합니다. 오브젝트 파일은 `obj\`에 생깁니다. 언어 파일 `lang\*.ini`는 exe에 들어가며, exe 옆에 `lang\` 폴더가 있으면 그쪽을 먼저 읽습니다.
-
-wimlib은 실행할 때 불러오는 별도 DLL(`lib\libwim-15.dll`)로 둡니다.
-
-C++로 옮기기 전의 C# / .NET Framework 버전은 그것을 빌드하는 `build_gui.bat`과 함께 `backup\cs-winforms\`에 보관합니다.
-
-## 파일
-
-| 경로 | 내용 |
+| 파일 | 설명 |
 |---|---|
-| `src\main.cpp` | 시작점: 창, 또는 `--wim-helper` |
-| `src\app.*`, `src\mainwin.*` | 탭들이 함께 쓰는 것(볼륨, 확인 창, 작업 실행), 주 창, 하단 상태 줄, 로그 창 |
-| `src\tab_*.*` | 탭: 복구, 디스크, 백업, 내보내기, 나누기 / 합치기, 정보, 탐색 |
-| `src\helper.*` | 관리자 권한 도우미(job.ini -> status.txt): 백업, 복구, 내보내기, 나누기 / 합치기, 검증, bcdboot |
-| `src\disk.*`, `src\storage.*` | 디스크 탭: 디스크·파티션·볼륨 읽기(Windows IOCTL, PowerShell 없음), 디스크 지우기·초기화, 포맷(FormatEx), 드라이브 문자, diskpart 스크립트, 디스크 작업 |
-| `src\wim.*`, `src\wimread.cpp` | wimlib(`lib\libwim-15.dll`, 실행할 때 불러옴), WIM 파일·이미지 정보 |
-| `src\libs.*` | `lib\` 폴더: wimlib, 7-Zip 옮기기와 내려받기(WinHTTP), 라이선스 문서 |
-| `src\ui.*` | Win32 위의 화면 도구: 어두운 컨트롤, 탭, 목록, 대화 상자, 줄 배치 |
-| `src\lang.*`, `src\settings.*`, `src\util.cpp`, `src\common.h` | 언어 파일, `7z_wimlib.ini`, 문자열 / 파일 / 프로세스 도우미 |
-| `app.rc`, `app.manifest` | 아이콘과 exe에 넣는 언어 파일, 매니페스트(DPI, 공용 컨트롤 6, Windows 버전) |
-| `lang\en.ini`, `lang\ko.ini` | 문구(en.ini가 기준) |
+| `7z_wimlib.exe` | 프로그램 |
+| `lib\` | wimlib(`libwim-15.dll`), 7-Zip(`7z.exe`, `7z.dll`, `7zFM.exe`)과 각 라이선스 문서 |
+| `MANUAL.ko.md`, `MANUAL.md` | 사용 설명서 (한국어, 영어) |
+| `README.ko.md`, `README.md` | 이 문서 |
+| `LICENSE` | 7z_wimlib의 라이선스 |
 
-관리자 권한 도우미는 `%TEMP%\7z_wimlib_job\<시각>`(job.ini, status.txt, wimlib_errors.txt)에서 작업합니다. 성공하면 이 폴더를 지우고, 실패하면 남깁니다.
+## 시작하기
+
+1. 압축을 원하는 폴더(USB 가능)에 풉니다. `7z_wimlib.exe`와 `lib\` 폴더는 같은 폴더에 있어야 합니다.
+2. `7z_wimlib.exe`를 실행합니다.
+3. 설정은 같은 폴더의 `7z_wimlib.ini`에 저장됩니다.
+
+`lib\` 폴더의 파일이 없으면 처음 필요할 때 인터넷에서 최신 버전을 자동으로 받습니다. 인터넷이 없는 곳에서 쓰려면 `lib\` 폴더를 지우지 말고 함께 복사하세요.
+
+자세한 사용 방법은 [사용 설명서](MANUAL.ko.md)를 보세요.
+
+## 주의
+
+- **복구**는 대상 볼륨을 포맷하고, **디스크** 작업은 디스크 전체를 지웁니다. 실행 전에 대상을 꼭 확인하세요. 두 작업 모두 두 번 확인하며, 마지막에는 드라이브 문자나 디스크 번호를 직접 입력해야 합니다.
+- 실행 중인 Windows의 드라이브와 디스크, 7z_wimlib이 있는 드라이브는 복구나 초기화 대상으로 고를 수 없습니다.
 
 ## 라이선스
 
-BSD 3-Clause, [LICENSE](LICENSE) 참고. 이 저장소의 코드에만 적용됩니다.
+7z_wimlib의 코드는 BSD 3-Clause 라이선스입니다([LICENSE](LICENSE)).
 
-### 외부 프로그램
+`lib\` 폴더의 프로그램은 7z_wimlib의 일부가 아니며 각자의 라이선스를 따릅니다. 7z_wimlib은 이 프로그램들을 고치지 않고 별도 DLL / 프로그램으로 불러 씁니다. 파일을 바꾸면 다른 버전으로 교체할 수 있습니다.
 
-7z_wimlib는 별도의 프로그램 두 개를 사용합니다. 그 코드는 이 저장소에 들어 있지 않으며, 각자의 라이선스를 따릅니다.
-
-| 프로그램 | `lib\`의 파일 | 라이선스 | `lib\`의 라이선스 문서 | 소스 |
+| 프로그램 | 파일 | 라이선스 | 라이선스 문서 | 소스 |
 |---|---|---|---|---|
-| [wimlib](https://wimlib.net) | `libwim-15.dll` | Windows용 라이브러리는 LGPL v2.1 이상(또는 GPL v3 이상), libdivsufsort-lite(MIT) 포함 | `wimlib_COPYING.txt`, `wimlib_COPYING.LGPL.txt`, `wimlib_COPYING.GPLv3.txt`, `wimlib_COPYING.libdivsufsort-lite.txt` | https://wimlib.net/ |
+| [wimlib](https://wimlib.net) | `libwim-15.dll` | LGPL v2.1 이상(또는 GPL v3 이상), libdivsufsort-lite(MIT) 포함 | `wimlib_COPYING*.txt` | https://wimlib.net/ |
 | [7-Zip](https://www.7-zip.org) | `7z.exe`, `7z.dll`, `7zFM.exe` | GNU LGPL, 일부 BSD 3-Clause, unRAR 제한 | `7-Zip_License.txt` | https://www.7-zip.org/ |
 
-7z_wimlib가 이 프로그램들을 쓰는 방식:
-
-- wimlib은 별도 DLL(`libwim-15.dll`)로 불러 공개 API를 호출하고, 7-Zip은 별도 프로그램(`7z.exe`)으로 실행합니다. 어느 쪽도 수정하지 않았고, `lib\`의 파일을 바꾸면 다른 버전으로 교체할 수 있습니다.
-- 이 저장소에는 들어 있지 않습니다. 7z_wimlib가 사용자의 PC에서 공식 사이트로부터 라이선스 문서와 함께 받습니다. 프로그램은 있는데 라이선스 문서가 없으면(예: `pe_tools\`에서 옮겨 온 `libwim-15.dll`) 시작할 때 문서만 백그라운드로 받습니다.
-
-7z_wimlib를 `lib\`와 **함께** 전달할 때(예: zip 파일):
-
-- 위 표의 라이선스 문서를 `lib\`에 그대로 두세요.
-- 이 파일들이 각자의 라이선스를 따르는 wimlib / 7-Zip이라는 점과 위의 소스 링크를 밝히세요(7z_wimlib가 받은 경우 wimlib 버전은 `lib\versions.ini`에 있습니다).
-- 프로그램을 수정하지 마세요. 수정했다면 수정한 소스를 같은 라이선스로 공개해야 합니다.
+다시 배포할 때는 `lib\`의 라이선스 문서를 그대로 두세요. wimlib 버전은 `lib\versions.ini`에 적혀 있습니다.
