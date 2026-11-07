@@ -162,6 +162,10 @@ namespace sevenwim
                 // integrity: total_bytes (0), completed_bytes (8)
                 Bytes(L"integrity", At<int64_t>(info, 8), At<int64_t>(info, 0));
                 break;
+            case MsgCalcIntegrity:
+                // the integrity table of --check, while writing (same structure)
+                Bytes(L"calcintegrity", At<int64_t>(info, 8), At<int64_t>(info, 0));
+                break;
             case MsgBeginVerifyImage:
                 // verify_image: total_images (8), current_image (12)
                 Progress(-1, L"vimage " + Num(At<int32_t>(info, 12)) + L" " + Num(At<int32_t>(info, 8)), true);
@@ -483,6 +487,9 @@ namespace sevenwim
             else Progress(-1, L"scan 0 0 0", true);
             Status(L"Scanning " + source + L" (Windows capture configuration)");
             rc = wimlib_add_image(wim.p, source.c_str(), name.empty() ? nullptr : name.c_str(), nullptr, addFlags);
+            // check = 1: the WIM file gets an integrity table (wimlib --check)
+            int writeFlags = Get(job, L"check") == L"1" ? WriteCheckIntegrity : 0;
+            if (writeFlags) Status(L"With an integrity table (--check)");
             if (rc == 0)
             {
                 image = ImageCount(wim.p);
@@ -491,14 +498,14 @@ namespace sevenwim
                 {
                     step = L"Write image " + Num(image) + L" to " + wimFile;
                     Status(L"Adding image " + Num(image) + L" to " + wimFile);
-                    rc = wimlib_overwrite(wim.p, 0, threads);
+                    rc = wimlib_overwrite(wim.p, writeFlags, threads);
                 }
                 else
                 {
                     step = L"Write " + tmp;
                     DeleteFileOrThrow(tmp);
                     Status(L"Writing " + tmp);
-                    rc = wimlib_write(wim.p, tmp.c_str(), AllImages, ctype == CompressionLzms ? WriteSolid : 0, threads);
+                    rc = wimlib_write(wim.p, tmp.c_str(), AllImages, (ctype == CompressionLzms ? WriteSolid : 0) | writeFlags, threads);
                 }
             }
         }

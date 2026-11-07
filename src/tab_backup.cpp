@@ -56,6 +56,9 @@ namespace sevenwim
         grid.Add(L::T(L"bk.row_snapshot"), { Box(chkSnapshot) });
         chkVerify = Check(page, L::T(L"vf.after_backup"));
         grid.Add(L::T(L"vf.row"), { Box(chkVerify) });
+        // wimlib --check: an integrity table in the WIM file (off by default)
+        chkCheck = Check(page, L::T(L"bk.check"));
+        grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
 
         // right: what the backup will do, the hint and [Start backup]
         box = Panel(page, color::Panel);
@@ -78,7 +81,7 @@ namespace sevenwim
         OnClick(btnSrcRefresh, [this] { FillSources(); });
         OnClick(btnWim, [this] { ChooseWim(); });
         OnClick(btnCapture, [this] { StartCapture(); });
-        for (HWND h : { cboSource, cboComp, txtWim, numThreads, rbAppend, chkVerify }) OnChange(h, [this] { UpdatePreview(); });
+        for (HWND h : { cboSource, cboComp, txtWim, numThreads, rbAppend, chkVerify, chkCheck }) OnChange(h, [this] { UpdatePreview(); });
         // the running Windows drive is a source only with a snapshot
         OnChange(chkSnapshot, [this]
         {
@@ -204,7 +207,8 @@ namespace sevenwim
         int ci = std::max(0, std::min(2, ComboIndex(cboComp)));
         wstring comp = append ? L::T(L"bk.comp_existing") : wstring(CompNames[ci]);
         SetText(vals[2], how + L" · " + comp + L" · " + ThreadText(NumberValue(numThreads))
-            + (Checked(chkSnapshot) ? L" · " + L::T(L"pv.snapshot") : wstring()));
+            + (Checked(chkSnapshot) ? L" · " + L::T(L"pv.snapshot") : wstring())
+            + (Checked(chkCheck) ? L" · " + L::T(L"pv.check") : wstring()));
         SetText(vals[3], L::T(L"pv.admin"));
         SetText(vals[4], L::T(Checked(chkVerify) ? L"pv.on" : L"pv.off"));
         SetColor(vals[4], Checked(chkVerify) ? color::AccentSoft : color::Dim);
@@ -213,7 +217,7 @@ namespace sevenwim
 
     void BackupTab::SetBusy(bool busy)
     {
-        for (HWND c : { btnCapture, cboSource, txtWim, chkVerify, chkSnapshot }) Enable(c, !busy);
+        for (HWND c : { btnCapture, cboSource, txtWim, chkVerify, chkCheck, chkSnapshot }) Enable(c, !busy);
     }
 
     void BackupTab::StartCapture()
@@ -242,6 +246,7 @@ namespace sevenwim
         }
         else if (exists) what = L::T(L"bk.confirm_replace");
         if (snapshot) what += L"\r\n" + L::T(L"bk.confirm_snapshot");
+        if (Checked(chkCheck)) what += L"\r\n" + L::T(L"bk.confirm_check");
         int threads = NumberValue(numThreads);
         wstring threadText = ThreadText(threads);
         int ci = std::max(0, ComboIndex(cboComp));
@@ -260,6 +265,7 @@ namespace sevenwim
         job[L"threads"] = Num(threads);
         job[L"append"] = append ? L"1" : L"0";
         job[L"verify"] = Checked(chkVerify) ? L"1" : L"0";
+        job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
         job[L"snapshot"] = snapshot ? L"1" : L"0";
         app.job = App::JobInfo();
         app.job.verify = Checked(chkVerify);

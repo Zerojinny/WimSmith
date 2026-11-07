@@ -303,6 +303,7 @@ namespace sevenwim
         else if (ph == L"join") phaseText = L::T(L"sj.phase_join");
         else if (ph == L"vopen") phaseText = L::T(L"vf.phase_open");
         else if (ph == L"integrity") phaseText = L::F(L"vf.phase_integrity", shown, Gb(a), Gb(b));
+        else if (ph == L"calcintegrity") phaseText = L::F(L"bk.phase_integrity", shown, Gb(a), Gb(b));
         else if (ph == L"vimage") phaseText = L::F(L"vf.phase_image", a, b);
         else if (ph == L"verify") phaseText = b > 0 ? L::F(L"vf.phase_verify", shown, Gb(a), Gb(b)) : L::T(L"vf.phase_open");
         if (pct >= 0)

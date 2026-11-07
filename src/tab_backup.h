@@ -21,7 +21,7 @@ namespace sevenwim
 
     private:
         HWND cboSource, btnFolder, btnSrcRefresh, txtWim, btnWim, txtName, lblDesc, txtDesc;
-        HWND cboComp, lblThreads, numThreads, rbReplace, rbAppend, chkSnapshot, chkVerify;
+        HWND cboComp, lblThreads, numThreads, rbReplace, rbAppend, chkSnapshot, chkVerify, chkCheck;
         HWND box, title, keys[5], vals[5], hint, btnCapture;
         ui::Grid grid;
         std::vector<Volume> sources;          // the items of cboSource

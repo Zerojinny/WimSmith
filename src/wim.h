@@ -49,12 +49,13 @@ namespace sevenwim
         const int OpenCheckIntegrity = 0x00000001, OpenWriteAccess = 0x00000004;
         const int AddVerbose = 0x00000004, AddWinConfig = 0x00000800;
         const int AddSnapshot = 0x00008000;   // VSS snapshot (wimlib 1.9+; administrator, 64-bit)
+        const int WriteCheckIntegrity = 0x00000001;   // --check: an integrity table (SHA-1 of every 10 MB)
         const int WriteSolid = 0x00001000;
         const int ExportBoot = 0x00000001;
         const int AllImages = -1;
         const int MsgExtractFileStructure = 3, MsgExtractStreams = 4, MsgExtractMetadata = 6;
         const int MsgScanDentry = 10, MsgWriteStreams = 12, MsgWriteMetadataBegin = 13;
-        const int MsgVerifyIntegrity = 16, MsgSplitBeginPart = 19, MsgSplitEndPart = 20;
+        const int MsgVerifyIntegrity = 16, MsgCalcIntegrity = 17, MsgSplitBeginPart = 19, MsgSplitEndPart = 20;
         const int MsgBeginVerifyImage = 27, MsgVerifyStreams = 29;
         const int StatusContinue = 0, StatusAbort = 1;
         const int ErrAborted = 76;
