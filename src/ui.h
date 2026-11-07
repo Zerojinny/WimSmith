@@ -1,7 +1,8 @@
 // ============================================================
 //  7z_wimlib - ui.h
 //  The window toolkit on plain Win32 (ui.cpp): the dark look of the C#
-//  version ("Dark Console"), DPI scaling, fonts, controls, callbacks
+//  version ("Dark Console") or a light one (SetTheme, setting "theme"),
+//  DPI scaling, fonts, controls, callbacks
 //  and the row layout of the tabs (Grid = the C# Grid / AddRow).
 //    - containers (Panel): child windows with a background color; they
 //      route the notifications of their controls to the callbacks
@@ -9,7 +10,7 @@
 //    - buttons are owner drawn, check boxes / radio buttons, the tab
 //      strip and the progress line are classes of their own;
 //    - edits, combo boxes and number fields are the Windows controls
-//      with dark colors (WM_CTLCOLOR*, SetWindowTheme).
+//      with the theme's colors (WM_CTLCOLOR*, SetWindowTheme).
 //  Sizes are given in pixels at 96 DPI and scaled with S().
 // ============================================================
 #pragma once
@@ -29,25 +30,31 @@ namespace ui
     extern HFONT FontUI, FontBold, FontMono;
     inline int S(int px) { return (int)(px * Scale + (px >= 0 ? 0.5f : -0.5f)); }
 
+    // the colors of the theme: dark by default; SetTheme(false) gives the
+    // light set (before the windows are made: they keep the colors they got)
     namespace color
     {
-        const COLORREF Back = RGB(0x17, 0x19, 0x1C);       // window
-        const COLORREF Panel = RGB(0x20, 0x23, 0x28);      // fields, boxes
-        const COLORREF Button = RGB(0x2A, 0x2E, 0x34);
-        const COLORREF ButtonHover = RGB(0x34, 0x39, 0x40);
-        const COLORREF Border = RGB(0x35, 0x3A, 0x40);
-        const COLORREF Line = RGB(0x2C, 0x30, 0x35);
-        const COLORREF Footer = RGB(0x11, 0x13, 0x16);
-        const COLORREF Text = RGB(0xE6, 0xE8, 0xEB);
-        const COLORREF Dim = RGB(0xA0, 0xA6, 0xAE);
-        const COLORREF Accent = RGB(0x3D, 0xD6, 0xC6);
-        const COLORREF AccentText = RGB(0x08, 0x20, 0x1E);
-        const COLORREF AccentSoft = RGB(0x7F, 0xE3, 0xD8);
-        const COLORREF Danger = RGB(0xF4, 0x70, 0x67);
-        const COLORREF DangerText = RGB(0x1A, 0x08, 0x07);
-        const COLORREF Selected = RGB(0x1D, 0x3B, 0x39);
-        const COLORREF White = RGB(0xFF, 0xFF, 0xFF);
+        inline COLORREF Back = RGB(0x17, 0x19, 0x1C);       // window
+        inline COLORREF Panel = RGB(0x20, 0x23, 0x28);      // fields, boxes
+        inline COLORREF Button = RGB(0x2A, 0x2E, 0x34);
+        inline COLORREF ButtonHover = RGB(0x34, 0x39, 0x40);
+        inline COLORREF Border = RGB(0x35, 0x3A, 0x40);
+        inline COLORREF Line = RGB(0x2C, 0x30, 0x35);
+        inline COLORREF Footer = RGB(0x11, 0x13, 0x16);
+        inline COLORREF Text = RGB(0xE6, 0xE8, 0xEB);
+        inline COLORREF Dim = RGB(0xA0, 0xA6, 0xAE);
+        inline COLORREF Accent = RGB(0x3D, 0xD6, 0xC6);
+        inline COLORREF AccentText = RGB(0x08, 0x20, 0x1E);
+        inline COLORREF AccentSoft = RGB(0x7F, 0xE3, 0xD8);
+        inline COLORREF Danger = RGB(0xF4, 0x70, 0x67);
+        inline COLORREF DangerText = RGB(0x1A, 0x08, 0x07);
+        inline COLORREF Selected = RGB(0x1D, 0x3B, 0x39);
+        inline COLORREF Strong = RGB(0xFF, 0xFF, 0xFF);     // the selected tab, the selected row
     }
+    extern bool DarkMode;
+    void SetTheme(bool dark);
+    // the visual style of a control: "DarkMode_X" in the dark theme, "X" in the light one
+    const wchar_t* ThemeApp(const wchar_t* darkName);
     HBRUSH Brush(COLORREF c);
     COLORREF Lighter(COLORREF c, float amount);
 
@@ -56,7 +63,7 @@ namespace ui
     void InitFonts(const wstring& family);
     void Reset();                         // forgets every callback (the windows are gone)
     int MessageLoop();                    // until WM_QUIT; Tab / Enter between controls
-    void DarkTitle(HWND top);
+    void DarkTitle(HWND top);             // the title bar in the theme (dark or not)
 
     // ---- callbacks ----
     void OnClick(HWND h, Fn f);           // buttons, check boxes, radio buttons, links

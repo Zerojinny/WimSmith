@@ -18,7 +18,7 @@ A small Windows tool to back up a volume or folder to a WIM image and restore it
 - **Browse**: the files of an image, read with 7-Zip: folder tree and file list, extract the selected files / folders into a folder, open a file, or open the WIM in 7-Zip's file manager. Nothing is written to the WIM file.
 - **Boot files**: after a volume restore, `bcdboot` can write UEFI and/or BIOS boot files to a chosen system partition (with a boot manager language, default `ko-kr`). A partition without a drive letter gets one for that time.
 - **When done**: nothing / shut down / restart, after a 60-second countdown that can be cancelled.
-- Korean and English UI, dark theme; the backup tab shows a preview of the job on the right. The old light UI is kept in `backup\ui-classic\` (build it with the `build_gui.bat` there).
+- Korean and English UI, dark or light theme (chosen in the footer, saved as `theme = dark | light` in `7z_wimlib.ini`); the backup tab shows a preview of the job on the right. The old light UI is kept in `backup\ui-classic\` (build it with the `build_gui.bat` there).
 
 ## Requirements
 

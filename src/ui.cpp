@@ -58,6 +58,40 @@ namespace ui
         return b;
     }
 
+    bool DarkMode = true;
+
+    void SetTheme(bool dark)
+    {
+        DarkMode = dark;
+        using namespace color;
+        if (dark)
+        {
+            Back = RGB(0x17, 0x19, 0x1C); color::Panel = RGB(0x20, 0x23, 0x28);
+            color::Button = RGB(0x2A, 0x2E, 0x34); ButtonHover = RGB(0x34, 0x39, 0x40);
+            Border = RGB(0x35, 0x3A, 0x40); Line = RGB(0x2C, 0x30, 0x35); Footer = RGB(0x11, 0x13, 0x16);
+            Text = RGB(0xE6, 0xE8, 0xEB); Dim = RGB(0xA0, 0xA6, 0xAE);
+            Accent = RGB(0x3D, 0xD6, 0xC6); AccentText = RGB(0x08, 0x20, 0x1E); AccentSoft = RGB(0x7F, 0xE3, 0xD8);
+            Danger = RGB(0xF4, 0x70, 0x67); DangerText = RGB(0x1A, 0x08, 0x07);
+            Selected = RGB(0x1D, 0x3B, 0x39); Strong = RGB(0xFF, 0xFF, 0xFF);
+        }
+        else
+        {
+            Back = RGB(0xF3, 0xF4, 0xF6); color::Panel = RGB(0xFF, 0xFF, 0xFF);
+            color::Button = RGB(0xE4, 0xE7, 0xEB); ButtonHover = RGB(0xD8, 0xDC, 0xE1);
+            Border = RGB(0xB8, 0xBE, 0xC6); Line = RGB(0xD3, 0xD7, 0xDC); Footer = RGB(0xE6, 0xE8, 0xEB);
+            Text = RGB(0x1E, 0x22, 0x27); Dim = RGB(0x5C, 0x63, 0x6C);
+            Accent = RGB(0x0E, 0x8A, 0x7F); AccentText = RGB(0xFF, 0xFF, 0xFF); AccentSoft = RGB(0x0A, 0x6E, 0x65);
+            Danger = RGB(0xC6, 0x35, 0x2B); DangerText = RGB(0xFF, 0xFF, 0xFF);
+            Selected = RGB(0xC8, 0xEC, 0xE7); Strong = RGB(0x00, 0x00, 0x00);
+        }
+    }
+
+    const wchar_t* ThemeApp(const wchar_t* darkName)
+    {
+        if (DarkMode || wcsncmp(darkName, L"DarkMode_", 9) != 0) return darkName;
+        return darkName + 9;
+    }
+
     COLORREF Lighter(COLORREF c, float a)
     {
         auto up = [a](int v) { return (int)(v + (255 - v) * a); };
@@ -684,7 +718,7 @@ namespace ui
             for (size_t i = 0; i < r.size(); i++)
             {
                 bool sel = (int)i == s->sel;
-                SetTextColor(dc, sel ? color::White : ((int)i == s->hover ? color::Text : color::Dim));
+                SetTextColor(dc, sel ? color::Strong : ((int)i == s->hover ? color::Text : color::Dim));
                 HGDIOBJ of = SelectObject(dc, sel ? FontBold : FontUI);
                 DrawTextW(dc, s->names[i].c_str(), -1, &r[i], DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
                 SelectObject(dc, of);
@@ -860,7 +894,7 @@ namespace ui
 
     void DarkTitle(HWND top)
     {
-        BOOL on = TRUE;
+        BOOL on = DarkMode ? TRUE : FALSE;
         // DWMWA_USE_IMMERSIVE_DARK_MODE: 20 (Windows 10 2004+), 19 before
         if (FAILED(DwmSetWindowAttribute(top, 20, &on, sizeof on))) DwmSetWindowAttribute(top, 19, &on, sizeof on);
     }
@@ -982,7 +1016,7 @@ namespace ui
         HWND h = Child(L"EDIT", parent, L"", WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL | style);
         // dark scroll bars; a single line edit keeps the classic look, so that
         // WM_CTLCOLORSTATIC colors it when disabled (the theme would draw it grey)
-        SetWindowTheme(h, style & ES_MULTILINE ? L"DarkMode_Explorer" : L"", style & ES_MULTILINE ? nullptr : L"");
+        SetWindowTheme(h, style & ES_MULTILINE ? ThemeApp(L"DarkMode_Explorer") : L"", style & ES_MULTILINE ? nullptr : L"");
         SetWindowSubclass(h, EditSub, 1, 0);
         return h;
     }
@@ -990,7 +1024,7 @@ namespace ui
     HWND Combo(HWND parent, bool editable)
     {
         HWND h = Child(L"COMBOBOX", parent, L"", WS_TABSTOP | WS_VSCROLL | CBS_AUTOHSCROLL | (editable ? CBS_DROPDOWN : CBS_DROPDOWNLIST));
-        SetWindowTheme(h, L"DarkMode_CFD", nullptr);
+        SetWindowTheme(h, ThemeApp(L"DarkMode_CFD"), nullptr);
         if (editable) SetWindowSubclass(h, EditComboSub, 1, 0);
         return h;
     }
@@ -1000,7 +1034,7 @@ namespace ui
         HWND e = Edit(parent, ES_NUMBER);
         HWND u = CreateWindowExW(0, UPDOWN_CLASSW, L"", WS_CHILD | WS_VISIBLE | UDS_SETBUDDYINT | UDS_ARROWKEYS | UDS_NOTHOUSANDS | UDS_HOTTRACK,
             0, 0, 10, 10, parent, nullptr, Inst, nullptr);
-        SetWindowTheme(u, L"DarkMode_Explorer", nullptr);
+        SetWindowTheme(u, ThemeApp(L"DarkMode_Explorer"), nullptr);
         SendMessageW(u, UDM_SETBUDDY, (WPARAM)e, 0);
         SendMessageW(u, UDM_SETRANGE32, (WPARAM)min, (LPARAM)max);
         SendMessageW(u, UDM_SETPOS32, 0, (LPARAM)value);
@@ -1108,7 +1142,7 @@ namespace ui
             ListView_GetColumn(list, col, &c);
             RECT t = { r.left + S(6), r.top, r.right - S(6), r.bottom };
             SetBkMode(dc, TRANSPARENT);
-            SetTextColor(dc, color::White);
+            SetTextColor(dc, color::Strong);
             HGDIOBJ o = SelectObject(dc, bold() ? FontBold : FontUI);
             DrawTextW(dc, text, -1, &t, DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX
                 | ((c.fmt & LVCFMT_JUSTIFYMASK) == LVCFMT_RIGHT ? DT_RIGHT : DT_LEFT));
@@ -1173,9 +1207,9 @@ namespace ui
     {
         HWND h = Child(WC_LISTVIEWW, parent, L"", WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS | style);
         ListView_SetExtendedListViewStyle(h, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
-        SetWindowTheme(h, L"DarkMode_Explorer", nullptr);
+        SetWindowTheme(h, ThemeApp(L"DarkMode_Explorer"), nullptr);
         HWND header = ListView_GetHeader(h);
-        if (header) SetWindowTheme(header, L"DarkMode_ItemsView", nullptr);
+        if (header) SetWindowTheme(header, ThemeApp(L"DarkMode_ItemsView"), nullptr);
         ListView_SetBkColor(h, color::Panel);
         ListView_SetTextBkColor(h, color::Panel);
         ListView_SetTextColor(h, color::Text);

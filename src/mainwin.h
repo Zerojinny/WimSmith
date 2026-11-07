@@ -28,8 +28,8 @@ namespace sevenwim
         HWND hwnd = nullptr;
         HWND tabs = nullptr, progress = nullptr, footer = nullptr;
         HWND lblState = nullptr, lblLast = nullptr, lnkLog = nullptr, lblAfter = nullptr;
-        HWND cboAfter = nullptr, btnCancel = nullptr, cboLang = nullptr;
-        bool restart = false;                 // another language was chosen
+        HWND cboAfter = nullptr, btnCancel = nullptr, cboLang = nullptr, cboTheme = nullptr;
+        bool restart = false;                 // another language or theme was chosen
         LogWindow log;
 
         void Create();
@@ -51,5 +51,7 @@ namespace sevenwim
         void LayoutFooter(int w, int h);
         void ShowPage();
         void ChangeLanguage();
+        void ChangeTheme();
+        bool CanRestart();                    // no job, no extraction (else a message)
     };
 }

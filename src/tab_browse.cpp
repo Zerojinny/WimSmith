@@ -100,7 +100,7 @@ namespace sevenwim
         tree = CreateWindowExW(0, WC_TREEVIEWW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT
             | TVS_SHOWSELALWAYS, 0, 0, 10, 10, page, nullptr, Inst, nullptr);
         SendMessageW(tree, WM_SETFONT, (WPARAM)FontUI, FALSE);
-        SetWindowTheme(tree, L"DarkMode_Explorer", nullptr);
+        SetWindowTheme(tree, ThemeApp(L"DarkMode_Explorer"), nullptr);
         TreeView_SetBkColor(tree, color::Panel);
         TreeView_SetTextColor(tree, color::Text);
         TreeView_SetLineColor(tree, color::Dim);

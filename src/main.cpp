@@ -42,6 +42,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
     while (true)
     {
         L::Load(GetSetting(L"language", DefaultLanguage()));
+        // the colors: "dark" (default) or "light"; the windows are made after this
+        ui::SetTheme(!EqualsI(GetSetting(L"theme", L"dark"), L"light"));
         ui::InitFonts(L::FontFamily);
         if (!L::Problems.empty())
         {

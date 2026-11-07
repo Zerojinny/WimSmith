@@ -112,7 +112,7 @@ namespace sevenwim
         progress = Progress(hwnd);
         footer = Panel(hwnd, color::Footer);
 
-        // footer: state | last log line | [Show log] | after done | [Cancel] | language
+        // footer: state | last log line | [Show log] | after done | [Cancel] | theme | language
         lblState = Label(footer, L"", FontUI, color::Text, SS_LEFT | SS_CENTERIMAGE);
         lblLast = Link(footer, L"");
         SendMessageW(lblLast, WM_SETFONT, (WPARAM)FontMono, FALSE);
@@ -127,6 +127,11 @@ namespace sevenwim
         ComboSelect(cboAfter, 0);
         btnCancel = Button(footer, L::T(L"bk.btn_cancel"));
         Enable(btnCancel, false);
+        cboTheme = Combo(footer);
+        ComboAdd(cboTheme, L::T(L"z.theme_dark"));
+        ComboAdd(cboTheme, L::T(L"z.theme_light"));
+        ComboSelect(cboTheme, DarkMode ? 0 : 1);
+        Tooltip(cboTheme, L::T(L"z.theme_tip"));
         cboLang = Combo(footer);
         for (const auto& kv : L::Available())
         {
@@ -138,6 +143,7 @@ namespace sevenwim
         OnClick(lblLast, [this] { log.ShowNear(hwnd); });
         OnClick(lnkLog, [this] { log.ShowNear(hwnd); });
         OnChange(cboLang, [this] { ChangeLanguage(); });
+        OnChange(cboTheme, [this] { ChangeTheme(); });
         OnChange(tabs, [this] { ShowPage(); });
         SetLayout(hwnd, [this](int w, int h) { Layout(w, h); });
         SetLayout(footer, [this](int w, int h) { LayoutFooter(w, h); });
@@ -199,8 +205,9 @@ namespace sevenwim
         auto mid = [h](int hh) { return (h - hh) / 2; };
         int textH = TextHeight(FontUI) + S(4);
         int x = S(12), right = w - S(8);
-        // from the right: language, [Cancel], combo, label, [Show log]
+        // from the right: language, theme, [Cancel], combo, label, [Show log]
         right -= S(100); Move(cboLang, right, mid(S(23)), S(100), S(23)); right -= S(4);
+        right -= S(4) + S(90); Move(cboTheme, right, mid(S(23)), S(90), S(23)); right -= S(4);
         right -= S(8) + S(80); Move(btnCancel, right, mid(S(26)), S(80), S(26));
         right -= S(8) + S(130); Move(cboAfter, right, mid(S(23)), S(130), S(23));
         int aw = TextWidth(FontUI, GetText(lblAfter)) + S(2);
@@ -238,9 +245,8 @@ namespace sevenwim
     {
         int i = ComboIndex(cboLang);
         if (i < 0 || i >= (int)langCodes.size() || EqualsI(langCodes[i], L::Code)) return;
-        if (Busy() || (extracting && extracting()))
+        if (!CanRestart())
         {
-            Info(L::T(L"z.lang_busy"), MB_ICONWARNING);
             for (size_t n = 0; n < langCodes.size(); n++)
                 if (EqualsI(langCodes[n], L::Code)) SendMessageW(cboLang, CB_SETCURSEL, n, 0);
             return;
@@ -248,5 +254,27 @@ namespace sevenwim
         SetSetting(L"language", langCodes[i]);
         restart = true;
         DestroyWindow(hwnd);
+    }
+
+    // the theme: saved as theme = dark | light; the window is made again (like a language)
+    void MainWindow::ChangeTheme()
+    {
+        int i = ComboIndex(cboTheme);
+        if (i < 0 || (i == 0) == DarkMode) return;
+        if (!CanRestart())
+        {
+            ComboSelect(cboTheme, DarkMode ? 0 : 1);
+            return;
+        }
+        SetSetting(L"theme", i == 0 ? L"dark" : L"light");
+        restart = true;
+        DestroyWindow(hwnd);
+    }
+
+    bool MainWindow::CanRestart()
+    {
+        if (!Busy() && !(extracting && extracting())) return true;
+        Info(L::T(L"z.lang_busy"), MB_ICONWARNING);
+        return false;
     }
 }
