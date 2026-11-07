@@ -16,12 +16,6 @@ namespace sevenwim
     static const int CompTypes[] = { wl::CompressionLzx, wl::CompressionXpress, wl::CompressionLzms };
     static const wchar_t* const CompNames[] = { L"LZX", L"XPRESS", L"LZMS" };
 
-    static wstring SystemDrive()
-    {
-        wstring s = Env(L"SystemDrive");
-        return s.empty() ? L"C:" : s;
-    }
-
     static wstring ThreadText(int threads)
     {
         return threads > 0 ? L::F(L"bk.threads_value", threads) : L::F(L"bk.threads_auto", (long long)App::Processors());
@@ -60,7 +54,7 @@ namespace sevenwim
         chkCheck = Check(page, L::T(L"bk.check"));
         grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
 
-        // right: what the backup will do, the hint and [Start backup]
+        // right: what the backup will do and [Start backup]
         box = Panel(page, color::Panel);
         SetPaint(box, [](HDC dc, const RECT& r) { FrameRect(dc, &r, Brush(color::Line)); });
         title = Label(box, L::T(L"pv.title"), FontBold, color::Dim);
@@ -71,7 +65,6 @@ namespace sevenwim
             // a long path breaks anywhere (as an edit control does)
             vals[i] = Label(box, L"", i == 1 ? FontMono : FontUI, color::Text, SS_LEFT | SS_EDITCONTROL);
         }
-        hint = Label(box, L::F(L"bk.capture_hint", SystemDrive()), FontUI, color::Dim);
         btnCapture = Button(box, L::T(L"bk.btn_capture"));
         Primary(btnCapture, false);
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
@@ -123,12 +116,9 @@ namespace sevenwim
             Move(vals[i], x + kw, y, vw, vh);
             y += std::max(kh, vh) + S(8);
         }
-        // the button at the bottom (a row of 50 px, 8 px above it), the hint above it
+        // the button at the bottom (a row of 50 px, 8 px above it)
         int btnTop = h - S(14) - S(50) + S(8);
         Move(btnCapture, x, btnTop, inner, S(42));
-        int hw = std::min(inner, S(262));
-        int hh = TextHeightWrapped(FontUI, GetText(hint), hw);
-        Move(hint, x, std::max(y, h - S(14) - S(50) - hh), hw, hh);
         // the lines move when a value gets longer: the whole box again
         RedrawWindow(box, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
     }

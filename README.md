@@ -2,7 +2,7 @@
 
 A small Windows tool to back up a volume or folder to a WIM image and restore it, using [wimlib](https://wimlib.net). It was split off from the "Backup / restore" page of the DVT GUI.
 
-[한국어](README.ko.md)
+[한국어](README.ko.md) · User manual: [MANUAL.md](MANUAL.md)
 
 ## Features
 

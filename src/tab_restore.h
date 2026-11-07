@@ -24,7 +24,7 @@ namespace sevenwim
         App& app;
         HWND page;
         HWND txtWim, btnWim, btnRead, cboImage, cboTarget, btnTgtFolder, btnTgtRefresh, txtLabel;
-        HWND chkUefi, chkBios, chkNoBoot, lblBootLang, cboBootLang, cboSysPart, btnPartRefresh, btnApply, hint;
+        HWND chkUefi, chkBios, chkNoBoot, lblBootLang, cboBootLang, cboSysPart, btnPartRefresh, btnApply;
 
     private:
         ui::Grid grid;

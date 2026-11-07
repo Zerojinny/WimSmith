@@ -53,7 +53,6 @@ namespace sevenwim
         grid.Add(L::T(L"bk.row_existing"), { Box(rbReplace), Box(rbAppend) });
         btnExport = Button(page, L::T(L"ex.btn_export"));
         Primary(btnExport, false);
-        hint = Label(page, L::T(L"ex.hint"), FontUI, color::Dim);
         grid.Add(L"", { Btn(btnExport, 160) });
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
 
@@ -74,11 +73,6 @@ namespace sevenwim
     void ExportTab::Layout(int w, int)
     {
         grid.Place(0, 0, w);
-        // the hint next to the button of the last row
-        int y = (int)(grid.rows.size() - 1) * S(grid.rowHeight);
-        int hx = S(grid.labelWidth) + S(160) + S(8) + S(8);
-        int hw = std::max(0, std::min(S(560), w - hx));
-        Move(hint, hx, y + S(4), hw, TextHeightWrapped(FontUI, GetText(hint), hw) + S(2));
     }
 
     void ExportTab::Refresh()

@@ -70,7 +70,6 @@ namespace sevenwim
         grid.Add(L::T(L"dk.row_plan"), {});
         btnGo = Button(page, L::T(L"dk.btn_go"));
         Primary(btnGo, true);
-        hint = Label(page, L::T(L"dk.hint"), FontUI, color::Dim);
         grid.Add(L"", { Btn(btnGo, 220) });
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
 
@@ -91,7 +90,7 @@ namespace sevenwim
 
     void DiskTab::Layout(int w, int)
     {
-        // rows of 34 px; the plan gets 112 px, then the button and the hint
+        // rows of 34 px; the plan gets 112 px, then the button
         int y = 0;
         for (size_t i = 0; i < grid.rows.size(); i++)
         {
@@ -101,12 +100,6 @@ namespace sevenwim
             int x = S(grid.labelWidth);
             if (plan) Move(lblPlan, x, y + S(8), w - x, S(104));
             else Grid::PlaceRow(r.items, x, y, w - x);
-            if (i == 8)
-            {
-                int hx = x + S(220) + S(8) + S(8);
-                int hw = std::min(S(520), w - hx);
-                Move(hint, hx, y + S(4), std::max(0, hw), TextHeightWrapped(FontUI, GetText(hint), hw) + S(2));
-            }
             y += plan ? S(112) : S(grid.rowHeight);
         }
     }

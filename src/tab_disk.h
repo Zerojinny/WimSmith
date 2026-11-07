@@ -27,7 +27,7 @@ namespace sevenwim
     private:
         HWND cboDisk, btnDiskRefresh, rbGpt, rbMbr, rbLayWin, rbLayWinData, rbLayData;
         HWND lblSysKind, numSys, lblSysMb, chkMsr, chkRec, numRec, lblRecMb, txtDiskLabel;
-        HWND lblPct, numWinPct, lblPctSign, cboDataFs, lblLbl, txtDataLabel, lblPlan, btnGo, hint;
+        HWND lblPct, numWinPct, lblPctSign, cboDataFs, lblLbl, txtDataLabel, lblPlan, btnGo;
         ui::Grid grid;
         struct DiskItem { bool has = false; DiskInfo disk; wstring problem; };
         std::vector<DiskItem> items;          // the items of cboDisk

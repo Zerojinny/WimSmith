@@ -2,7 +2,7 @@
 
 [wimlib](https://wimlib.net)으로 볼륨이나 폴더를 WIM 이미지로 백업하고 복구하는 작은 Windows 도구입니다. DVT GUI의 "백업 / 복구" 페이지를 떼어 내 만들었습니다.
 
-[English](README.md)
+[English](README.md) · 사용 방법: [MANUAL.ko.md](MANUAL.ko.md)
 
 ## 기능
 

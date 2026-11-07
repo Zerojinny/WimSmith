@@ -51,7 +51,6 @@ namespace sevenwim
         btnApply = Button(page, L::T(L"bk.btn_apply"));
         Primary(btnApply, true);
         grid.Add(L"", { Btn(btnApply, 160) });
-        hint = Label(page, L::T(L"bk.apply_hint"), FontUI, color::Dim);
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
 
         OnClick(btnWim, [this] { ChooseWim(); });
@@ -84,9 +83,7 @@ namespace sevenwim
 
     void RestoreTab::Layout(int w, int)
     {
-        int y = grid.Place(0, 0, w);
-        int hw = std::min(w - S(6), S(760));
-        Move(hint, S(6), y + S(8), hw, TextHeightWrapped(FontUI, GetText(hint), hw) + S(2));
+        grid.Place(0, 0, w);
     }
 
     void RestoreTab::Refresh()

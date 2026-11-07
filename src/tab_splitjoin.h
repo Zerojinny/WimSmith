@@ -20,7 +20,7 @@ namespace sevenwim
     private:
         HWND split, join;                     // the two group boxes
         HWND txtSrc, btnSrc, txtSwm, btnSwm, numPart, lblMb, btnSplit;
-        HWND txtFirst, btnFirst, lblParts, txtWim, btnWim, btnJoin, hint;
+        HWND txtFirst, btnFirst, lblParts, txtWim, btnWim, btnJoin;
         ui::Grid splitGrid, joinGrid;
 
         void Layout(int w, int h);

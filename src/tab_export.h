@@ -22,7 +22,7 @@ namespace sevenwim
 
     private:
         HWND btnSrc, btnRead, cboImage, txtWim, btnWim, txtName, lblDesc, txtDesc;
-        HWND cboComp, lblThreads, numThreads, lblThreadsHint, rbReplace, rbAppend, btnExport, hint;
+        HWND cboComp, lblThreads, numThreads, lblThreadsHint, rbReplace, rbAppend, btnExport;
         ui::Grid grid;
         std::vector<wl::WimImage> images;     // cboImage: item 0 = all images, then these
 

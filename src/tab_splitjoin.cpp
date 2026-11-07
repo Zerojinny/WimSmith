@@ -49,18 +49,11 @@ namespace sevenwim
         joinGrid.Add(L::T(L"sj.row_join_wim"), { Field(txtWim, 420), Btn(btnWim, 100) });
         btnJoin = Button(join, L::T(L"sj.btn_join"));
         Primary(btnJoin, false);
-        hint = Label(join, L::T(L"sj.join_hint"), FontUI, color::Dim);
         joinGrid.Add(L"", { Btn(btnJoin, 140) });
 
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
         SetLayout(split, [this](int w, int) { splitGrid.Place(S(6), GroupTop(), w - S(12)); });
-        SetLayout(join, [this](int w, int)
-        {
-            int y = joinGrid.Place(S(6), GroupTop(), w - S(12));
-            int hx = S(6) + S(joinGrid.labelWidth) + S(140) + S(8) + S(8);
-            int hw = std::max(0, std::min(S(560), w - hx - S(6)));
-            Move(hint, hx, y - S(joinGrid.rowHeight) + S(4), hw, TextHeightWrapped(FontUI, GetText(hint), hw) + S(2));
-        });
+        SetLayout(join, [this](int w, int) { joinGrid.Place(S(6), GroupTop(), w - S(12)); });
 
         OnClick(btnSrc, [this] { ChooseSource(); });
         OnClick(btnSwm, [this] { ChooseSwm(); });
