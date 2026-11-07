@@ -8,7 +8,7 @@
 
 namespace L
 {
-    using namespace dvt;
+    using namespace sevenwim;
 
     wstring Code = L"en", FontFamily = L"Segoe UI";
     std::vector<wstring> Problems;

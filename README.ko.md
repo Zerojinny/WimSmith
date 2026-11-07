@@ -54,7 +54,7 @@ C++로 옮기기 전의 C# / .NET Framework 버전은 그것을 빌드하는 `bu
 | `app.rc`, `app.manifest` | 아이콘과 exe에 넣는 언어 파일, 매니페스트(DPI, 공용 컨트롤 6, Windows 버전) |
 | `lang\en.ini`, `lang\ko.ini` | 문구(en.ini가 기준) |
 
-관리자 권한 도우미는 `%TEMP%\DVT_wim_job\<시각>`(job.ini, status.txt, wimlib_errors.txt)에서 작업합니다. 성공하면 이 폴더를 지우고, 실패하면 남깁니다.
+관리자 권한 도우미는 `%TEMP%\7z_wimlib_job\<시각>`(job.ini, status.txt, wimlib_errors.txt)에서 작업합니다. 성공하면 이 폴더를 지우고, 실패하면 남깁니다.
 
 ## 라이선스
 

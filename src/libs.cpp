@@ -12,7 +12,7 @@
 #include <regex>
 #include <thread>
 
-namespace dvt
+namespace sevenwim
 {
     namespace libs
     {

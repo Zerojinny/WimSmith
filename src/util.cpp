@@ -6,7 +6,7 @@
 #include <winnetwk.h>
 #include <thread>
 
-namespace dvt
+namespace sevenwim
 {
     // ---------- text ----------
 

@@ -8,7 +8,7 @@
 #include <cstring>
 #include <objbase.h>
 
-namespace dvt
+namespace sevenwim
 {
     namespace wl
     {

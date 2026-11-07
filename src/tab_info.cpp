@@ -8,7 +8,7 @@
 #include "tab_restore.h"
 #include <algorithm>
 
-namespace dvt
+namespace sevenwim
 {
     using namespace ui;
 

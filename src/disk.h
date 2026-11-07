@@ -6,7 +6,7 @@
 #pragma once
 #include "common.h"
 
-namespace dvt
+namespace sevenwim
 {
     // a local disk (the fields as Get-Disk names them)
     struct DiskInfo

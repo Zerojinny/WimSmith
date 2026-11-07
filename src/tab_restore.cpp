@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <thread>
 
-namespace dvt
+namespace sevenwim
 {
     using namespace ui;
 

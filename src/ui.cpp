@@ -18,12 +18,12 @@ namespace ui
     HWND Main;
     HFONT FontUI, FontBold, FontMono;
 
-    static const wchar_t* const PanelClass = L"DvtPanel";
-    static const wchar_t* const TopClass = L"DvtWindow";
-    static const wchar_t* const CheckClass = L"DvtCheck";
-    static const wchar_t* const TabsClass = L"DvtTabs";
-    static const wchar_t* const ProgressClass = L"DvtProgress";
-    static const UINT WM_DVT_POST = WM_APP + 1;
+    static const wchar_t* const PanelClass = L"SevenWimPanel";
+    static const wchar_t* const TopClass = L"SevenWimWindow";
+    static const wchar_t* const CheckClass = L"SevenWimCheck";
+    static const wchar_t* const TabsClass = L"SevenWimTabs";
+    static const wchar_t* const ProgressClass = L"SevenWimProgress";
+    static const UINT WM_APP_POST = WM_APP + 1;
 
     // ---------- state of the windows ----------
 
@@ -389,7 +389,7 @@ namespace ui
             }
             return 0;
         }
-        case WM_DVT_POST:
+        case WM_APP_POST:
         {
             Fn* f = (Fn*)lp;
             if (f) { (*f)(); delete f; }
@@ -912,7 +912,7 @@ namespace ui
     void OnDestroy(HWND top, Fn f) { destroyers[top] = f; }
     void SetTimer(HWND w, UINT_PTR id, UINT ms, Fn f) { timers[std::make_pair(w, id)] = f; ::SetTimer(w, id, ms, nullptr); }
     void KillTimer(HWND w, UINT_PTR id) { ::KillTimer(w, id); timers.erase(std::make_pair(w, id)); }
-    void Post(HWND w, Fn f) { PostMessageW(w, WM_DVT_POST, 0, (LPARAM)new Fn(f)); }
+    void Post(HWND w, Fn f) { PostMessageW(w, WM_APP_POST, 0, (LPARAM)new Fn(f)); }
 
     void Relayout(HWND panel)
     {
@@ -998,7 +998,7 @@ namespace ui
         int lo = 0, hi = 0;
         if (it != upDowns.end()) SendMessageW(it->second, UDM_GETRANGE32, (WPARAM)&lo, (LPARAM)&hi);
         long long v;
-        if (!dvt::TryParseLong(GetText(h), v)) return lo;
+        if (!sevenwim::TryParseLong(GetText(h), v)) return lo;
         if (it != upDowns.end()) v = std::max<long long>(lo, std::min<long long>(hi, v));
         return (int)v;
     }
@@ -1433,7 +1433,7 @@ namespace ui
         std::vector<COMDLG_FILTERSPEC> spec;
         for (const auto& f : filters) spec.push_back(COMDLG_FILTERSPEC{ f.first.c_str(), f.second.c_str() });
         if (!spec.empty()) d->SetFileTypes((UINT)spec.size(), spec.data());
-        if (!initialDir.empty() && dvt::DirExists(initialDir))
+        if (!initialDir.empty() && sevenwim::DirExists(initialDir))
         {
             IShellItem* folder = nullptr;
             if (SUCCEEDED(SHCreateItemFromParsingName(initialDir.c_str(), nullptr, IID_PPV_ARGS(&folder))))

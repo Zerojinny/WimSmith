@@ -17,7 +17,7 @@
 #include <algorithm>
 #include <climits>
 
-namespace dvt
+namespace sevenwim
 {
     static const wchar_t* const EspGuid = L"{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}";
     static const wchar_t* const MsrGuid = L"{e3c9e316-0b5c-4db8-817d-f92df00215ae}";

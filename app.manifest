@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  DVT GUI - application manifest (embedded by build_gui.bat)
-  asInvoker   : the GUI runs without administrator rights; the DVT
-                build scripts it starts ask for elevation themselves.
+  7z_wimlib - application manifest (embedded by build.bat)
+  asInvoker   : the window runs without administrator rights; the
+                helper it starts for backup / restore / disk asks for
+                elevation itself.
   dpiAware    : sharp text on high-DPI screens (the layout is scaled
                 in the program).
 -->
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="0.5.0.0" name="DVT.GUI" type="win32" processorArchitecture="*"/>
-  <description>DVT - Deploy Via Torrent GUI</description>
+  <assemblyIdentity version="0.5.0.0" name="7z_wimlib" type="win32" processorArchitecture="*"/>
+  <description>7z_wimlib - WIM backup and restore with wimlib</description>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">

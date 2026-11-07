@@ -14,7 +14,7 @@
 #pragma once
 #include "app.h"
 
-namespace dvt
+namespace sevenwim
 {
     struct DiskTab
     {

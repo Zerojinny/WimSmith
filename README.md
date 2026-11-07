@@ -54,7 +54,7 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 | `app.rc`, `app.manifest` | icon and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
 
-The elevated helper works in `%TEMP%\DVT_wim_job\<time>` (job.ini, status.txt, wimlib_errors.txt); the folder is deleted after a successful job and kept after a failed one.
+The elevated helper works in `%TEMP%\7z_wimlib_job\<time>` (job.ini, status.txt, wimlib_errors.txt); the folder is deleted after a successful job and kept after a failed one.
 
 ## License
 

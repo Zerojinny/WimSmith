@@ -12,7 +12,7 @@
 #include <shellapi.h>
 #include <objbase.h>
 
-using namespace dvt;
+using namespace sevenwim;
 
 // without a choice: Korean on a Korean Windows, else English
 static std::wstring DefaultLanguage()

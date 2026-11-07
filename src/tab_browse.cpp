@@ -12,7 +12,7 @@
 #include <map>
 #include <thread>
 
-namespace dvt
+namespace sevenwim
 {
     using namespace ui;
 

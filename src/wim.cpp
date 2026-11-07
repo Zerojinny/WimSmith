@@ -5,13 +5,13 @@
 #include "wim.h"
 #include <cstring>
 
-namespace dvt
+namespace sevenwim
 {
     namespace wl
     {
-#define DVT_WIMLIB_DEFINE(ret, name, params) ret(__cdecl* name) params = nullptr;
-        DVT_WIMLIB_FUNCS(DVT_WIMLIB_DEFINE)
-#undef DVT_WIMLIB_DEFINE
+#define WL_DEFINE(ret, name, params) ret(__cdecl* name) params = nullptr;
+        WL_FUNCS(WL_DEFINE)
+#undef WL_DEFINE
 
         static bool loaded;
 
@@ -25,11 +25,11 @@ namespace dvt
             if (!FileExists(dll)) return L"Not found: " + dll;
             HMODULE h = LoadLibraryExW(dll.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
             if (!h) return L"LoadLibrary " + dll + L": error " + Num(GetLastError());
-#define DVT_WIMLIB_LOAD(ret, name, params) \
+#define WL_LOAD(ret, name, params) \
             name = reinterpret_cast<ret(__cdecl*) params>(GetProcAddress(h, #name)); \
             if (!name) return dll + L": " + FromUtf8(#name) + L" is missing (wimlib 1.14 or later is needed).";
-            DVT_WIMLIB_FUNCS(DVT_WIMLIB_LOAD)
-#undef DVT_WIMLIB_LOAD
+            WL_FUNCS(WL_LOAD)
+#undef WL_LOAD
             int rc = wimlib_global_init(acquirePrivileges ? 0 : InitDontAcquirePrivileges);
             if (rc != 0) return ErrorText(rc);
             loaded = true;

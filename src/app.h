@@ -4,7 +4,7 @@
 //  main window, the volumes, wimlib in the GUI process, the
 //  confirmations, and the job: the helper (this exe --wim-helper <work
 //  folder>, elevated for capture / apply / disk) with its work folder
-//  %TEMP%\DVT_wim_job\<time> (job.ini, status.txt), its progress in the
+//  %TEMP%\7z_wimlib_job\<time> (job.ini, status.txt), its progress in the
 //  footer, [Cancel], and after a successful job: nothing / shut down /
 //  restart. The work folder is deleted after a successful job and kept
 //  after a failed or cancelled one.
@@ -15,7 +15,7 @@
 #include "wim.h"
 #include <functional>
 
-namespace dvt
+namespace sevenwim
 {
     struct RestoreTab;
     struct DiskTab;

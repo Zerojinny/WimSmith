@@ -7,7 +7,7 @@
 #include <objbase.h>
 #include <algorithm>
 
-namespace dvt
+namespace sevenwim
 {
     namespace storage
     {

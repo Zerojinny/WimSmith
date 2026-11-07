@@ -17,7 +17,7 @@
 #include "app.h"
 #include <memory>
 
-namespace dvt
+namespace sevenwim
 {
     struct BrowseTab
     {

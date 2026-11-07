@@ -7,7 +7,7 @@
 #include "lang.h"
 #include <algorithm>
 
-namespace dvt
+namespace sevenwim
 {
     using namespace ui;
 

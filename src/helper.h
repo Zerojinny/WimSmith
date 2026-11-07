@@ -12,7 +12,7 @@
 #pragma once
 #include "common.h"
 
-namespace dvt
+namespace sevenwim
 {
     const long long MiB = 1048576;
 

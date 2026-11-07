@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace dvt
+namespace sevenwim
 {
     using std::wstring;
 

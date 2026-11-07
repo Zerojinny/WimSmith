@@ -22,7 +22,7 @@ touches:
 ---
 
 ## Decided
-- The C++ window is checked by starting a copy of the exe (7z_wimlib.exe; 7z_wimlib_native.exe before the switch) in a scratch folder with its own 7z_wimlib.ini, lib\ and image_folder (never the user's ini), then sending messages to its controls (EnumChildWindows by class, CB_SETCURSEL + WM_COMMAND/CBN_SELCHANGE to the parent, WM_LBUTTONDOWN on the DvtTabs strip) and taking a screenshot. Unlike the C# window, these are real HWNDs.
+- The C++ window is checked by starting a copy of the exe (7z_wimlib.exe; 7z_wimlib_native.exe before the switch) in a scratch folder with its own 7z_wimlib.ini, lib\ and image_folder (never the user's ini), then sending messages to its controls (EnumChildWindows by class, CB_SETCURSEL + WM_COMMAND/CBN_SELCHANGE to the parent, WM_LBUTTONDOWN on the SevenWimTabs strip (DvtTabs before 2026-11-07)) and taking a screenshot. Unlike the C# window, these are real HWNDs.
 - Jobs that elevate (capture, apply, disk) are not started in tests: the UAC prompt would land on the user's desktop.
 
 ## Watch out

@@ -4,7 +4,7 @@
 // ============================================================
 #include "settings.h"
 
-namespace dvt
+namespace sevenwim
 {
     wstring ExeDir()
     {

@@ -9,7 +9,7 @@
 #pragma once
 #include "ui.h"
 
-namespace dvt
+namespace sevenwim
 {
     class LogWindow
     {

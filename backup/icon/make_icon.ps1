@@ -2,19 +2,19 @@
 #  7z_wimlib - make_icon.ps1
 #  Draws the program icon (three stacked teal layers with a down
 #  arrow = images in one WIM file, backup) with System.Drawing and
-#  writes DVT.ico: 16, 20, 24, 32, 40, 48, 64 px as 32-bit BMP and
+#  writes 7z_wimlib.ico: 16, 20, 24, 32, 40, 48, 64 px as 32-bit BMP and
 #  256 px as PNG. Each size is drawn on its own (no downscaling);
 #  the arrow line is thicker at 32 px and below.
 #  Colors follow src\Theme.cs (Accent #3DD6C6, AccentText #08201E).
 #
 #  Usage (from any folder):
 #    powershell -NoProfile -ExecutionPolicy Bypass -File backup\icon\make_icon.ps1
-#  Default output: DVT.ico in the project folder (overwritten) and
+#  Default output: 7z_wimlib.ico in the project folder (overwritten) and
 #  the PNG of each size in backup\icon\png\. Then run build_gui.bat.
 #  The previous icon is kept in backup\icon-old\DVT.ico.
 # ============================================================
 param(
-    [string]$OutIco = (Join-Path $PSScriptRoot '..\..\DVT.ico'),
+    [string]$OutIco = (Join-Path $PSScriptRoot '..\..\7z_wimlib.ico'),
     [string]$PngDir = (Join-Path $PSScriptRoot 'png')
 )
 Add-Type -AssemblyName System.Drawing

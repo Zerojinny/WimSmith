@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace dvt
+namespace sevenwim
 {
     using namespace wl;
 
@@ -684,7 +684,7 @@ namespace dvt
     {
         wstring wimFile = Get(job, L"wim");
         std::vector<wstring> parts;
-        for (const wstring& part : dvt::Split(Get(job, L"parts"), L'|'))
+        for (const wstring& part : sevenwim::Split(Get(job, L"parts"), L'|'))
             if (!Trim(part).empty()) parts.push_back(Trim(part));
         wstring why = JoinProblem(parts, wimFile);
         if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + wimFile + L")");

@@ -1,5 +1,5 @@
 // 7z_wimlib - resources: the icon and the language files (obj\lang.rc,
 // written by build.bat: one "<code> LANG <file>" line per lang\*.ini).
 // The manifest is embedded by the linker.
-1 ICON "DVT.ico"
+1 ICON "7z_wimlib.ico"
 #include "obj/lang.rc"

@@ -11,13 +11,13 @@
 
 struct WIMStruct;
 
-namespace dvt
+namespace sevenwim
 {
     namespace wl
     {
         typedef int(__cdecl* ProgressFunc)(int msg, void* info, void* ctx);
 
-#define DVT_WIMLIB_FUNCS(X) \
+#define WL_FUNCS(X) \
         X(int, wimlib_global_init, (int)) \
         X(int, wimlib_create_new_wim, (int, WIMStruct**)) \
         X(int, wimlib_open_wim_with_progress, (const wchar_t*, int, WIMStruct**, ProgressFunc, void*)) \
@@ -38,9 +38,9 @@ namespace dvt
         X(void, wimlib_free, (WIMStruct*)) \
         X(int, wimlib_set_error_file_by_name, (const wchar_t*))
 
-#define DVT_WIMLIB_DECLARE(ret, name, params) extern ret(__cdecl* name) params;
-        DVT_WIMLIB_FUNCS(DVT_WIMLIB_DECLARE)
-#undef DVT_WIMLIB_DECLARE
+#define WL_DECLARE(ret, name, params) extern ret(__cdecl* name) params;
+        WL_FUNCS(WL_DECLARE)
+#undef WL_DECLARE
 
         const wchar_t* const DllName = L"libwim-15.dll";
 

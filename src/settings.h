@@ -7,7 +7,7 @@
 #pragma once
 #include "common.h"
 
-namespace dvt
+namespace sevenwim
 {
     wstring ExeDir();                     // the folder of this exe, without "\" at the end
     wstring GetSetting(const wstring& key, const wstring& fallback);
