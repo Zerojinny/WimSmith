@@ -303,6 +303,8 @@ namespace sevenwim
         boxGpt = gpt;
         SetText(chkMsr, gpt ? L::F(L"dk.msr_make", DiskPlan::MsrMb) : L::T(L"dk.reserved_make"));
         SetChecked(chkMsr, gpt ? msrOn : reservedOn);
+        // the row measured the box with its old text: "Create" is much shorter than "MSR (16 MB)"
+        Relayout(page);
     }
 
     // enables the rows of the layout and shows the partitions that will be created
