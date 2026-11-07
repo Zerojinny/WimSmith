@@ -7,7 +7,6 @@
 #include <uxtheme.h>
 #include <dwmapi.h>
 #include <windowsx.h>
-#include <shobjidl.h>
 #include <algorithm>
 #include <map>
 
@@ -77,6 +76,23 @@ namespace ui
     void OnChange(HWND h, Fn f) { handlers[h].change.push_back(f); }
     void OnNotify(HWND h, std::function<LRESULT(NMHDR*)> f) { handlers[h].notify = f; }
     void FireChange(HWND h) { Fire(h, false); }
+
+    // the callbacks of a window and its children (before it is destroyed:
+    // a later window may get the same handle)
+    static void Forget(HWND h)
+    {
+        handlers.erase(h); foreColors.erase(h); backColors.erase(h); layouts.erase(h); painters.erase(h);
+        minSizes.erase(h); closers.erase(h); destroyers.erase(h); buttonKinds.erase(h); upDowns.erase(h);
+        boldRows.erase(h); listDouble.erase(h); listExtra.erase(h); keyHandlers.erase(h);
+        for (auto it = timers.begin(); it != timers.end();) it = it->first.first == h ? timers.erase(it) : std::next(it);
+        if (hovered == h) hovered = nullptr;
+    }
+
+    static void ForgetTree(HWND top)
+    {
+        EnumChildWindows(top, [](HWND c, LPARAM) -> BOOL { Forget(c); return TRUE; }, 0);
+        Forget(top);
+    }
 
     void Reset()
     {
@@ -1420,128 +1436,14 @@ namespace ui
         int result = quit ? 0 : modalResults[dlg];
         modalResults.erase(dlg);
         if (owner) EnableWindow(owner, TRUE);
+        ForgetTree(dlg);
         DestroyWindow(dlg);
         if (owner) SetActiveWindow(owner);
         if (quit) PostQuitMessage((int)msg.wParam);
         return result;
     }
 
-    // ---------- file dialogs (IFileDialog) ----------
-
-    static bool RunFileDialog(IFileDialog* d, const Filters& filters, const wstring& initialDir)
-    {
-        std::vector<COMDLG_FILTERSPEC> spec;
-        for (const auto& f : filters) spec.push_back(COMDLG_FILTERSPEC{ f.first.c_str(), f.second.c_str() });
-        if (!spec.empty()) d->SetFileTypes((UINT)spec.size(), spec.data());
-        if (!initialDir.empty() && sevenwim::DirExists(initialDir))
-        {
-            IShellItem* folder = nullptr;
-            if (SUCCEEDED(SHCreateItemFromParsingName(initialDir.c_str(), nullptr, IID_PPV_ARGS(&folder))))
-            {
-                d->SetFolder(folder);
-                folder->Release();
-            }
-        }
-        return SUCCEEDED(d->Show(ActiveOwner()));
-    }
-
-    static wstring ItemPath(IShellItem* item)
-    {
-        wstring r;
-        PWSTR p = nullptr;
-        if (item && SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &p))) { r = p; CoTaskMemFree(p); }
-        return r;
-    }
-
-    bool OpenFile(const Filters& filters, const wstring& initialDir, wstring& file)
-    {
-        IFileOpenDialog* d = nullptr;
-        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
-        DWORD o = 0;
-        d->GetOptions(&o);
-        d->SetOptions(o | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST);
-        bool ok = false;
-        if (RunFileDialog(d, filters, initialDir))
-        {
-            IShellItem* item = nullptr;
-            if (SUCCEEDED(d->GetResult(&item))) { file = ItemPath(item); item->Release(); ok = !file.empty(); }
-        }
-        d->Release();
-        return ok;
-    }
-
-    bool OpenFiles(const Filters& filters, const wstring& initialDir, std::vector<wstring>& files)
-    {
-        IFileOpenDialog* d = nullptr;
-        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
-        DWORD o = 0;
-        d->GetOptions(&o);
-        d->SetOptions(o | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_ALLOWMULTISELECT);
-        files.clear();
-        if (RunFileDialog(d, filters, initialDir))
-        {
-            IShellItemArray* items = nullptr;
-            if (SUCCEEDED(d->GetResults(&items)))
-            {
-                DWORD n = 0;
-                items->GetCount(&n);
-                for (DWORD i = 0; i < n; i++)
-                {
-                    IShellItem* item = nullptr;
-                    if (SUCCEEDED(items->GetItemAt(i, &item))) { wstring p = ItemPath(item); if (!p.empty()) files.push_back(p); item->Release(); }
-                }
-                items->Release();
-            }
-        }
-        d->Release();
-        return !files.empty();
-    }
-
-    bool SaveFile(const Filters& filters, const wstring& initialDir, const wstring& fileName, bool overwritePrompt, wstring& file)
-    {
-        IFileSaveDialog* d = nullptr;
-        if (FAILED(CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
-        DWORD o = 0;
-        d->GetOptions(&o);
-        o |= FOS_FORCEFILESYSTEM;
-        if (overwritePrompt) o |= FOS_OVERWRITEPROMPT; else o &= ~FOS_OVERWRITEPROMPT;
-        d->SetOptions(o);
-        if (!fileName.empty()) d->SetFileName(fileName.c_str());
-        // the extension of the first filter is added when none is typed
-        if (!filters.empty())
-        {
-            wstring ext = filters[0].second;
-            size_t dot = ext.find(L'.');
-            size_t semi = ext.find(L';');
-            if (dot != wstring::npos) d->SetDefaultExtension(ext.substr(dot + 1, semi == wstring::npos ? wstring::npos : semi - dot - 1).c_str());
-        }
-        bool ok = false;
-        if (RunFileDialog(d, filters, initialDir))
-        {
-            IShellItem* item = nullptr;
-            if (SUCCEEDED(d->GetResult(&item))) { file = ItemPath(item); item->Release(); ok = !file.empty(); }
-        }
-        d->Release();
-        return ok;
-    }
-
-    bool PickFolder(const wstring& title, const wstring& initialDir, wstring& folder)
-    {
-        IFileOpenDialog* d = nullptr;
-        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&d)))) return false;
-        DWORD o = 0;
-        d->GetOptions(&o);
-        d->SetOptions(o | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
-        if (!title.empty()) d->SetTitle(title.c_str());
-        bool ok = false;
-        if (RunFileDialog(d, Filters(), initialDir))
-        {
-            IShellItem* item = nullptr;
-            if (SUCCEEDED(d->GetResult(&item))) { folder = ItemPath(item); item->Release(); ok = !folder.empty(); }
-        }
-        d->Release();
-        return ok;
-    }
+    // (the file dialogs are in filedlg.cpp)
 
     // ---------- row layout ----------
 

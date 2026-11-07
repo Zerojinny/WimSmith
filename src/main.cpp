@@ -35,7 +35,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
     }
     if (!args.empty() && args[0] == L"--wim-helper") return RunHelper(args);
 
-    // the file dialogs (IFileDialog) need COM
+    // COM for the shell icons (SHGetFileInfo) and ShellExecute
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     ui::Init(inst);
     L::Init(ExeDir());

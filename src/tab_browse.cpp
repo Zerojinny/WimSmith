@@ -732,6 +732,9 @@ namespace sevenwim
         for (const wstring& n : names) MoveMerge(Combine(src, n), Combine(dest, n));
     }
 
+    // Explorer is there (not in Windows PE)
+    static bool HasExplorer() { return FileExists(Combine(WindowsDir(), L"explorer.exe")); }
+
     void BrowseTab::ExtractSelected()
     {
         if (proc || !top || !FileExists(wimFile)) return;
@@ -787,7 +790,9 @@ namespace sevenwim
             {
                 SetState(L::F(L"br.extracted", (long long)sel.size(), took));
                 app.Log(L::F(L"br.extracted", (long long)sel.size(), took) + L"  -> " + dest);
-                if (YesNo(L::F(L"br.done_open", dest), MB_ICONINFORMATION))
+                // Windows PE has no Explorer to show the folder: the path only
+                if (!HasExplorer()) Info(L::F(L"br.done_path", dest));
+                else if (YesNo(L::F(L"br.done_open", dest), MB_ICONINFORMATION))
                     ShellExecuteW(app.win.hwnd, L"open", L"explorer.exe", (L"\"" + dest + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
                 return;
             }
@@ -804,6 +809,10 @@ namespace sevenwim
 
     static const wchar_t* const Programs[] = { L".exe", L".com", L".bat", L".cmd", L".ps1", L".vbs", L".vbe", L".js", L".jse", L".wsf",
         L".wsh", L".msi", L".msc", L".scr", L".cpl", L".hta", L".lnk", L".reg", L".inf", L".sys", L".dll" };
+
+    // a text file opens in Notepad when no program is registered (Windows PE)
+    static const wchar_t* const Texts[] = { L".txt", L".log", L".ini", L".inf", L".xml", L".cfg", L".conf", L".csv", L".json",
+        L".md", L".htm", L".html", L".css", L".bat", L".cmd", L".ps1", L".reg", L".vbs", L".js", L".sif", L".unattend", L".manifest" };
 
     void BrowseTab::OpenSelected()
     {
@@ -831,17 +840,31 @@ namespace sevenwim
             SetState(r.Name);
             // a program is not started from here: its folder is shown
             wstring ext = Lower(FileExt(file));
+            bool explorer = HasExplorer();
             for (const wchar_t* p : Programs)
                 if (ext == p)
                 {
-                    ShellExecuteW(app.win.hwnd, L"open", L"explorer.exe", (L"/select,\"" + file + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+                    if (explorer) ShellExecuteW(app.win.hwnd, L"open", L"explorer.exe", (L"/select,\"" + file + L"\"").c_str(), nullptr, SW_SHOWNORMAL);
+                    else Info(L::F(L"br.program_path", file));
                     return;
                 }
-            if ((INT_PTR)ShellExecuteW(app.win.hwnd, nullptr, file.c_str(), nullptr, nullptr, SW_SHOWNORMAL) <= 32)
-            {
-                // no program for this type: Windows asks for one
-                ShellExecuteW(app.win.hwnd, L"open", L"rundll32.exe", (L"shell32.dll,OpenAs_RunDLL " + file).c_str(), nullptr, SW_SHOWNORMAL);
-            }
+            for (const wchar_t* p : Texts)
+                if (ext == p && !explorer)
+                {
+                    // Windows PE: no associations to rely on
+                    if ((INT_PTR)ShellExecuteW(app.win.hwnd, L"open", Combine(SystemDir(), L"notepad.exe").c_str(),
+                        (L"\"" + file + L"\"").c_str(), nullptr, SW_SHOWNORMAL) <= 32)
+                        Info(L::F(L"br.no_program", file), MB_ICONWARNING);
+                    return;
+                }
+            if ((INT_PTR)ShellExecuteW(app.win.hwnd, nullptr, file.c_str(), nullptr, nullptr, SW_SHOWNORMAL) > 32) return;
+            bool text = false;
+            for (const wchar_t* p : Texts) if (ext == p) text = true;
+            if (text && (INT_PTR)ShellExecuteW(app.win.hwnd, L"open", Combine(SystemDir(), L"notepad.exe").c_str(),
+                (L"\"" + file + L"\"").c_str(), nullptr, SW_SHOWNORMAL) > 32) return;
+            // no program for this type: Windows asks for one; without Explorer the path is shown
+            if (explorer) ShellExecuteW(app.win.hwnd, L"open", L"rundll32.exe", (L"shell32.dll,OpenAs_RunDLL " + file).c_str(), nullptr, SW_SHOWNORMAL);
+            else Info(L::F(L"br.no_program", file), MB_ICONWARNING);
         });
     }
 

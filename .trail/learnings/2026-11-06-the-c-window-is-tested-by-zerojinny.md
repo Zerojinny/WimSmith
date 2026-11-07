@@ -30,3 +30,4 @@ touches:
 - An editable combo box gets the colors of its edit part itself (WM_CTLCOLOREDIT/STATIC go to the combo, not the page): ui.cpp subclasses it, else a disabled one is white with blue selected text.
 - Disabled fields look grey in a scaled screenshot but are #202328; check pixels before "fixing" them.
 - PowerShell 5.1 test scripts with Korean text need a UTF-8 BOM.
+- Modal dialogs (the own file dialog, prompts): open them with PostMessage(WM_COMMAND) to the button's parent, never SendMessage (it blocks until the dialog closes). PrintWindow(…,2) sometimes misses the last painted owner-drawn button (Cancel looked missing); check with Graphics.CopyFromScreen before calling it a bug. Piping a test script into Select-Object -First stops the script early and leaves the test copy open.

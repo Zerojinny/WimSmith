@@ -147,7 +147,9 @@ namespace ui
     void EndModal(HWND dlg, int result);
     HWND Dialog(const wstring& title, int w, int h);   // fixed size, no taskbar button, over Main
 
-    // file dialogs; filters: { name, "*.wim;*.esd" } ...; false = cancelled
+    // file dialogs (filedlg.cpp: a window of this program, no Explorer / shell
+    // dialog, so they work in Windows PE); filters: { name, "*.wim;*.esd" } ...;
+    // false = cancelled
     typedef std::vector<std::pair<wstring, wstring>> Filters;
     bool OpenFile(const Filters& filters, const wstring& initialDir, wstring& file);
     bool OpenFiles(const Filters& filters, const wstring& initialDir, std::vector<wstring>& files);
