@@ -74,12 +74,17 @@ namespace sevenwim
         // delete { wim_path (8), delete_flags (16) } or rename { wim_source_path (8), wim_target_path (16), rename_flags (24) }
         const int UpdateAdd = 0, UpdateDelete = 1, UpdateRename = 2, UpdateCommandSize = 40;
         const int AddNoAcls = 0x00000020, DeleteRecursive = 0x00000002;
-        const int ErrAborted = 76;
+        const int ErrAborted = 76, ErrOpen = 47;
         const int ErrPartsMissing = -2;   // a missing part of a split WIM: not a wimlib code
 
         // loads <toolDir>\libwim-15.dll and initializes wimlib; "" = ready, else the reason
         wstring Load(const wstring& toolDir, bool acquirePrivileges);
         wstring ErrorText(int code);
+        // wimlib's own messages in the GUI process (which file, which Windows
+        // error): a new file in %TEMP% for the next calls; Messages reads its
+        // last lines ("" = none). The file before is deleted.
+        wstring BeginMessages();
+        wstring Messages(const wstring& file);
         wstring Property(const WIMStruct* wim, int image, const wchar_t* name);
 
         // struct wimlib_wim_info (read by offset)

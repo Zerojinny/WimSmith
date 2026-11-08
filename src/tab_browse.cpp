@@ -762,7 +762,7 @@ namespace sevenwim
         std::thread([this, paths, target, state, done, win, wim, image, stop]
         {
             int rc, total = 1, found = 1;
-            wstring err;
+            wstring err, messages = wl::BeginMessages();
             {
                 wl::Wim w;
                 rc = wl::OpenRead(wim, 0, nullptr, w, total, found);
@@ -781,7 +781,11 @@ namespace sevenwim
                 }
             }
             if (rc == wl::ErrPartsMissing) err = PartsText(wim, total, found);
-            else if (rc != 0 && rc != wl::ErrAborted) err = wl::ErrorText(rc);
+            else if (rc != 0 && rc != wl::ErrAborted)
+            {
+                wstring more = wl::Messages(messages);
+                err = (more.empty() ? wstring() : more + L"\r\n\r\n") + wl::ErrorText(rc);
+            }
             Post(win, [this, rc, err, done]
             {
                 running = false;
@@ -1101,6 +1105,7 @@ namespace sevenwim
         std::thread([this, cmds, what, cleanup, win, wim, image, state, started, stop]
         {
             int rc;
+            wstring messages = wl::BeginMessages();
             {
                 wl::Wim w;
                 ExtractContext c = { stop.get(), this, win, state };
@@ -1139,7 +1144,14 @@ namespace sevenwim
                 }
             }
             if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str());
-            wstring err = rc != 0 && rc != wl::ErrAborted ? wl::ErrorText(rc) : wstring();
+            wstring err;
+            if (rc != 0 && rc != wl::ErrAborted)
+            {
+                // wimlib's own lines first (the file and the Windows error), then its code
+                wstring more = wl::Messages(messages);
+                err = (more.empty() ? wstring() : more + L"\r\n\r\n") + wl::ErrorText(rc);
+                if (rc == wl::ErrOpen) err += L"\r\n\r\n" + L::T(L"br.hint_open");
+            }
             ULONGLONG took = GetTickCount64() - started;
             Post(win, [this, rc, err, what, took]
             {

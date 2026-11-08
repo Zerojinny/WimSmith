@@ -43,6 +43,37 @@ namespace sevenwim
             return L"wimlib error " + Num(code) + (s && *s ? L": " + wstring(s) : wstring());
         }
 
+        wstring BeginMessages()
+        {
+            static wstring previous;
+            static long counter;
+            wchar_t tmp[MAX_PATH + 1];
+            GetTempPathW(MAX_PATH + 1, tmp);
+            wstring file = Combine(tmp, L"7z_wimlib_gui_" + Num((long long)GetCurrentProcessId()) + L"_"
+                + Num((long long)InterlockedIncrement(&counter)) + L".txt");
+            DeleteFileW(file.c_str());
+            // wimlib keeps the file open until the next one is set: the one before can go now
+            if (wimlib_set_error_file_by_name) wimlib_set_error_file_by_name(file.c_str());
+            if (!previous.empty()) DeleteFileW(previous.c_str());
+            previous = file;
+            return file;
+        }
+
+        wstring Messages(const wstring& file)
+        {
+            if (file.empty() || !FileExists(file)) return wstring();
+            try
+            {
+                std::vector<wstring> lines = SplitLines(ReadTextFile(file));
+                wstring text;
+                size_t from = lines.size() > 12 ? lines.size() - 12 : 0;
+                for (size_t n = from; n < lines.size(); n++)
+                    if (!Trim(lines[n]).empty()) text += (text.empty() ? L"" : L"\r\n") + TrimEnd(lines[n]);
+                return text;
+            }
+            catch (const HelperError&) { return wstring(); }
+        }
+
         wstring Property(const WIMStruct* wim, int image, const wchar_t* name)
         {
             const wchar_t* p = wimlib_get_image_property(wim, image, name);

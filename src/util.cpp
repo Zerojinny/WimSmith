@@ -354,6 +354,13 @@ namespace sevenwim
             return wstring((const wchar_t*)(d.data() + 2), (d.size() - 2) / 2);
         if (d.size() >= 3 && (unsigned char)d[0] == 0xEF && (unsigned char)d[1] == 0xBB && (unsigned char)d[2] == 0xBF)
             d.erase(0, 3);
+        // UTF-16 without a BOM (wimlib's message file on Windows): most high bytes are 0
+        if (d.size() >= 4 && d.size() % 2 == 0)
+        {
+            size_t zeros = 0, pairs = d.size() / 2;
+            for (size_t i = 1; i < d.size(); i += 2) if (d[i] == 0) zeros++;
+            if (zeros * 10 >= pairs * 6) return wstring((const wchar_t*)d.data(), pairs);
+        }
         if (!d.empty() && MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, d.data(), (int)d.size(), nullptr, 0) == 0)
             return FromCodePage(d, CP_ACP);
         return FromUtf8(d);
