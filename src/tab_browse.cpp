@@ -81,17 +81,19 @@ namespace sevenwim
 
     BrowseTab::BrowseTab(App& a, HWND p) : app(a), page(p), grid(p)
     {
+        // short labels: the first row (field and three buttons) fits the smallest window
+        grid.labelWidth = 110;
         txtWim = Edit(page);
         btnBrowse = Button(page, L::T(L"qbt.btn_browse"));
         btnRead = Button(page, L::T(L"br.btn_read"));
         btnFm = Button(page, L::T(L"br.btn_7zfm"));
-        grid.Add(L::T(L"bk.row_wim"), { Field(txtWim, 420), Btn(btnBrowse, 100), Btn(btnRead, 100), Btn(btnFm, 130) });
+        grid.Add(L::T(L"bk.row_wim"), { Field(txtWim, 360), Btn(btnBrowse, 100), Btn(btnRead, 80), Btn(btnFm, 120) });
         cboImage = Combo(page);
         btnUp = Button(page, L::T(L"br.btn_up"));
         lblPath = Label(page, L"", FontUI, color::Dim, SS_LEFT | SS_ENDELLIPSIS);
         Item path = Txt(lblPath, 6, 0);
         path.fill = true;
-        grid.Add(L::T(L"bk.row_image"), { Field(cboImage, 420), Btn(btnUp, 80), path });
+        grid.Add(L::T(L"bk.row_image"), { Field(cboImage, 360), Btn(btnUp, 80), path });
 
         // the icons of the shell (the system image list, shared)
         SHFILEINFOW sfi = {};
