@@ -30,6 +30,7 @@ namespace sevenwim
         BrowseTab(App& app, HWND page);
         void SetDefault(const wstring& wim);
         void ShowWim(const wstring& wim, int image);  // from the info tab
+        void WimChanged(const wstring& wim);          // the info tab changed it: images read again
         bool Extracting() const { return running && !listing; }
         void Cancel();
         void ShowProgress(HWND target, int pct, const wstring& state);   // from the extracting thread

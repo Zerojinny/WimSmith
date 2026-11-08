@@ -6,6 +6,9 @@
 //  afterwards. Below the rows: what the backup will do (a box as high
 //  as its content) and [Start backup]. The default file is
 //  <folder of the last backup>\backup.wim.
+//  A new image of an existing file can take the unchanged files from the
+//  last image (wimlib --update-of: they are not read again); the user's
+//  exclusions (7z_wimlib.ini: backup.exclude) go to the helper as x1..xn.
 // ============================================================
 #pragma once
 #include "app.h"
@@ -23,6 +26,8 @@ namespace sevenwim
     private:
         HWND cboSource, btnFolder, btnSrcRefresh, txtWim, btnWim, txtName, lblDesc, txtDesc;
         HWND cboComp, lblThreads, numThreads, rbReplace, rbAppend, chkSnapshot, chkVerify, chkCheck;
+        HWND chkUpdateOf, chkExclude, btnExclude, lblExclude;
+        std::vector<wstring> exclusions;      // paths from the root of the source (wildcards * ?)
         HWND box, title, keys[5], vals[5], btnCapture;
         ui::Grid grid;
         std::vector<Volume> sources;          // the items of cboSource
@@ -37,6 +42,9 @@ namespace sevenwim
         void UpdatePreview();
         void SetBusy(bool busy);
         void StartCapture();
+        void EditExclusions();
+        void ShowExclusions();
+        bool Excluding() const { return ui::Checked(chkExclude) && !exclusions.empty(); }
         wstring Done(const wstring& elapsed);
     };
 }

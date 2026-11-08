@@ -83,6 +83,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 | New volume label | the label given when formatting |
 | UEFI/BIOS/None | which boot files to write afterwards, and the boot manager language (default `ko-kr`) |
 | System partition | where the boot files go |
+| Compression | **Off**, or **Compact OS** XPRESS 4K / 8K / 16K / LZX: the restored files are compressed by Windows (see below). The last choice is kept |
 | Integrity | check the WIM file against its integrity table first (`--check`); a damaged file stops the job before anything is formatted. Off by default |
 
 ### To a volume
@@ -98,6 +99,15 @@ Applies one image of a WIM file to a volume or to an empty folder.
 - UEFI boot files can only go to a FAT32 partition (the EFI system partition).
 - On an MBR disk without a System Reserved partition, the restored partition itself is the system partition, and it is made **active** automatically.
 - **None** writes no boot files; you can run `bcdboot X:\Windows` yourself later.
+
+### Compact OS (compressed restore)
+
+The files are written with the *System Compression* of Windows 10 (`wimapply --compact`): a Windows volume usually needs several GB less, which helps on small SSDs and eMMC tablets. XPRESS 4K is fast and recommended; LZX is the smallest and the slowest.
+
+- The running Windows or WinPE must be Windows 10 or later (without it the box stays at Off), and the restored Windows must be Windows 10 or later too.
+- Files that Windows needs to start are left uncompressed by wimlib.
+- The size check before the restore is skipped: the compressed image may fit a volume smaller than its size.
+- Files written later by Windows are not compressed; files changed later are written uncompressed again.
 
 ### To a folder
 
@@ -153,7 +163,8 @@ Saves a volume or folder as an image in a WIM file. The **job preview** below th
 | WIM file | the `.wim` file to write |
 | Image name / description | name and description inside the WIM; the name must be unique in the file |
 | Compression | **LZX** (default: fair size, fast restore), **XPRESS** (fastest, larger file), **LZMS solid** (smallest file, slow); threads 0 = automatic |
-| Existing file | **Replace the file**: a new file is written and replaces the old one at the end (the old one stays until then). **Add a new image**: the image is appended to the existing file (with that file's compression) |
+| Existing file | **Replace the file**: a new file is written and replaces the old one at the end (the old one stays until then). **Add a new image**: the image is appended to the existing file (with that file's compression). **Fast**: see below |
+| Exclude | *Exclude these paths* and [List...]: leave out more paths (see below) |
 | Snapshot | *Back up from a VSS snapshot* |
 | Verify | read the new file once more and verify it after the backup |
 | Integrity | add an integrity table to the WIM file (wimlib `--check`); when adding to an existing file, that file is checked against its integrity table first. Off by default |
@@ -164,6 +175,23 @@ Saves a volume or folder as an image in a WIM file. The **job preview** below th
 - Without a snapshot, connect the source PC's disk to another PC, or boot Windows PE and back up from there.
 - The WIM file must not be inside the source; with a snapshot, put it on another drive.
 - `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` and the like are left out (wimlib's default exclusion list for Windows).
+
+### Fast backup into an existing file
+
+With **Add a new image** and **Fast: unchanged files from the last image** (on by default), files whose size and times are the same as in the last image of the file are not read again: their data is taken from that image (wimlib `--update-of`). Backing up the same drive into the same file again is then much faster. Changed and new files are read as usual.
+
+The comparison is by size and times only, as wimlib does it. A program that changes a file and restores its times would not be noticed; turn the box off for such a case.
+
+### Exclusions
+
+wimlib always leaves out `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` and `\Windows\CSC`. With **Exclude these paths** checked, the paths of the list are left out too. [List...] edits the list, one path per line:
+
+- paths start at the root of the source: `\Users\*\Downloads\*` (for a volume that is `X:\Users\...`; for a folder source, inside that folder)
+- `*` and `?` are wildcards, also in the middle of a path
+- `\folder\*` leaves the empty folder in the image; `\folder` leaves it out altogether
+- a name without `\` (e.g. `*.tmp`) matches in every folder
+
+[Recommended list] fills in data Windows makes again by itself: `\Windows\Temp`, the Windows Update download cache, `\Windows\Prefetch`, error reports, the users' temporary folders and web caches. The list is kept in `7z_wimlib.ini`.
 
 ### Verify and the integrity table
 
@@ -218,6 +246,22 @@ Shows the WIM file's image count, compression, size, boot image, GUID and flags 
 - [Copy all]: copies the information to the clipboard
 - [Restore this image] / [Export this image] / [Browse this image]: takes the selected image to that tab
 
+### Manage
+
+[Manage ▾] changes the WIM file:
+
+| Command | What it does |
+|---|---|
+| Image info... | the name, description and edition (`FLAGS`, e.g. Professional) of the selected image, and whether it is the boot image |
+| Mark as the boot image / Remove the boot image mark | the image Windows Setup or WinPE starts from a boot WIM (`boot.wim`) |
+| Delete this image... | deletes the selected image; the images after it are numbered again. The only image of a file cannot be deleted |
+| Optimize the file... | writes the file again without the data no image uses any more: data left by files deleted on the browse tab, by deleted images and by cancelled jobs. The file becomes smaller |
+
+- Image info and the boot mark are written at once (only the header and the image list change).
+- Deleting and optimizing write the whole file again next to the old one and then replace it: this takes about as long as an export, needs as much free space on its drive as the file's size, and can be cancelled (the old file stays).
+- A split WIM and a read-only file cannot be changed; the menu says why. For a file in a place a normal user may not write (the root of `C:\`, `Program Files`), Windows asks for administrator rights.
+- The other tabs showing the file read it again afterwards.
+
 ### Verify
 
 [Verify] reads all data of a WIM / ESD / SWM file and checks it against the SHA-1 hashes, together with the image metadata, and checks the integrity table when there is one. The file is not changed. Do not restore from a file found damaged.
@@ -248,7 +292,7 @@ The [Edit ▾] button, the **right-click menu** of the list or the folder tree, 
 | Refresh | F5 | reads the list again |
 
 - Every command writes the WIM file right away. There is no undo: copy important files first.
-- The new content is appended to the file, so a cancelled or failed command leaves the WIM file usable as it was. Deleting does not make the file smaller; export it to a new file on the export tab for that.
+- The new content is appended to the file, so a cancelled or failed command leaves the WIM file usable as it was. Deleting does not make the file smaller: use [Manage ▾] → *Optimize the file...* on the info tab for that.
 - Added files get no access rights (ACLs): a restore gives them the rights of their place.
 - Usually no administrator rights are needed. For a WIM file where a normal user may not write (the root of `C:\`, `Program Files`, …) Windows asks for them, and the change is done with them; the menu then says "Changes ask for administrator rights", and the progress and [Cancel] are in the footer.
 - A WIM file another program holds open (7-Zip, …) cannot be changed (wimlib error 47): close that program and try again.
@@ -292,6 +336,9 @@ Next to `7z_wimlib.exe`. Values changed in the window are saved here; it can als
 | `image_folder` | the folder of the last WIM file backed up to |
 | `restore.boot_lang` | boot manager language (default `ko-kr`) |
 | `backup.snapshot` | the VSS snapshot box |
+| `backup.update_of` | the *Fast* box of the backup tab (default on) |
+| `backup.exclude_on`, `backup.exclude` | the *Exclude these paths* box and the list (paths separated by `\|`) |
+| `restore.compact` | the compression of the restore tab: 0 = off, 1-4 = XPRESS 4K / 8K / 16K / LZX |
 | `disk.*` | the last choices of the disk tab (style, layout, sizes, labels, …) |
 
 Verify and integrity table are not saved; they are off at every start.
@@ -318,6 +365,8 @@ A `lang\` folder next to `7z_wimlib.exe` with `ko.ini` / `en.ini` is read before
 | A WIM on a network drive is not found | elevated jobs cannot see that drive letter, so the program uses the `\\server\share` path instead; if it still fails, check the credentials for the share |
 | No boot after a restore | check that the boot type (UEFI / BIOS) matches the PC's firmware setting and that the right system partition was chosen; after a restore with None, run `bcdboot X:\Windows` |
 | Split is refused | ESD / LZMS solid files cannot be split; export them as LZX first |
+| Deleting an image or optimizing stops with "free" | the drive of the WIM file needs as much free space as the file, for the new copy |
+| Compact OS stays at Off | the running Windows / WinPE is older than Windows 10 |
 | The disk is offline | bring it online first in Disk Management (or `online disk` in `diskpart`) |
 
 ---

@@ -31,6 +31,9 @@ namespace sevenwim
         X(int, wimlib_extract_paths, (WIMStruct*, int, const wchar_t*, const wchar_t* const*, size_t, int)) \
         X(int, wimlib_iterate_dir_tree, (WIMStruct*, int, const wchar_t*, int, DirTreeFunc, void*)) \
         X(int, wimlib_update_image, (WIMStruct*, int, const void*, size_t, int)) \
+        X(int, wimlib_delete_image, (WIMStruct*, int)) \
+        X(int, wimlib_set_wim_info, (WIMStruct*, const void*, int)) \
+        X(int, wimlib_reference_template_image, (WIMStruct*, int, WIMStruct*, int, int)) \
         X(const wchar_t*, wimlib_get_image_property, (const WIMStruct*, int, const wchar_t*)) \
         X(int, wimlib_set_image_property, (WIMStruct*, int, const wchar_t*, const wchar_t*)) \
         X(int, wimlib_get_wim_info, (WIMStruct*, void*)) \
@@ -56,6 +59,10 @@ namespace sevenwim
         const int AddSnapshot = 0x00008000;   // VSS snapshot (wimlib 1.9+; administrator, 64-bit)
         const int WriteCheckIntegrity = 0x00000001;   // --check: an integrity table (SHA-1 of every 10 MB)
         const int WriteSolid = 0x00001000;
+        // the whole file written again, without the data nothing uses any more
+        // (wimlib_overwrite does this by itself after wimlib_delete_image)
+        const int WriteRebuild = 0x00000040, WriteRecompress = 0x00000010;
+        const int ChangeBootIndex = 0x00000004;   // wimlib_set_wim_info: boot_index (offset 20)
         const int ExportBoot = 0x00000001;
         const int AllImages = -1;
         const int MsgExtractFileStructure = 3, MsgExtractStreams = 4, MsgExtractMetadata = 6;
@@ -66,6 +73,9 @@ namespace sevenwim
         // wimlib_iterate_dir_tree / wimlib_extract_paths (browse tab)
         const int IterateRecursive = 0x00000001, IterateChildren = 0x00000002;
         const int ExtractNoAcls = 0x00000040, ExtractReplaceInvalidNames = 0x00000800, ExtractNoPreserveDirs = 0x00200000;
+        // restore with the "System Compression" of Windows 10 (Compact OS, wof.sys)
+        const int ExtractCompactXpress4k = 0x01000000, ExtractCompactXpress8k = 0x02000000;
+        const int ExtractCompactXpress16k = 0x04000000, ExtractCompactLzx = 0x08000000;
         // struct wimlib_dir_entry, x64: full_path (16), attributes (48), last_write_time.tv_sec (88),
         // streams[0].resource.uncompressed_size (248 + 8: the unnamed data stream)
         const int DirEntryFullPath = 16, DirEntryAttributes = 48, DirEntryWriteTime = 88, DirEntrySize = 256;

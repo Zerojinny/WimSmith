@@ -375,6 +375,14 @@ namespace sevenwim
         return ok;
     }
 
+    bool NeedsAdminToWrite(const wstring& file)
+    {
+        HANDLE h = CreateFileW(file.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (h != INVALID_HANDLE_VALUE) { CloseHandle(h); return false; }
+        return GetLastError() == ERROR_ACCESS_DENIED && !(GetFileAttributesW(file.c_str()) & FILE_ATTRIBUTE_READONLY);
+    }
+
     bool WriteBytes(const wstring& p, const std::string& data)
     {
         return WriteHandle(CreateFileW(p.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS,

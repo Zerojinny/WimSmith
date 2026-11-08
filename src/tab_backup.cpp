@@ -16,6 +16,36 @@ namespace sevenwim
     static const int CompTypes[] = { wl::CompressionLzx, wl::CompressionXpress, wl::CompressionLzms };
     static const wchar_t* const CompNames[] = { L"LZX", L"XPRESS", L"LZMS" };
 
+    // the exclusions offered first: data Windows makes again by itself
+    static const wchar_t* const RecommendedExclusions[] = {
+        L"\\Windows\\Temp\\*",
+        L"\\Windows\\SoftwareDistribution\\Download\\*",
+        L"\\Windows\\Prefetch\\*",
+        L"\\ProgramData\\Microsoft\\Windows\\WER\\*",
+        L"\\Users\\*\\AppData\\Local\\Temp\\*",
+        L"\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\*",
+        L"\\Users\\*\\AppData\\Local\\CrashDumps\\*",
+    };
+
+    static std::vector<wstring> Recommended()
+    {
+        std::vector<wstring> v;
+        for (const wchar_t* p : RecommendedExclusions) v.push_back(p);
+        return v;
+    }
+
+    // one path per line; blank lines and the line ends removed
+    static std::vector<wstring> Lines(const wstring& text, wchar_t sep)
+    {
+        std::vector<wstring> v;
+        for (const wstring& l : Split(text, sep))
+        {
+            wstring t = Trim(l);
+            if (!t.empty() && t != L"\r") v.push_back(Trim(t));
+        }
+        return v;
+    }
+
     static wstring ThreadText(int threads)
     {
         return threads > 0 ? L::F(L"bk.threads_value", threads) : L::F(L"bk.threads_auto", (long long)App::Processors());
@@ -44,7 +74,19 @@ namespace sevenwim
         rbReplace = Radio(page, L::T(L"bk.existing_replace"), 1);
         rbAppend = Radio(page, L::T(L"bk.existing_append"), 1);
         SetChecked(rbReplace, true);
-        grid.Add(L::T(L"bk.row_existing"), { Box(rbReplace), Box(rbAppend) });
+        // wimlib --update-of: the files unchanged since the last image are not read again
+        chkUpdateOf = Check(page, L::T(L"bk.update_of"));
+        SetChecked(chkUpdateOf, GetSetting(L"backup.update_of", L"1") == L"1");
+        grid.Add(L::T(L"bk.row_existing"), { Box(rbReplace), Box(rbAppend), Box(chkUpdateOf) });
+        // the user's exclusions (added to wimlib's own: pagefile.sys, hiberfil.sys, ...)
+        chkExclude = Check(page, L::T(L"bk.exclude"));
+        SetChecked(chkExclude, GetSetting(L"backup.exclude_on", L"0") == L"1");
+        btnExclude = Button(page, L::T(L"bk.btn_exclude"));
+        lblExclude = Label(page, L"", FontUI, color::Dim);
+        // not saved yet: the recommended list
+        wstring saved = GetSetting(L"backup.exclude", L"\x01");
+        exclusions = saved == L"\x01" ? Recommended() : Lines(saved, L'|');
+        grid.Add(L::T(L"bk.row_exclude"), { Box(chkExclude), Btn(btnExclude, 110), Txt(lblExclude, 4) });
         chkSnapshot = Check(page, L::T(L"bk.snapshot"));
         SetChecked(chkSnapshot, GetSetting(L"backup.snapshot", L"0") == L"1");
         grid.Add(L::T(L"bk.row_snapshot"), { Box(chkSnapshot) });
@@ -74,7 +116,19 @@ namespace sevenwim
         OnClick(btnSrcRefresh, [this] { FillSources(); });
         OnClick(btnWim, [this] { ChooseWim(); });
         OnClick(btnCapture, [this] { StartCapture(); });
-        for (HWND h : { cboSource, cboComp, txtWim, numThreads, rbAppend, chkVerify, chkCheck }) OnChange(h, [this] { UpdatePreview(); });
+        OnClick(btnExclude, [this] { EditExclusions(); });
+        for (HWND h : { cboSource, cboComp, txtWim, numThreads, rbReplace, rbAppend, chkVerify, chkCheck }) OnChange(h, [this] { UpdatePreview(); });
+        OnChange(chkUpdateOf, [this]
+        {
+            SetSetting(L"backup.update_of", Checked(chkUpdateOf) ? L"1" : L"0");
+            UpdatePreview();
+        });
+        OnChange(chkExclude, [this]
+        {
+            SetSetting(L"backup.exclude_on", Checked(chkExclude) ? L"1" : L"0");
+            ShowExclusions();
+            UpdatePreview();
+        });
         // the running Windows drive is a source only with a snapshot
         OnChange(chkSnapshot, [this]
         {
@@ -90,6 +144,72 @@ namespace sevenwim
         swprintf_s(name, L"backup_%04d-%02d-%02d", t.wYear, t.wMonth, t.wDay);
         SetText(txtName, name);
         FillSources();
+        ShowExclusions();
+        UpdatePreview();
+    }
+
+    void BackupTab::ShowExclusions()
+    {
+        SetText(lblExclude, L::F(L"bk.exclude_count", (long long)exclusions.size()));
+        SetColor(lblExclude, Checked(chkExclude) ? color::Text : color::Dim);
+        Relayout(page);
+    }
+
+    // the list in a dialog: one path per line, [Recommended] fills in the suggested one
+    void BackupTab::EditExclusions()
+    {
+        HWND d = Dialog(L::T(L"bk.exclude_title"), 600, 420);
+        HWND hint = Label(d, L::T(L"bk.exclude_hint"), FontUI, color::Dim, SS_LEFT);
+        HWND t = Edit(d, ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_HSCROLL);
+        SendMessageW(t, WM_SETFONT, (WPARAM)FontMono, TRUE);
+        HWND def = Button(d, L::T(L"bk.exclude_recommended"));
+        HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
+        Primary(ok, false);
+        wstring text;
+        for (const wstring& x : exclusions) text += x + L"\r\n";
+        SetText(t, text);
+        SetLayout(d, [=](int cw, int ch)
+        {
+            int x = S(14), w = std::max(S(100), cw - 2 * S(14));
+            int hh = TextHeightWrapped(FontUI, GetText(hint), w);
+            Move(hint, x, S(12), w, hh);
+            int by = ch - S(14) - S(28);
+            Move(t, x, S(12) + hh + S(8), w, std::max(S(40), by - S(10) - (S(12) + hh + S(8))));
+            Move(def, x, by, S(150), S(28));
+            Move(ok, cw - S(14) - S(86) * 2 - S(8), by, S(86), S(28));
+            Move(cancel, cw - S(14) - S(86), by, S(86), S(28));
+        });
+        Relayout(d);
+        OnClick(def, [t]
+        {
+            wstring r;
+            for (const wstring& x : Recommended()) r += x + L"\r\n";
+            SetText(t, r);
+        });
+        wstring typed;
+        auto accept = [d, t, &typed] { typed = GetText(t); EndModal(d, 1); };
+        OnClick(ok, accept);
+        OnClick(cancel, [d] { EndModal(d, 2); });
+        OnKeys(d, nullptr, [d] { EndModal(d, 2); });
+        SetFocus(t);
+        if (RunModal(d) != 1) return;
+        std::vector<wstring> list;
+        for (const wstring& l : Lines(typed, L'\n'))
+        {
+            // a path from the root of the source: "\..." (a name alone matches anywhere)
+            if (l.find(L'|') != wstring::npos) continue;
+            list.push_back(l);
+        }
+        exclusions = list;
+        wstring joined;
+        for (const wstring& x : exclusions) joined += (joined.empty() ? L"" : L"|") + x;
+        SetSetting(L"backup.exclude", joined);
+        if (!exclusions.empty() && !Checked(chkExclude))
+        {
+            SetChecked(chkExclude, true);
+            SetSetting(L"backup.exclude_on", L"1");
+        }
+        ShowExclusions();
         UpdatePreview();
     }
 
@@ -203,7 +323,10 @@ namespace sevenwim
         SetText(vals[1], wim.empty() ? L"—" : wim);
         bool exists = !wim.empty() && FileExists(wim);
         bool append = exists && Checked(rbAppend);
+        Enable(chkUpdateOf, Checked(rbAppend) && !app.Busy());
         wstring how = L::T(!exists ? L"pv.new" : append ? L"pv.append" : L"pv.replace");
+        if (append && Checked(chkUpdateOf)) how += L" · " + L::T(L"pv.update_of");
+        if (Excluding()) how += L" · " + L::F(L"pv.exclude", (long long)exclusions.size());
         int ci = std::max(0, std::min(2, ComboIndex(cboComp)));
         wstring comp = append ? L::T(L"bk.comp_existing") : wstring(CompNames[ci]);
         SetText(vals[2], how + L" · " + comp + L" · " + ThreadText(NumberValue(numThreads))
@@ -218,7 +341,8 @@ namespace sevenwim
 
     void BackupTab::SetBusy(bool busy)
     {
-        for (HWND c : { btnCapture, cboSource, txtWim, chkVerify, chkCheck, chkSnapshot }) Enable(c, !busy);
+        for (HWND c : { btnCapture, cboSource, txtWim, chkVerify, chkCheck, chkSnapshot, chkExclude, btnExclude }) Enable(c, !busy);
+        Enable(chkUpdateOf, !busy && Checked(rbAppend));
     }
 
     void BackupTab::StartCapture()
@@ -248,6 +372,9 @@ namespace sevenwim
         else if (exists) what = L::T(L"bk.confirm_replace");
         if (snapshot) what += L"\r\n" + L::T(L"bk.confirm_snapshot");
         if (Checked(chkCheck)) what += L"\r\n" + L::T(L"bk.confirm_check");
+        bool updateOf = append && Checked(chkUpdateOf) && newIndex > 1;
+        if (updateOf) what += L"\r\n" + L::F(L"bk.confirm_update_of", newIndex - 1);
+        if (Excluding()) what += L"\r\n" + L::F(L"bk.confirm_exclude", (long long)exclusions.size());
         int threads = NumberValue(numThreads);
         wstring threadText = ThreadText(threads);
         int ci = std::max(0, ComboIndex(cboComp));
@@ -268,6 +395,12 @@ namespace sevenwim
         job[L"verify"] = Checked(chkVerify) ? L"1" : L"0";
         job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
         job[L"snapshot"] = snapshot ? L"1" : L"0";
+        job[L"update_of"] = updateOf ? L"1" : L"0";
+        if (Excluding())
+        {
+            job[L"exclude_count"] = Num((long long)exclusions.size());
+            for (size_t i = 0; i < exclusions.size(); i++) job[L"x" + Num((long long)i + 1)] = exclusions[i];
+        }
         app.job = App::JobInfo();
         app.job.verify = Checked(chkVerify);
         app.job.wim = wim;

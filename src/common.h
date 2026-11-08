@@ -73,6 +73,10 @@ namespace sevenwim
     bool ReadBytes(const wstring& p, std::string& data);
     wstring ReadTextFile(const wstring& p);   // UTF-8 / UTF-16 (BOM); throws HelperError
     bool WriteBytes(const wstring& p, const std::string& data);
+    // the file cannot be opened for writing for want of rights (a WIM in the
+    // root of C:, in Program Files, ...): its changes need the elevated helper.
+    // A file another program holds (sharing violation) is not such a case.
+    bool NeedsAdminToWrite(const wstring& file);
     bool AppendBytes(const wstring& p, const std::string& data);
     wstring ErrorMessage(DWORD code);
 

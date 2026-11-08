@@ -13,6 +13,18 @@ namespace sevenwim
 {
     using namespace ui;
 
+    // the System Compression (Compact OS, wof.sys) is part of Windows 10 and later
+    static bool Windows10OrLater()
+    {
+        typedef LONG(WINAPI * GetVersionFn)(PRTL_OSVERSIONINFOW);
+        GetVersionFn f = (GetVersionFn)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion");
+        RTL_OSVERSIONINFOW v = {};
+        v.dwOSVersionInfoSize = sizeof v;
+        return f && f(&v) == 0 && v.dwMajorVersion >= 10;
+    }
+
+    static const wchar_t* const CompactNames[] = { L"", L"XPRESS4K", L"XPRESS8K", L"XPRESS16K", L"LZX" };
+
     static wstring FirmwareText(const wstring& fw)
     {
         return fw == L"ALL" ? L"UEFI + BIOS" : fw == L"BIOS" ? L"BIOS" : L"UEFI";
@@ -48,6 +60,14 @@ namespace sevenwim
         cboSysPart = Combo(page);
         btnPartRefresh = Button(page, L::T(L"adk.btn_refresh"));
         grid.Add(L::T(L"bk.row_syspart"), { Field(cboSysPart, 520), Btn(btnPartRefresh, 90) });
+        // Compact OS: the files compressed by Windows (wimlib --compact); the last choice is kept
+        cboCompact = Combo(page);
+        for (const wchar_t* k : { L"rs.compact_off", L"rs.compact_x4", L"rs.compact_x8", L"rs.compact_x16", L"rs.compact_lzx" }) ComboAdd(cboCompact, L::T(k));
+        long long compact = ParseLong(GetSetting(L"restore.compact", L"0"), 0);
+        bool win10 = Windows10OrLater();
+        ComboSelect(cboCompact, win10 && compact >= 0 && compact <= 4 ? (int)compact : 0);
+        if (!win10) Tooltip(cboCompact, L::T(L"rs.compact_needs_10"));
+        grid.Add(L::T(L"rs.row_compact"), { Field(cboCompact, 320) });
         // wimlib --check: the WIM file is checked against its integrity table first (off by default)
         chkCheck = Check(page, L::T(L"rs.check"));
         grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
@@ -71,6 +91,7 @@ namespace sevenwim
         for (HWND box : { chkUefi, chkBios, chkNoBoot }) OnChange(box, [this, box] { BootBoxChanged(box); });
         OnClick(btnPartRefresh, [this] { LoadPartitions(); });
         OnClick(btnApply, [this] { StartApply(); });
+        OnChange(cboCompact, [this] { SetSetting(L"restore.compact", Num(std::max(0, ComboIndex(cboCompact)))); });
         // a valid boot manager language is kept for the next start (after the
         // combo box has taken the chosen text)
         OnChange(cboBootLang, [this]
@@ -375,8 +396,15 @@ namespace sevenwim
     void RestoreTab::SetBusy(bool busy)
     {
         for (HWND c : { btnApply, cboTarget, cboImage, txtWim, btnPartRefresh, chkCheck }) Enable(c, !busy);
+        Enable(cboCompact, !busy && Windows10OrLater());
         if (busy) for (HWND c : { chkUefi, chkBios, chkNoBoot, cboSysPart, cboBootLang }) Enable(c, false);
         else UpdateBoot();
+    }
+
+    int RestoreTab::Compact() const
+    {
+        int c = ComboIndex(cboCompact);
+        return c >= 1 && c <= 4 && Windows10OrLater() ? c : 0;
     }
 
     void RestoreTab::StartApply()
@@ -395,7 +423,8 @@ namespace sevenwim
         wstring letter(1, tgt.Letter);
         wstring why = TargetProblem(tgt.Letter, wim, app.root);
         if (!why.empty()) { Info(L::F(why, tgt.Letter), MB_ICONWARNING); FillTargets(); return; }
-        if (img.TotalBytes > 0 && tgt.Size > 0 && tgt.Size < img.TotalBytes)
+        // compressed (Compact OS) the image needs less than its size
+        if (img.TotalBytes > 0 && tgt.Size > 0 && tgt.Size < img.TotalBytes && Compact() == 0)
         {
             Info(L::F(L"bk.err_too_small", App::Gb(img.TotalBytes), tgt.Letter, App::Gb(tgt.Size)), MB_ICONWARNING);
             return;
@@ -426,6 +455,7 @@ namespace sevenwim
         if (hasSys && fw != L"UEFI" && !sys.Gpt() && !sys.Active)
             windows += L"\r\n" + L::F(L"bk.confirm_make_active", sys.Disk, sys.Number);
         if (Checked(chkCheck)) windows += L"\r\n\r\n" + L::T(L"rs.confirm_check");
+        if (Compact()) windows += L"\r\n\r\n" + L::F(L"rs.confirm_compact", CompactNames[Compact()]);
         if (!YesNo(L::F(L"bk.confirm_apply", tgt.Letter, tgt.Text, imgText, wim, windows), MB_ICONWARNING)) return;
         if (!app.ConfirmTyped(L::F(L"bk.confirm_type", tgt.Letter), letter)) return;
 
@@ -435,6 +465,7 @@ namespace sevenwim
         job[L"index"] = Num(img.Index);
         job[L"target"] = letter;
         job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
+        job[L"compact"] = Num(Compact());
         job[L"label"] = CleanLabel(GetText(txtLabel));
         if (hasSys)
         {
@@ -468,7 +499,7 @@ namespace sevenwim
         wstring why = FolderTargetProblem(folder, wim, app.root);
         if (!why.empty()) { Info(L::F(why, folder), MB_ICONWARNING); return; }
         long long free = DriveFreeBytes(Root(folder));
-        if (img.TotalBytes > 0 && free >= 0 && free < img.TotalBytes)
+        if (img.TotalBytes > 0 && free >= 0 && free < img.TotalBytes && Compact() == 0)
         {
             Info(L::F(L"bk.err_folder_too_small", App::Gb(img.TotalBytes), folder, App::Gb(free)), MB_ICONWARNING);
             return;
@@ -476,6 +507,7 @@ namespace sevenwim
         if (!app.LoadWimlib()) return;
         wstring question = L::F(L"bk.confirm_apply_folder", folder, imgText, wim);
         if (Checked(chkCheck)) question += L"\r\n\r\n" + L::T(L"rs.confirm_check_folder");
+        if (Compact()) question += L"\r\n\r\n" + L::F(L"rs.confirm_compact", CompactNames[Compact()]);
         if (!YesNo(question, MB_ICONQUESTION)) return;
 
         Job job;
@@ -484,6 +516,7 @@ namespace sevenwim
         job[L"index"] = Num(img.Index);
         job[L"folder"] = folder;
         job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
+        job[L"compact"] = Num(Compact());
         app.job = App::JobInfo();
         app.job.wim = wim;
         app.job.image = img.Index;

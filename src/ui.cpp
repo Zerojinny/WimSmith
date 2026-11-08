@@ -1028,8 +1028,7 @@ namespace ui
             }
             int w = S(MenuPadX) + TextWidth(FontUI, it->text) + S(MenuPadX);
             if (!it->key.empty()) w += S(MenuGapKey) + TextWidth(FontUI, it->key);
-            // Windows adds the width of a check mark itself
-            mi->itemWidth = (UINT)std::max(0, w - GetSystemMetrics(SM_CXMENUCHECK));
+            mi->itemWidth = (UINT)w;
             mi->itemHeight = (UINT)std::max(TextHeight(FontUI) + S(10), S(26));
             return TRUE;
         }

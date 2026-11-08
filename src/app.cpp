@@ -201,8 +201,10 @@ namespace sevenwim
         values[L"root"] = root;
         job.mode = values[L"mode"];
         // backup / restore / disk need administrator rights; export, split, join and verify do not;
-        // update: the browse tab sends its edits here only when the file needs them
-        bool elevate = job.mode == L"capture" || job.mode == L"apply" || job.mode == L"disk" || job.mode == L"update";
+        // update: the browse tab sends its edits here only when the file needs them;
+        // modify (the info tab): admin = 1 when the user may not write the file
+        bool elevate = job.mode == L"capture" || job.mode == L"apply" || job.mode == L"disk" || job.mode == L"update"
+            || values[L"admin"] == L"1";
         // the elevated helper does not see the network drives (and SUBST drives)
         // of this session: their paths go to it as \\server\share\...
         if (elevate)
@@ -301,6 +303,7 @@ namespace sevenwim
         else if (ph == L"metadata") phaseText = L::T(L"bk.phase_metadata");
         else if (ph == L"export") phaseText = L::T(L"ex.phase_export");
         else if (ph == L"update") phaseText = L::T(L"br.updating_admin");
+        else if (ph == L"rebuild") phaseText = L::T(L"in.phase_rebuild");
         else if (ph == L"split") phaseText = c > 0 ? L::F(L"sj.phase_split", shown, Gb(a), Gb(b), c, d) : L::T(L"sj.phase_split_start");
         else if (ph == L"join") phaseText = L::T(L"sj.phase_join");
         else if (ph == L"vopen") phaseText = L::T(L"vf.phase_open");

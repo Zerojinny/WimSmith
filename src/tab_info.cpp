@@ -4,6 +4,7 @@
 // ============================================================
 #include "tab_info.h"
 #include "lang.h"
+#include "tab_browse.h"
 #include "tab_export.h"
 #include "tab_restore.h"
 #include <algorithm>
@@ -52,8 +53,8 @@ namespace sevenwim
 
     InfoTab::InfoTab(App& a, HWND p) : app(a), page(p), grid(p)
     {
-        // the list takes what is left: a low page is still usable (the buttons need 760 px)
-        SetScrollMin(page, 760, 280);
+        // the list takes what is left: a low page is still usable (the buttons need 840 px)
+        SetScrollMin(page, 840, 280);
         txtWim = Edit(page);
         btnWim = Button(page, L::T(L"qbt.btn_browse"));
         btnRead = Button(page, L::T(L"in.btn_read"));
@@ -69,7 +70,8 @@ namespace sevenwim
         btnBrowse = Button(page, L::T(L"in.btn_browse"));
         btnCopy = Button(page, L::T(L"in.btn_copy"));
         btnVerify = Button(page, L::T(L"vf.btn"));
-        for (HWND b : { btnRestore, btnExport, btnBrowse, btnVerify }) Enable(b, false);
+        btnManage = Button(page, L::T(L"in.btn_manage"));
+        for (HWND b : { btnRestore, btnExport, btnBrowse, btnVerify, btnManage }) Enable(b, false);
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
 
         OnClick(btnWim, [this] { ChooseWim(); });
@@ -81,7 +83,12 @@ namespace sevenwim
         OnClick(btnBrowse, [this] { ToBrowse(); });
         OnClick(btnCopy, [this] { Copy(); });
         OnClick(btnVerify, [this] { StartVerify(); });
-        app.busyHandlers.push_back([this](bool busy) { Enable(btnVerify, !busy && !infoWim.empty()); });
+        OnClick(btnManage, [this] { ShowManageMenu(); });
+        app.busyHandlers.push_back([this](bool busy)
+        {
+            Enable(btnVerify, !busy && !infoWim.empty());
+            Enable(btnManage, !busy && hasInfo);
+        });
     }
 
     void InfoTab::Layout(int w, int h)
@@ -92,7 +99,8 @@ namespace sevenwim
         y += S(40);
         int listH = std::max(0, h - y - S(36));
         Move(list, 0, y, w, listH);
-        std::vector<Item> buttons = { Btn(btnRestore, 150), Btn(btnExport, 150), Btn(btnBrowse, 150), Btn(btnCopy, 120), Btn(btnVerify, 120) };
+        std::vector<Item> buttons = { Btn(btnRestore, 140), Btn(btnExport, 140), Btn(btnBrowse, 140), Btn(btnCopy, 110), Btn(btnVerify, 110),
+            Btn(btnManage, 120) };
         Grid::PlaceRow(buttons, 0, y + listH + S(4), w);
     }
 
@@ -128,7 +136,7 @@ namespace sevenwim
         hasInfo = false;
         info = wl::WimFileInfo();
         infoWim.clear();
-        for (HWND b : { btnRestore, btnExport, btnBrowse, btnVerify }) Enable(b, false);
+        for (HWND b : { btnRestore, btnExport, btnBrowse, btnVerify, btnManage }) Enable(b, false);
         SetText(lblSummary, L::T(L"in.none"));
         wstring wim = Trim(GetText(txtWim));
         if (wim.empty() || !FileExists(wim))
@@ -153,6 +161,7 @@ namespace sevenwim
         hasInfo = true;
         infoWim = wim;
         Enable(btnVerify, !app.Busy());
+        Enable(btnManage, !app.Busy());
         SetText(lblSummary, Summary());
         for (const wl::WimImage& w : info.Images)
             ListAdd(list, {
@@ -248,6 +257,180 @@ namespace sevenwim
         const wl::WimImage* w = Selected();
         if (!w) return;
         app.Browse(infoWim, info.ImageCount > 1 ? w->Index : 0);
+    }
+
+    // ---------- manage (helper mode "modify") ----------
+
+    wstring InfoTab::NotWritable() const
+    {
+        if (!hasInfo) return wstring();
+        if (info.TotalParts > 1 || info.Spanned) return L::T(L"br.why_split");
+        DWORD a = GetFileAttributesW(infoWim.c_str());
+        if (a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_READONLY)) return L::T(L"br.why_readonly");
+        if (info.ReadOnlyFlag) return L::T(L"in.why_readonly_flag");
+        return wstring();
+    }
+
+    enum { ManageEdit = 1, ManageBoot, ManageDelete, ManageOptimize };
+
+    void InfoTab::ShowManageMenu()
+    {
+        if (!hasInfo || app.Busy()) return;
+        const wl::WimImage* w = Selected();
+        wstring why = NotWritable();
+        bool ok = why.empty();
+        bool boot = w && w->Index == info.BootIndex;
+        std::vector<MenuItem> m;
+        auto add = [&m](int id, const wstring& text, bool on) { MenuItem it; it.id = id; it.text = text; it.enabled = on; m.push_back(it); };
+        add(ManageEdit, L::T(L"in.menu_edit"), ok && w);
+        add(ManageBoot, L::T(boot ? L"in.menu_unboot" : L"in.menu_boot"), ok && w);
+        m.push_back(MenuItem());
+        add(ManageDelete, L::T(L"in.menu_delete"), ok && w && info.ImageCount > 1);
+        add(ManageOptimize, L::T(L"in.menu_optimize"), ok);
+        if (!ok)
+        {
+            m.push_back(MenuItem());
+            add(0, L::F(L"br.not_writable_short", why), false);
+        }
+        else if (NeedsAdminToWrite(infoWim))
+        {
+            m.push_back(MenuItem());
+            add(0, L::T(L"br.menu_admin"), false);
+        }
+        RECT rc;
+        GetWindowRect(btnManage, &rc);
+        int cmd = PopupMenu(app.win.hwnd, POINT{ rc.left, rc.bottom }, m);
+        // the selection may be gone (the list is read again by another tab)
+        w = Selected();
+        if (cmd == ManageOptimize) { Optimize(); return; }
+        if (!w) return;
+        wl::WimImage img = *w;
+        if (cmd == ManageEdit) EditImage(img);
+        else if (cmd == ManageBoot) ToggleBoot(img);
+        else if (cmd == ManageDelete) DeleteImage(img);
+    }
+
+    // name, description, edition (FLAGS) and the boot mark of one image
+    void InfoTab::EditImage(const wl::WimImage& w)
+    {
+        HWND d = Dialog(L::F(L"in.edit_title", w.Index), 520, 236);
+        HWND lName = Label(d, L::T(L"in.col_name")), tName = Edit(d);
+        HWND lDesc = Label(d, L::T(L"in.col_desc")), tDesc = Edit(d);
+        HWND lFlags = Label(d, L::T(L"in.edit_flags")), tFlags = Edit(d);
+        HWND hint = Label(d, L::T(L"in.edit_flags_hint"), FontUI, color::Dim);
+        HWND cBoot = Check(d, L::T(L"in.edit_boot"));
+        HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
+        Primary(ok, false);
+        SetText(tName, w.Name);
+        SetText(tDesc, w.Description);
+        SetText(tFlags, w.Flags);
+        bool wasBoot = w.Index == info.BootIndex;
+        SetChecked(cBoot, wasBoot);
+        // laid out from the client size (a small screen makes the dialog smaller)
+        SetLayout(d, [=](int cw, int ch)
+        {
+            int x = S(14), lw = S(110), fx = x + lw, fw = std::max(S(80), cw - fx - S(14)), y = S(14);
+            for (auto row : { std::make_pair(lName, tName), std::make_pair(lDesc, tDesc), std::make_pair(lFlags, tFlags) })
+            {
+                Move(row.first, x, y + S(4), lw - S(6), S(20));
+                Move(row.second, fx, y, fw, S(24));
+                y += S(32);
+            }
+            Move(hint, fx, y - S(6), fw, S(20));
+            y += S(18);
+            Move(cBoot, fx, y, fw, S(22));
+            Move(ok, cw - S(14) - S(86) * 2 - S(8), ch - S(14) - S(28), S(86), S(28));
+            Move(cancel, cw - S(14) - S(86), ch - S(14) - S(28), S(86), S(28));
+        });
+        Relayout(d);
+        wstring name, desc, flags;
+        bool boot = false;
+        auto accept = [&] { name = Trim(GetText(tName)); desc = Trim(GetText(tDesc)); flags = Trim(GetText(tFlags)); boot = Checked(cBoot); EndModal(d, 1); };
+        OnClick(ok, accept);
+        OnClick(cancel, [d] { EndModal(d, 2); });
+        OnKeys(d, accept, [d] { EndModal(d, 2); });
+        SetFocus(tName);
+        SendMessageW(tName, EM_SETSEL, 0, -1);
+        if (RunModal(d) != 1) return;
+        auto oneLine = [](wstring s) { for (wchar_t& c : s) if (c == L'\r' || c == L'\n') c = L' '; return s; };
+        name = oneLine(name);
+        desc = oneLine(desc);
+        flags = oneLine(flags);
+        if (name.empty()) { Info(L::T(L"in.err_name_empty"), MB_ICONWARNING); return; }
+        for (const wl::WimImage& o : info.Images)
+            if (o.Index != w.Index && EqualsI(o.Name, name)) { Info(L::F(L"bk.err_name_used", name), MB_ICONWARNING); return; }
+        Job job;
+        job[L"op"] = L"props";
+        job[L"index"] = Num(w.Index);
+        if (name != w.Name) job[L"name"] = name;
+        if (desc != w.Description) job[L"description"] = desc;
+        if (flags != w.Flags) job[L"flags"] = flags;
+        if (boot != wasBoot) job[L"boot"] = boot ? L"1" : L"0";
+        if (job.size() == 2) return;          // nothing changed
+        StartModify(job, L::F(L"in.edit_done", w.Index));
+    }
+
+    void InfoTab::ToggleBoot(const wl::WimImage& w)
+    {
+        bool boot = w.Index == info.BootIndex;
+        Job job;
+        job[L"op"] = L"props";
+        job[L"index"] = Num(w.Index);
+        job[L"boot"] = boot ? L"0" : L"1";
+        StartModify(job, L::F(boot ? L"in.unboot_done" : L"in.boot_done", w.Index));
+    }
+
+    void InfoTab::DeleteImage(const wl::WimImage& w)
+    {
+        if (info.ImageCount < 2) { Info(L::T(L"in.err_last_image"), MB_ICONWARNING); return; }
+        wstring name = w.Name.empty() ? L::T(L"bk.no_name") : w.Name;
+        wstring later = w.Index < info.ImageCount ? L"\r\n" + L::F(L"in.confirm_delete_renumber", w.Index + 1, w.Index) : wstring();
+        if (!YesNo(L::F(L"in.confirm_delete", w.Index, name, infoWim, SizeText(std::max(0LL, FileSize(infoWim)))) + later, MB_ICONWARNING)) return;
+        Job job;
+        job[L"op"] = L"delete";
+        job[L"index"] = Num(w.Index);
+        StartModify(job, L::F(L"in.delete_done", w.Index, name));
+    }
+
+    void InfoTab::Optimize()
+    {
+        long long size = FileSize(infoWim);
+        if (!YesNo(L::F(L"in.confirm_optimize", infoWim, SizeText(std::max(0LL, size))), MB_ICONQUESTION)) return;
+        Job job;
+        job[L"op"] = L"optimize";
+        StartModify(job, wstring());
+    }
+
+    // the helper changes the file (elevated only when the user may not write it);
+    // then every tab that shows it reads it again
+    void InfoTab::StartModify(Job job, const wstring& doneText)
+    {
+        if (app.Busy() || infoWim.empty()) return;
+        if (!FileExists(infoWim)) { Info(L::F(L"msg.not_found", infoWim), MB_ICONWARNING); return; }
+        if (!app.LoadWimlib()) return;
+        long long before = FileSize(infoWim);
+        job[L"mode"] = L"modify";
+        job[L"wim"] = infoWim;
+        bool admin = NeedsAdminToWrite(infoWim);
+        if (admin) job[L"admin"] = L"1";
+        bool rebuild = job[L"op"] == L"delete" || job[L"op"] == L"optimize";
+        app.job = App::JobInfo();
+        app.job.wim = infoWim;
+        app.onSuccess = [this, doneText, before, rebuild](const wstring& elapsed)
+        {
+            wstring wim = app.job.wim;
+            long long after = FileSize(wim);
+            wstring msg = doneText.empty() ? L::F(L"in.optimize_done", wim) : doneText;
+            if (rebuild) msg += L"\r\n" + L::F(L"in.size_change", SizeText(std::max(0LL, before)), SizeText(std::max(0LL, after)));
+            app.Log(msg);
+            ReadInfo(false);
+            app.WimWritten(wim, false);
+            app.browse->WimChanged(wim);
+            return msg + L"\r\n\r\n" + elapsed;
+        };
+        app.onFailure = nullptr;
+        app.Log(L::F(admin ? L"in.log_modify_admin" : L"in.log_modify", infoWim));
+        app.StartHelper(job);
     }
 
     // ---------- verify (helper without administrator rights; nothing is written) ----------

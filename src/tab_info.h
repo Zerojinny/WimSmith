@@ -4,6 +4,9 @@
 //  (read here, nothing is changed); an image can be taken over to the
 //  restore, the export or the browse tab, the whole info copied, and
 //  the file verified (helper, no administrator rights).
+//  [Manage]: name / description / edition of an image, the boot image,
+//  delete an image, optimize the file (helper mode "modify"; elevated
+//  only when the user may not write the file).
 // ============================================================
 #pragma once
 #include "app.h"
@@ -21,7 +24,7 @@ namespace sevenwim
         HWND txtWim;
 
     private:
-        HWND btnWim, btnRead, lblSummary, list, btnRestore, btnExport, btnBrowse, btnCopy, btnVerify;
+        HWND btnWim, btnRead, lblSummary, list, btnRestore, btnExport, btnBrowse, btnCopy, btnVerify, btnManage;
         ui::Grid grid;
         wl::WimFileInfo info;
         bool hasInfo = false;
@@ -38,5 +41,12 @@ namespace sevenwim
         void ToExport();
         void ToBrowse();
         void StartVerify();
+        wstring NotWritable() const;           // why the file cannot be changed ("" = it can)
+        void ShowManageMenu();
+        void EditImage(const wl::WimImage& w);
+        void ToggleBoot(const wl::WimImage& w);
+        void DeleteImage(const wl::WimImage& w);
+        void Optimize();
+        void StartModify(Job job, const wstring& doneText);
     };
 }

@@ -350,6 +350,13 @@ namespace sevenwim
                 if (images[n] == image) { ComboSelect(cboImage, (int)n); break; }
     }
 
+    void BrowseTab::WimChanged(const wstring& wim)
+    {
+        if (running || wimFile.empty() || !EqualsI(wimFile, wim)) return;
+        SetText(txtWim, wim);
+        OpenWim(false);
+    }
+
     void BrowseTab::SetDefault(const wstring& wim)
     {
         if (Trim(GetText(txtWim)).empty() && FileExists(wim)) SetText(txtWim, wim);
@@ -408,16 +415,8 @@ namespace sevenwim
         return s;
     }
 
-    // the file cannot be opened for writing for want of rights (a WIM in the
-    // root of C:, in Program Files, ...): its edits go to the elevated helper.
-    // A file another program holds (sharing violation) is not such a case.
-    static bool NeedsAdmin(const wstring& file)
-    {
-        HANDLE h = CreateFileW(file.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (h != INVALID_HANDLE_VALUE) { CloseHandle(h); return false; }
-        return GetLastError() == ERROR_ACCESS_DENIED && !(GetFileAttributesW(file.c_str()) & FILE_ATTRIBUTE_READONLY);
-    }
+    // a file the user may not write: its edits go to the elevated helper
+    static bool NeedsAdmin(const wstring& file) { return NeedsAdminToWrite(file); }
 
     struct ListContext
     {

@@ -452,6 +452,32 @@ namespace sevenwim
 
     static int VerifyCore(const wstring& wimFile, wstring& step);
 
+    // wimlib's Windows configuration (WIMLIB_ADD_FLAG_WINCONFIG), kept when the user adds exclusions
+    static const wchar_t* const DefaultExclusions[] = { L"\\$ntfs.log", L"\\hiberfil.sys", L"\\pagefile.sys", L"\\swapfile.sys",
+        L"\\System Volume Information", L"\\RECYCLER", L"\\$RECYCLE.BIN", L"\\$Recycle.Bin", L"\\Windows\\CSC" };
+
+    // exclude_count, x1 .. xn: paths from the root of the source (wildcards * ?);
+    // written as a capture configuration file (UTF-16 with BOM) into the work
+    // folder. "" = none given
+    static wstring CaptureConfig(const Job& job)
+    {
+        long long count = ParseLong(Get(job, L"exclude_count"), 0);
+        std::vector<wstring> extra;
+        for (long long n = 1; n <= count; n++)
+        {
+            wstring x = Trim(Get(job, L"x" + Num(n)));
+            if (!x.empty()) extra.push_back(x);
+        }
+        if (extra.empty()) return wstring();
+        wstring text = L"\uFEFF[ExclusionList]\r\n";
+        for (const wchar_t* d : DefaultExclusions) text += wstring(d) + L"\r\n";
+        for (const wstring& x : extra) { text += x + L"\r\n"; Status(L"Excluded: " + x); }
+        wstring file = Combine(DirName(statusFile), L"capture_config.txt");
+        std::string bytes((const char*)text.data(), text.size() * sizeof(wchar_t));
+        if (!WriteBytes(file, bytes)) throw HelperError{ file + L": " + ErrorMessage(GetLastError()) };
+        return file;
+    }
+
     static int Capture(const Job& job)
     {
         wstring source = Get(job, L"source"), wimFile = Get(job, L"wim");
@@ -485,7 +511,10 @@ namespace sevenwim
             }
 
             step = L"Capture " + source;
-            int addFlags = AddWinConfig | AddVerbose;
+            // exclusions of the user: a capture configuration file (the defaults of
+            // wimlib's Windows configuration are in it too); none: wimlib's own
+            wstring config = CaptureConfig(job);
+            int addFlags = (config.empty() ? AddWinConfig : 0) | AddVerbose;
             if (snapshot)
             {
                 // wimlib creates the VSS snapshot, reads from it and deletes it again
@@ -495,8 +524,20 @@ namespace sevenwim
                 Progress(-1, L"snapshot", true);
             }
             else Progress(-1, L"scan 0 0 0", true);
-            Status(L"Scanning " + source + L" (Windows capture configuration)");
-            rc = wimlib_add_image(wim.p, source.c_str(), name.empty() ? nullptr : name.c_str(), nullptr, addFlags);
+            Status(L"Scanning " + source + (config.empty() ? wstring(L" (Windows capture configuration)") : L" (exclusions: " + config + L")"));
+            rc = wimlib_add_image(wim.p, source.c_str(), name.empty() ? nullptr : name.c_str(), config.empty() ? nullptr : config.c_str(), addFlags);
+            // update_of = 1: the files unchanged since the last image (same size
+            // and times) take its data, without being read again
+            if (rc == 0 && append && Get(job, L"update_of") == L"1")
+            {
+                int added = ImageCount(wim.p), base = added - 1;
+                if (base >= 1)
+                {
+                    step = L"Compare with image " + Num(base);
+                    Status(L"Unchanged files are taken from image " + Num(base) + L" (" + Property(wim.p, base, L"NAME") + L")");
+                    rc = wimlib_reference_template_image(wim.p, added, wim.p, base, 0);
+                }
+            }
             // check = 1: the WIM file gets an integrity table (wimlib --check)
             int writeFlags = Get(job, L"check") == L"1" ? WriteCheckIntegrity : 0;
             if (writeFlags) Status(L"With an integrity table (--check)");
@@ -824,6 +865,17 @@ namespace sevenwim
         return rc;
     }
 
+    // compact = 1..4: restored with the System Compression of Windows 10 (Compact OS)
+    static int CompactFlags(const Job& job)
+    {
+        static const int Flags[] = { 0, ExtractCompactXpress4k, ExtractCompactXpress8k, ExtractCompactXpress16k, ExtractCompactLzx };
+        static const wchar_t* const Names[] = { L"", L"XPRESS4K", L"XPRESS8K", L"XPRESS16K", L"LZX" };
+        long long c = ParseLong(Get(job, L"compact"), 0);
+        if (c < 1 || c > 4) return 0;
+        Status(L"Compact OS: the files are compressed with " + wstring(Names[c]) + L" (Windows 10 System Compression)");
+        return Flags[c];
+    }
+
     // apply one image into an empty (or new) folder; nothing is formatted
     static int ApplyToFolder(const Job& job, const wstring& wimFile, int index, const wstring& folder, const wstring& buildRoot)
     {
@@ -845,11 +897,13 @@ namespace sevenwim
         CreateDirs(dir);
         wstring root = Root(dir);
         long long free = DriveFreeBytes(root);
-        if (need > 0 && free >= 0 && free < need)
+        int extractFlags = CompactFlags(job);
+        // compressed (Compact OS) the image needs less than its size
+        if (need > 0 && free >= 0 && free < need && extractFlags == 0)
             return Finish(112, root + L" has " + Num(free / MiB) + L" MB free, image " + Num(index) + L" needs " + Num(need / MiB) + L" MB.");
 
         Status(L"Applying image " + Num(index) + L" (" + Property(wim.p, index, L"NAME") + L") to " + dir);
-        rc = wimlib_extract_image(wim.p, index, dir.c_str(), 0);
+        rc = wimlib_extract_image(wim.p, index, dir.c_str(), extractFlags);
         if (rc != 0) return Failed(rc, L"Apply image " + Num(index) + L" to " + dir);
         return Finish(0, L"OK " + dir);
     }
@@ -888,11 +942,12 @@ namespace sevenwim
             if (frc != 0) return Finish((int)frc, L"Format " + l + L": failed: " + reason + L" (code " + Num(frc) + L").");
             if (!WaitReady(letter, L"NTFS")) return Finish(21, l + L": is not ready after the format.");
             long long free = DriveFreeBytes(l + L":\\");
-            if (need > 0 && free >= 0 && free < need)
+            int extractFlags = CompactFlags(job);
+            if (need > 0 && free >= 0 && free < need && extractFlags == 0)
                 return Finish(112, l + L": has " + Num(free / MiB) + L" MB free, image " + Num(index) + L" needs " + Num(need / MiB) + L" MB.");
 
             Status(L"Applying image " + Num(index) + L" (" + Property(wim.p, index, L"NAME") + L") to " + l + L":\\");
-            rc = wimlib_extract_image(wim.p, index, (l + L":\\").c_str(), 0);
+            rc = wimlib_extract_image(wim.p, index, (l + L":\\").c_str(), extractFlags);
             if (rc != 0) return Failed(rc, L"Apply image " + Num(index) + L" to " + l + L":");
         }
         wstring fw = Get(job, L"boot");
@@ -940,6 +995,81 @@ namespace sevenwim
         return Finish(0, L"OK " + wimFile);
     }
 
+    // ---------- modify (the info tab: image properties, boot image, delete, optimize) ----------
+
+    // op = props: index, and the keys given of name / description / flags (FLAGS,
+    //      the edition) / boot (1 = this image is the boot image, 0 = it is not)
+    // op = delete: image <index> (the file is written again without it)
+    // op = optimize: the file written again without the data nothing uses
+    // A new file is written next to the old one by wimlib for delete / optimize.
+    static int Modify(const Job& job)
+    {
+        wstring wimFile = Get(job, L"wim"), op = Get(job, L"op");
+        int index = (int)ParseLong(Get(job, L"index"), 0);
+        if (!FileExists(wimFile)) return Finish(2, NotFound(wimFile));
+        bool rebuild = op == L"delete" || op == L"optimize";
+        if (rebuild)
+        {
+            // wimlib writes the new file beside the old one, then replaces it
+            long long size = FileSize(wimFile), free = DriveFreeBytes(Root(FullPath(wimFile)));
+            if (size > 0 && free >= 0 && free < size + 64 * MiB)
+                return Finish(112, Root(FullPath(wimFile)) + L" has " + Num(free / MiB) + L" MB free; writing " + wimFile
+                    + L" again needs about " + Num(size / MiB) + L" MB.");
+        }
+        Wim wim;
+        Status(L"Opening " + wimFile);
+        int rc = wimlib_open_wim_with_progress(wimFile.c_str(), OpenWriteAccess | CheckOpen(job), &wim.p, OnProgress, nullptr);
+        if (rc != 0) { wim.p = nullptr; return Failed(rc, L"Open " + wimFile); }
+        int count = ImageCount(wim.p);
+        if (op != L"optimize" && (index < 1 || index > count))
+            return Finish(87, L"Image " + Num(index) + L" is not in " + wimFile + L" (" + Num(count) + L" images).");
+        int writeFlags = 0;
+        wstring step;
+        if (op == L"delete")
+        {
+            if (count < 2) return Finish(87, L"The only image of a WIM file is not deleted (delete the file).");
+            step = L"Delete image " + Num(index);
+            Status(L"Deleting image " + Num(index) + L" (" + Property(wim.p, index, L"NAME") + L")");
+            rc = wimlib_delete_image(wim.p, index);
+            if (rc != 0) return Failed(rc, step);
+        }
+        else if (op == L"optimize")
+        {
+            writeFlags = WriteRebuild;
+            if (Get(job, L"recompress") == L"1") { writeFlags |= WriteRecompress; Status(L"The data is compressed again"); }
+        }
+        else if (op == L"props")
+        {
+            step = L"Change image " + Num(index);
+            wstring v;
+            const wchar_t* keys[][2] = { { L"name", L"NAME" }, { L"description", L"DESCRIPTION" }, { L"flags", L"FLAGS" } };
+            for (auto& k : keys)
+            {
+                if (!TryGet(job, k[0], v)) continue;
+                if (wcscmp(k[1], L"NAME") == 0 && v.empty()) return Finish(87, L"An image name cannot be empty.");
+                Status(wstring(k[1]) + L" = " + (v.empty() ? wstring(L"(none)") : v));
+                // an empty value removes the property
+                rc = wimlib_set_image_property(wim.p, index, k[1], v.empty() ? nullptr : v.c_str());
+                if (rc != 0) return Failed(rc, step + L": " + k[1]);
+            }
+            if (TryGet(job, L"boot", v))
+            {
+                int boot = v == L"1" ? index : (BootIndex(wim.p) == index ? 0 : BootIndex(wim.p));
+                Status(boot ? L"Boot image: " + Num(boot) : wstring(L"No boot image"));
+                unsigned char info[256] = {};
+                memcpy(info + 20, &boot, sizeof boot);
+                rc = wimlib_set_wim_info(wim.p, info, ChangeBootIndex);
+                if (rc != 0) return Failed(rc, step + L": boot image");
+            }
+        }
+        else return Finish(87, L"Unknown op: " + op);
+        Progress(-1, rebuild ? L"rebuild" : L"update", true);
+        Status(rebuild ? L"Writing " + wimFile + L" again" : L"Writing " + wimFile);
+        rc = wimlib_overwrite(wim.p, writeFlags, Threads(job));
+        if (rc != 0) return Failed(rc, L"Write " + wimFile);
+        return Finish(0, L"OK " + wimFile);
+    }
+
     // ---------- entry ----------
 
     int RunHelper(const std::vector<wstring>& args)
@@ -966,6 +1096,7 @@ namespace sevenwim
             if (mode == L"verify") return Verify(job);
             if (mode == L"apply") return Apply(job);
             if (mode == L"update") return Update(job);
+            if (mode == L"modify") return Modify(job);
             return Finish(87, L"Unknown mode: " + mode);
         }
         catch (const HelperError& e) { return Finish(1, e.msg); }

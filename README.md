@@ -6,13 +6,13 @@ A Windows tool that backs up volumes or folders into WIM images, and restores WI
 
 ## What it does
 
-- **Backup**: saves a volume or folder to a WIM file. A VSS snapshot lets you back up the running Windows. You can verify the file afterwards and add an integrity table (`--check`).
-- **Restore**: applies a WIM / ESD / SWM image to a volume (formatted first) or to an empty folder, and writes UEFI / BIOS boot files.
+- **Backup**: saves a volume or folder to a WIM file. A VSS snapshot lets you back up the running Windows. A new image of an existing file takes the unchanged files from the last image (fast), and your own exclusion list leaves out temporary files and caches. You can verify the file afterwards and add an integrity table (`--check`).
+- **Restore**: applies a WIM / ESD / SWM image to a volume (formatted first) or to an empty folder, and writes UEFI / BIOS boot files. With Compact OS the files are compressed by Windows 10 (several GB less).
 - **Disk**: initializes a disk as GPT or MBR and creates the partitions for Windows.
 - **Export**: changes the compression, converts ESD to WIM, and gathers several WIM files into one.
 - **Split / Join**: splits a WIM into `.swm` parts that fit on a FAT32 USB drive, and joins them again.
-- **Info / Verify**: shows WIM file and image details, and checks a file for damage.
-- **Browse**: shows the files inside an image and extracts the ones you need.
+- **Info / Verify**: shows WIM file and image details, and checks a file for damage. Changes the name, description and edition of an image and the boot image, deletes images, and optimizes the file (makes it smaller).
+- **Browse**: shows the files inside an image and extracts the ones you need; adds, renames and deletes files in the image.
 
 Korean and English UI, with a dark and a light theme.
 

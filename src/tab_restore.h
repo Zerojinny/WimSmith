@@ -25,6 +25,8 @@ namespace sevenwim
         HWND page;
         HWND txtWim, btnWim, btnRead, cboImage, cboTarget, btnTgtFolder, btnTgtRefresh, txtLabel;
         HWND chkUefi, chkBios, chkNoBoot, chkCheck, lblBootLang, cboBootLang, cboSysPart, btnPartRefresh, btnApply;
+        HWND cboCompact;                      // Compact OS: 0 = off, 1..4 = XPRESS4K / 8K / 16K / LZX
+        int Compact() const;
 
     private:
         ui::Grid grid;
