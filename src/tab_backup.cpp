@@ -54,7 +54,7 @@ namespace sevenwim
         chkCheck = Check(page, L::T(L"bk.check"));
         grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
 
-        // right: what the backup will do and [Start backup]
+        // below the rows: what the backup will do, then [Start backup]
         box = Panel(page, color::Panel);
         SetPaint(box, [](HDC dc, const RECT& r) { FrameRect(dc, &r, Brush(color::Line)); });
         title = Label(box, L::T(L"pv.title"), FontBold, color::Dim);
@@ -65,7 +65,7 @@ namespace sevenwim
             // a long path breaks anywhere (as an edit control does)
             vals[i] = Label(box, L"", i == 1 ? FontMono : FontUI, color::Text, SS_LEFT | SS_EDITCONTROL);
         }
-        btnCapture = Button(box, L::T(L"bk.btn_capture"));
+        btnCapture = Button(page, L::T(L"bk.btn_capture"));
         Primary(btnCapture, false);
         SetLayout(page, [this](int w, int h) { Layout(w, h); });
         SetLayout(box, [this](int w, int h) { LayoutBox(w, h); });
@@ -93,34 +93,44 @@ namespace sevenwim
         UpdatePreview();
     }
 
-    void BackupTab::Layout(int w, int h)
+    void BackupTab::Layout(int w, int)
     {
-        int boxW = S(300);
-        grid.Place(0, 0, std::max(0, w - boxW));
-        Move(box, std::max(0, w - boxW) + S(12), 0, boxW - S(12), h);
+        // the box in the column of the fields, as high as its content; the button below it
+        int y = grid.Place(0, 0, w);
+        int x = S(grid.labelWidth), bw = std::max(0, std::min(w - x, S(640)));
+        int bh = PlaceBox(bw, false);
+        Move(box, x, y + S(6), bw, bh);
+        Relayout(box);
+        Move(btnCapture, x, y + S(6) + bh + S(12), S(160), S(28));
     }
 
-    void BackupTab::LayoutBox(int w, int h)
+    void BackupTab::LayoutBox(int w, int)
     {
-        int x = S(14), inner = w - 2 * S(14), y = S(12);
+        PlaceBox(w, true);
+        // the lines move when a value gets longer: the whole box again
+        RedrawWindow(box, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+    }
+
+    int BackupTab::PlaceBox(int w, bool move)
+    {
+        int x = S(14), inner = std::max(0, w - 2 * S(14)), y = S(10);
         int th = TextHeight(FontBold);
-        Move(title, x, y, inner, th);
-        y += th + S(10);
-        int kw = S(62), vw = std::max(0, std::min(S(176), inner - kw));
+        if (move) Move(title, x, y, inner, th);
+        y += th + S(8);
+        int kw = S(80), vw = std::max(0, inner - kw);
         for (int i = 0; i < 5; i++)
         {
             HFONT f = i == 1 ? FontMono : FontUI;
             int vh = TextHeightWrapped(f, GetText(vals[i]), vw);
             int kh = TextHeight(FontUI);
-            Move(keys[i], x, y, kw, kh);
-            Move(vals[i], x + kw, y, vw, vh);
-            y += std::max(kh, vh) + S(8);
+            if (move)
+            {
+                Move(keys[i], x, y, kw, kh);
+                Move(vals[i], x + kw, y, vw, vh);
+            }
+            y += std::max(kh, vh) + (i < 4 ? S(5) : 0);
         }
-        // the button at the bottom (a row of 50 px, 8 px above it)
-        int btnTop = h - S(14) - S(50) + S(8);
-        Move(btnCapture, x, btnTop, inner, S(42));
-        // the lines move when a value gets longer: the whole box again
-        RedrawWindow(box, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+        return y + S(10);
     }
 
     void BackupTab::Refresh()
@@ -202,7 +212,8 @@ namespace sevenwim
         SetText(vals[3], L::T(L"pv.admin"));
         SetText(vals[4], L::T(Checked(chkVerify) ? L"pv.on" : L"pv.off"));
         SetColor(vals[4], Checked(chkVerify) ? color::AccentSoft : color::Dim);
-        Relayout(box);
+        // a longer value makes the box higher
+        Relayout(page);
     }
 
     void BackupTab::SetBusy(bool busy)

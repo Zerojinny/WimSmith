@@ -140,7 +140,7 @@ A layout with Windows goes on to the restore tab by itself, with the new Windows
 
 ## 5. Backup (save as WIM)
 
-Saves a volume or folder as an image in a WIM file. The **job preview** on the right shows source, target, method, rights and verification.
+Saves a volume or folder as an image in a WIM file. The **job preview** below the options shows source, target, method, rights and verification.
 
 | Item | Description |
 |---|---|

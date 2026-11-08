@@ -97,7 +97,7 @@ namespace sevenwim
 
     void MainWindow::Create()
     {
-        hwnd = TopWindow(L"7z_wimlib", 980, 540, nullptr);
+        hwnd = TopWindow(L"7z_wimlib", 900, 600, nullptr);
         // in the middle of the work area (C#: CenterScreen)
         RECT wr, work;
         GetWindowRect(hwnd, &wr);
@@ -105,7 +105,7 @@ namespace sevenwim
         SetWindowPos(hwnd, nullptr, work.left + (work.right - work.left - (wr.right - wr.left)) / 2,
             work.top + (work.bottom - work.top - (wr.bottom - wr.top)) / 2, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
         Main = hwnd;
-        SetMinSize(hwnd, 820, 520);
+        SetMinSize(hwnd, 860, 580);
         log.Create(hwnd);
 
         tabs = ui::Tabs(hwnd);

@@ -3,8 +3,9 @@
 //  The backup tab: saves a volume or a folder as a WIM image (a new
 //  file, or a new image of an existing file), optionally from a VSS
 //  snapshot (then the running Windows drive may be saved) and verified
-//  afterwards. At the right: what the backup will do and
-//  [Start backup]. The default file is <folder of the last backup>\backup.wim.
+//  afterwards. Below the rows: what the backup will do (a box as high
+//  as its content) and [Start backup]. The default file is
+//  <folder of the last backup>\backup.wim.
 // ============================================================
 #pragma once
 #include "app.h"
@@ -28,6 +29,7 @@ namespace sevenwim
 
         void Layout(int w, int h);
         void LayoutBox(int w, int h);
+        int PlaceBox(int w, bool move);      // the content of the box; returns its height
         const Volume* Source() const;
         void FillSources();
         void ChooseSourceFolder();
