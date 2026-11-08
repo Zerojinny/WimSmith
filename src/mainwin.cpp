@@ -5,6 +5,7 @@
 #include "mainwin.h"
 #include "lang.h"
 #include "settings.h"
+#include "version.h"
 #include <algorithm>
 
 namespace wimsmith
@@ -99,7 +100,7 @@ namespace wimsmith
     {
         // a smaller screen (a Windows PE without a video driver): maximized, the pages scroll
         maximize = !FitsWorkArea(900, 600);
-        hwnd = TopWindow(L"WimSmith", 900, 600, nullptr);
+        hwnd = TopWindow(L"WimSmith " WS_VERSION_W, 900, 600, nullptr);
         // in the middle of the work area (C#: CenterScreen)
         RECT wr, work;
         GetWindowRect(hwnd, &wr);

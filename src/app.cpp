@@ -13,6 +13,7 @@
 #include "tab_browse.h"
 #include "tab_info.h"
 #include "tab_splitjoin.h"
+#include "version.h"
 #include "tab_restore.h"
 #include <shellapi.h>
 #include <algorithm>
@@ -41,6 +42,7 @@ namespace wimsmith
         splitJoin = new SplitJoinTab(*this, win.AddPage(L::T(L"sj.tab")));
         infoTab = new InfoTab(*this, win.AddPage(L::T(L"in.tab")));
         browse = new BrowseTab(*this, win.AddPage(L::T(L"br.tab")));
+        Log(L"WimSmith " WS_VERSION_W L" - " WS_COPYRIGHT_W);
         Log(L::T(L"bk.note"));
         libs::FetchMissingLicenses(root);     // license texts of wimlib, when missing (background)
         Relayout(win.hwnd);

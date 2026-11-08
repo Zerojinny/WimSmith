@@ -1,5 +1,40 @@
-// WimSmith - resources: the icon and the language files (obj\lang.rc,
-// written by build.bat: one "<code> LANG <file>" line per lang\*.ini).
-// The manifest is embedded by the linker.
+// WimSmith - resources: the icon, the version and the language files
+// (obj\lang.rc, written by build.bat: one "<code> LANG <file>" line per
+// lang\*.ini). The manifest is embedded by the linker.
+#include <winver.h>
+#include "src/version.h"
+
 1 ICON "WimSmith.ico"
+
+// file properties -> Details: version, copyright and license
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION     WS_VER_MAJOR, WS_VER_MINOR, WS_VER_PATCH, WS_VER_BUILD
+ PRODUCTVERSION  WS_VER_MAJOR, WS_VER_MINOR, WS_VER_PATCH, WS_VER_BUILD
+ FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+ FILEFLAGS       0
+ FILEOS          VOS_NT_WINDOWS32
+ FILETYPE        VFT_APP
+ FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "zerojinny"
+            VALUE "FileDescription",  "WimSmith - WIM backup and restore"
+            VALUE "FileVersion",      WS_FILEVERSION_STR
+            VALUE "InternalName",     "WimSmith"
+            VALUE "LegalCopyright",   WS_COPYRIGHT_STR
+            VALUE "OriginalFilename", "WimSmith.exe"
+            VALUE "ProductName",      "WimSmith"
+            VALUE "ProductVersion",   WS_VERSION_STR
+            VALUE "Comments",         "MIT License. https://github.com/Zerojinny/WimSmith - uses wimlib (libwim-15.dll, LGPL v2.1 or later / GPL v3 or later), a separate DLL under its own license."
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
+
 #include "obj/lang.rc"
