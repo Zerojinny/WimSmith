@@ -43,6 +43,11 @@ When a file is missing from `lib\`, its newest version is downloaded the first t
 - Copy `7z_wimlib.exe` and the `lib\` folder to a USB drive and run it from there.
 - Explorer is not needed: the file and folder dialogs are drawn by the program itself.
 - WIM files on a network drive (`net use Z: \\server\share`) work too.
+- On a small screen without a video driver (640 × 480, 800 × 600, …) the window opens maximized.
+  - A tab larger than the screen gets scroll bars: the mouse wheel scrolls up and down, Shift + wheel left and right.
+  - Moving to a field with Tab scrolls it into view.
+  - The footer (progress, Cancel) always stays visible.
+- For a higher resolution, set `bcdedit /store <BCD file> /set {default} highestmode on` on the PE boot entry: it boots in the highest mode the firmware offers.
 
 ---
 

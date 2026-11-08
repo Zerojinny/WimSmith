@@ -68,6 +68,7 @@ The elevated helper works in `%TEMP%\7z_wimlib_job\<time>` (job.ini, status.txt,
 - `lang\en.ini` is the reference: add every new text there and in `lang\ko.ini`. Hint texts under the start buttons were removed on purpose; explanations go into the manual.
 - No PowerShell at run time (it is missing in many WinPE images): disks, volumes and formatting go through `src\storage.*`.
 - Elevated jobs cannot see the session's network or SUBST drives: paths given to the helper go through `SessionFreePath`.
+- Small screens (WinPE without a video driver, 640 x 480): every tab page sits in a scrolling host (`ui::ScrollHost`, minimum 828 x 490, lower for browse / info with `SetScrollMin`); the main window starts maximized when 900 x 600 does not fit, windows and dialogs are kept on the screen (`FitToWorkArea`), the tab strip and the footer get narrower. A new tab or dialog must keep working at that size: lay dialogs out from their client size, not from fixed coordinates.
 - When `7z_wimlib.exe` is running, `build.bat` cannot replace it: close it first, or build to another folder.
 - Testing: use a copy of the exe in a scratch folder with its own `7z_wimlib.ini`; never edit the user's ini, never close the user's running instance, and do not start elevated jobs from a test (the UAC prompt appears on the user's desktop). The helper can be run directly (`7z_wimlib.exe --wim-helper <folder with job.ini>`) for jobs without elevation, such as a folder backup or verify.
 - Learnings from past sessions are in `.trail/learnings/`.
