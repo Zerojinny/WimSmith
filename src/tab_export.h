@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_export.h
+//  WimSmith - tab_export.h
 //  The export tab: copies one image (or all) of a WIM / ESD file into
 //  a new WIM file or into an existing one (other compression, ESD ->
 //  WIM). Runs in the helper without administrator rights.
@@ -7,7 +7,7 @@
 #pragma once
 #include "app.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     struct ExportTab
     {

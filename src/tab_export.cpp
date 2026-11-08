@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_export.cpp
+//  WimSmith - tab_export.cpp
 //  The export tab (see tab_export.h).
 // ============================================================
 #include "tab_export.h"
@@ -7,7 +7,7 @@
 #include "lang.h"
 #include <algorithm>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 

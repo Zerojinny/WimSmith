@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - common.h
+//  WimSmith - common.h
 //  Text, paths, files and processes on plain Win32 (util.cpp). All
 //  text is UTF-16 (std::wstring); files are read and written as UTF-8.
 // ============================================================
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace sevenwim
+namespace wimsmith
 {
     using std::wstring;
 

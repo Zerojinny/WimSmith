@@ -1,21 +1,23 @@
 # ============================================================
-#  7z_wimlib - files that must never be committed
+#  WimSmith - files that must never be committed
 # ============================================================
 
 # build result (build.bat) and its object files
-7z_wimlib.exe
+WimSmith.exe
 obj/
-# the same under its old name (backup/ui-classic)
+# the same under its old names (7z_wimlib, backup/ui-classic)
+7z_wimlib.exe
 Z_wimlib.exe
 
 # settings of this PC (language, folder of the last backup)
+WimSmith.ini
 7z_wimlib.ini
 
-# third-party programs, downloaded by 7z_wimlib.exe (wimlib, 7-Zip)
+# third-party programs, downloaded by WimSmith.exe (wimlib)
 lib/
 # old place of the wimlib DLL (moved into lib\ at start)
 pe_tools/
 libwim-15.dll
 
-# the exe of the C++ port before it became 7z_wimlib.exe
+# the exe of the C++ port before it became 7z_wimlib.exe (now WimSmith.exe)
 7z_wimlib_native.exe

@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_splitjoin.cpp
+//  WimSmith - tab_splitjoin.cpp
 //  The split / join tab (see tab_splitjoin.h).
 // ============================================================
 #include "tab_splitjoin.h"
@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <commctrl.h>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 

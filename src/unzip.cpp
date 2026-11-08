@@ -1,12 +1,12 @@
 // ============================================================
-//  7z_wimlib - unzip.cpp
+//  WimSmith - unzip.cpp
 //  Zip reading (see unzip.h). The inflater follows RFC 1951 the way
 //  zlib's "puff" does it: canonical Huffman codes decoded bit by bit.
 // ============================================================
 #include "unzip.h"
 #include <cstring>
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace unzip
     {

@@ -1,12 +1,12 @@
 // ============================================================
-//  7z_wimlib - util.cpp
+//  WimSmith - util.cpp
 //  Text, paths, files, drives and processes (see common.h).
 // ============================================================
 #include "common.h"
 #include <winnetwk.h>
 #include <thread>
 
-namespace sevenwim
+namespace wimsmith
 {
     // ---------- text ----------
 

@@ -1,12 +1,12 @@
 // ============================================================
-//  7z_wimlib - disk.h
+//  WimSmith - disk.h
 //  Disks and partitions (read with storage.cpp, the IOCTLs of Windows)
 //  and the layouts of the disk tab (disk.cpp).
 // ============================================================
 #pragma once
 #include "common.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     // a local disk (the fields as Get-Disk names them)
     struct DiskInfo

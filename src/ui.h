@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - ui.h
+//  WimSmith - ui.h
 //  The window toolkit on plain Win32 (ui.cpp): the dark look of the C#
 //  version ("Dark Console") or a light one (SetTheme, setting "theme"),
 //  DPI scaling, fonts, controls, callbacks

@@ -1,6 +1,6 @@
-# 7z_wimlib User Manual
+# WimSmith User Manual
 
-7z_wimlib is a Windows tool that backs up volumes or folders into WIM images and restores WIM images to volumes or folders. It can also prepare disks, export images, split and join WIM files, verify them, and browse the files inside an image. Everything is done with [wimlib](https://wimlib.net).
+WimSmith is a Windows tool that backs up volumes or folders into WIM images and restores WIM images to volumes or folders. It can also prepare disks, export images, split and join WIM files, verify them, and browse the files inside an image. Everything is done with [wimlib](https://wimlib.net).
 
 [한국어](MANUAL.ko.md)
 
@@ -32,15 +32,15 @@
 
 | File | Description |
 |---|---|
-| `7z_wimlib.exe` | the program (a single exe) |
+| `WimSmith.exe` | the program (a single exe) |
 | `lib\` | wimlib (`libwim-15.dll`) and its license texts |
-| `7z_wimlib.ini` | the settings; created on the first run |
+| `WimSmith.ini` | the settings; created on the first run |
 
 When a file is missing from `lib\`, its newest version is downloaded the first time it is needed. To use the program without internet (Windows PE, for example), copy a filled `lib\` folder along with it.
 
 ### Using it in Windows PE
 
-- Copy `7z_wimlib.exe` and the `lib\` folder to a USB drive and run it from there.
+- Copy `WimSmith.exe` and the `lib\` folder to a USB drive and run it from there.
 - Explorer is not needed: the file and folder dialogs are drawn by the program itself.
 - WIM files on a network drive (`net use Z: \\server\share`) work too.
 - On a small screen without a video driver (640 × 480, 800 × 600, …) the window opens maximized.
@@ -89,7 +89,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 ### To a volume
 
 - The volume is **quick-formatted as NTFS**, then the image is applied to its root. All data on the volume is lost.
-- Not listed: the drive of the running Windows, the drive of 7z_wimlib and the drive of the WIM file.
+- Not listed: the drive of the running Windows, the drive of WimSmith and the drive of the WIM file.
 - A volume smaller than the image is refused.
 
 ### Boot files
@@ -111,7 +111,7 @@ The files are written with the *System Compression* of Windows 10 (`wimapply --c
 
 ### To a folder
 
-Choose an empty folder with [Folder...]: nothing is formatted and the image is extracted into that folder, without boot files. A drive root, a folder overlapping the running Windows or 7z_wimlib, and a folder that is not empty cannot be chosen.
+Choose an empty folder with [Folder...]: nothing is formatted and the image is extracted into that folder, without boot files. A drive root, a folder overlapping the running Windows or WimSmith, and a folder that is not empty cannot be chosen.
 
 ### If a restore is cancelled
 
@@ -125,7 +125,7 @@ The volume is left incomplete: format it or restore again. For a folder, empty i
 
 | Item | Description |
 |---|---|
-| Disk | the disk to clear. The disk of the running Windows, the disk of 7z_wimlib, and read-only or offline disks cannot be chosen |
+| Disk | the disk to clear. The disk of the running Windows, the disk of WimSmith, and read-only or offline disks cannot be chosen |
 | Partition style | **GPT (UEFI)** or **MBR (BIOS / legacy)**; MBR can use 2 TB at most |
 | Layout | see the table below |
 | System partition | size in MB; on GPT the *MSR (16 MB)* box, on MBR the *Create* box for the System Reserved partition |
@@ -191,7 +191,7 @@ wimlib always leaves out `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System
 - `\folder\*` leaves the empty folder in the image; `\folder` leaves it out altogether
 - a name without `\` (e.g. `*.tmp`) matches in every folder
 
-[Recommended list] fills in data Windows makes again by itself: `\Windows\Temp`, the Windows Update download cache, `\Windows\Prefetch`, error reports, the users' temporary folders and web caches. The list is kept in `7z_wimlib.ini`.
+[Recommended list] fills in data Windows makes again by itself: `\Windows\Temp`, the Windows Update download cache, `\Windows\Prefetch`, error reports, the users' temporary folders and web caches. The list is kept in `WimSmith.ini`.
 
 ### Verify and the integrity table
 
@@ -325,9 +325,9 @@ On the **Split / Join** tab split it into 4000 MB parts and copy all `.swm` part
 
 ## 11. Settings file and logs
 
-### 7z_wimlib.ini
+### WimSmith.ini
 
-Next to `7z_wimlib.exe`. Values changed in the window are saved here; it can also be edited by hand while the program is closed.
+Next to `WimSmith.exe`. Values changed in the window are saved here; it can also be edited by hand while the program is closed.
 
 | Key | Value |
 |---|---|
@@ -346,11 +346,11 @@ Verify and integrity table are not saved; they are off at every start.
 ### Logs
 
 - [Show log] in the footer shows the log of this session.
-- Jobs with administrator rights write their log files to `%TEMP%\7z_wimlib_job\<time>\` (`status.txt`, `wimlib_errors.txt`). They are deleted after a success and kept after a failure or cancel.
+- Jobs with administrator rights write their log files to `%TEMP%\WimSmith_job\<time>\` (`status.txt`, `wimlib_errors.txt`). They are deleted after a success and kept after a failure or cancel.
 
 ### Language files
 
-A `lang\` folder next to `7z_wimlib.exe` with `ko.ini` / `en.ini` is read before the copies built into the exe: texts can be changed and languages added there.
+A `lang\` folder next to `WimSmith.exe` with `ko.ini` / `en.ini` is read before the copies built into the exe: texts can be changed and languages added there.
 
 ---
 
@@ -361,7 +361,7 @@ A `lang\` folder next to `7z_wimlib.exe` with `ko.ini` / `en.ini` is read before
 | "libwim-15.dll cannot be used" | wimlib is missing from `lib\` and could not be downloaded. Put `libwim-15.dll` of the wimlib Windows release (x64) into `lib\` |
 | Administrator request cancelled | backup, restore and disk jobs need administrator rights; start again and answer Yes |
 | The running Windows cannot be backed up | turn on *Back up from a VSS snapshot*, or back up from Windows PE |
-| A volume is missing from the restore targets | the drives of the running Windows, of 7z_wimlib and of the WIM file are not listed; move the WIM file or choose another target |
+| A volume is missing from the restore targets | the drives of the running Windows, of WimSmith and of the WIM file are not listed; move the WIM file or choose another target |
 | A WIM on a network drive is not found | elevated jobs cannot see that drive letter, so the program uses the `\\server\share` path instead; if it still fails, check the credentials for the share |
 | No boot after a restore | check that the boot type (UEFI / BIOS) matches the PC's firmware setting and that the right system partition was chosen; after a restore with None, run `bcdboot X:\Windows` |
 | Split is refused | ESD / LZMS solid files cannot be split; export them as LZX first |
@@ -371,4 +371,4 @@ A `lang\` folder next to `7z_wimlib.exe` with `ko.ini` / `en.ini` is read before
 
 ---
 
-7z_wimlib uses wimlib (LGPL v2.1 or later, or GPL v3 or later) as a separate DLL. Its license texts are in the `lib\` folder.
+WimSmith uses wimlib (LGPL v2.1 or later, or GPL v3 or later) as a separate DLL. Its license texts are in the `lib\` folder.

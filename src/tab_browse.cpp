@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_browse.cpp
+//  WimSmith - tab_browse.cpp
 //  The browse tab (see tab_browse.h).
 // ============================================================
 #include "tab_browse.h"
@@ -12,7 +12,7 @@
 #include <map>
 #include <thread>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 
@@ -31,7 +31,7 @@ namespace sevenwim
     {
         wchar_t tmp[MAX_PATH + 1];
         GetTempPathW(MAX_PATH + 1, tmp);
-        return Combine(tmp, L"7z_wimlib_view");
+        return Combine(tmp, L"WimSmith_view");
     }
 
     static wstring Fixed(double v, int decimals, bool trim)
@@ -746,7 +746,7 @@ namespace sevenwim
         std::function<void(int, const wstring&)> done)
     {
         // the target with all folders above it (wimlib makes only the last one;
-        // %TEMP%\7z_wimlib_view is deleted at start)
+        // %TEMP%\WimSmith_view is deleted at start)
         try { CreateDirs(target); }
         catch (const HelperError& e) { SetState(L::T(L"bk.state_failed")); Info(e.msg, MB_ICONERROR); return; }
         running = true;
@@ -841,7 +841,7 @@ namespace sevenwim
         SYSTEMTIME t;
         GetLocalTime(&t);
         wchar_t stamp[32];
-        swprintf_s(stamp, L".7z_wimlib_%04d%02d%02d%02d%02d%02d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+        swprintf_s(stamp, L".WimSmith_%04d%02d%02d%02d%02d%02d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
         wstring stage = Combine(dest, stamp);
         wstring folderPath = current->Path;
         std::vector<wstring> paths;
@@ -1023,7 +1023,7 @@ namespace sevenwim
         // wimlib adds folders from the disk: an empty one in %TEMP%
         wchar_t tmp[MAX_PATH + 1];
         GetTempPathW(MAX_PATH + 1, tmp);
-        wstring empty = Combine(tmp, L"7z_wimlib_empty_" + Num((long long)GetTickCount64()));
+        wstring empty = Combine(tmp, L"WimSmith_empty_" + Num((long long)GetTickCount64()));
         if (!CreateDirectoryW(empty.c_str(), nullptr)) { Info(ErrorMessage(GetLastError()), MB_ICONERROR); return; }
         wstring target = InImage(folder, name);
         RunUpdate({ { wl::UpdateAdd, empty, L"\\" + target, wl::AddNoAcls } }, L::F(L"br.op_new_folder", L"\\" + target), empty);

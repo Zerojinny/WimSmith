@@ -1,4 +1,4 @@
-# 7z_wimlib
+# WimSmith
 
 볼륨이나 폴더를 WIM 이미지로 백업하고, WIM 이미지를 볼륨이나 폴더에 복구하는 Windows 도구입니다. 설치 없이 exe 하나로 실행되며, Windows PE에서도 쓸 수 있습니다.
 
@@ -27,17 +27,17 @@
 
 | 파일 | 설명 |
 |---|---|
-| `7z_wimlib.exe` | 프로그램 |
+| `WimSmith.exe` | 프로그램 |
 | `lib\` | wimlib(`libwim-15.dll`)과 그 라이선스 문서 |
 | `MANUAL.ko.md`, `MANUAL.md` | 사용 설명서 (한국어, 영어) |
 | `README.ko.md`, `README.md` | 이 문서 |
-| `LICENSE` | 7z_wimlib의 라이선스 |
+| `LICENSE` | WimSmith의 라이선스 |
 
 ## 시작하기
 
-1. 압축을 원하는 폴더(USB 가능)에 풉니다. `7z_wimlib.exe`와 `lib\` 폴더는 같은 폴더에 있어야 합니다.
-2. `7z_wimlib.exe`를 실행합니다.
-3. 설정은 같은 폴더의 `7z_wimlib.ini`에 저장됩니다.
+1. 압축을 원하는 폴더(USB 가능)에 풉니다. `WimSmith.exe`와 `lib\` 폴더는 같은 폴더에 있어야 합니다.
+2. `WimSmith.exe`를 실행합니다.
+3. 설정은 같은 폴더의 `WimSmith.ini`에 저장됩니다.
 
 `lib\` 폴더의 파일이 없으면 처음 필요할 때 인터넷에서 최신 버전을 자동으로 받습니다. 인터넷이 없는 곳에서 쓰려면 `lib\` 폴더를 지우지 말고 함께 복사하세요.
 
@@ -46,13 +46,13 @@
 ## 주의
 
 - **복구**는 대상 볼륨을 포맷하고, **디스크** 작업은 디스크 전체를 지웁니다. 실행 전에 대상을 꼭 확인하세요. 두 작업 모두 두 번 확인하며, 마지막에는 드라이브 문자나 디스크 번호를 직접 입력해야 합니다.
-- 실행 중인 Windows의 드라이브와 디스크, 7z_wimlib이 있는 드라이브는 복구나 초기화 대상으로 고를 수 없습니다.
+- 실행 중인 Windows의 드라이브와 디스크, WimSmith가 있는 드라이브는 복구나 초기화 대상으로 고를 수 없습니다.
 
 ## 라이선스
 
-7z_wimlib의 코드는 BSD 3-Clause 라이선스입니다([LICENSE](LICENSE)).
+WimSmith의 코드는 BSD 3-Clause 라이선스입니다([LICENSE](LICENSE)).
 
-`lib\` 폴더의 wimlib은 7z_wimlib의 일부가 아니며 자체 라이선스를 따릅니다. 7z_wimlib은 wimlib을 고치지 않고 별도 DLL로 불러 씁니다. DLL을 바꾸면 다른 버전으로 교체할 수 있습니다.
+`lib\` 폴더의 wimlib은 WimSmith의 일부가 아니며 자체 라이선스를 따릅니다. WimSmith는 wimlib을 고치지 않고 별도 DLL로 불러 씁니다. DLL을 바꾸면 다른 버전으로 교체할 수 있습니다.
 
 | 프로그램 | 파일 | 라이선스 | 라이선스 문서 | 소스 |
 |---|---|---|---|---|
@@ -61,3 +61,5 @@
 다시 배포할 때는 `lib\`의 라이선스 문서를 그대로 두세요. wimlib 버전은 `lib\versions.ini`에 적혀 있습니다.
 
 이제 7-Zip은 쓰지 않습니다. 이전 버전의 `lib\`에 남아 있는 `7z.exe`, `7z.dll`, `7zFM.exe`, `7-Zip_License.txt`는 지워도 됩니다.
+
+WimSmith의 이전 이름은 **7z_wimlib**입니다. `WimSmith.exe`를 처음 실행하면 같은 폴더의 `7z_wimlib.ini` 설정을 `WimSmith.ini`로 복사합니다. 그 뒤에는 예전 `7z_wimlib.exe`와 `7z_wimlib.ini`를 지워도 됩니다.

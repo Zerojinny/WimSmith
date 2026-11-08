@@ -1,13 +1,13 @@
 // ============================================================
-//  7z_wimlib - settings.h
-//  <exe folder>\7z_wimlib.ini, "key = value" lines (UTF-8), shared
+//  WimSmith - settings.h
+//  <exe folder>\WimSmith.ini, "key = value" lines (UTF-8), shared
 //  with the C# version: language, image_folder, backup.*, restore.*,
 //  disk.* (settings.cpp).
 // ============================================================
 #pragma once
 #include "common.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     wstring ExeDir();                     // the folder of this exe, without "\" at the end
     wstring GetSetting(const wstring& key, const wstring& fallback);

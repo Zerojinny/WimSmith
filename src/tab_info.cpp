@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_info.cpp
+//  WimSmith - tab_info.cpp
 //  The info tab (see tab_info.h).
 // ============================================================
 #include "tab_info.h"
@@ -9,7 +9,7 @@
 #include "tab_restore.h"
 #include <algorithm>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 

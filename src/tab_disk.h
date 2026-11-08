@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_disk.h
+//  WimSmith - tab_disk.h
 //  The disk tab: clears a whole disk, initializes it as GPT or MBR and
 //  creates the partitions of a layout:
 //    Windows, GPT: EFI (FAT32) [+ MSR] + Windows (NTFS) [+ recovery]
@@ -9,12 +9,12 @@
 //    data        : one partition (NTFS / exFAT / FAT32) on the whole disk
 //  The job runs in the elevated helper (mode = disk, disk.cpp). After a
 //  Windows layout the restore tab gets the new partition as its target.
-//  Every choice except the disk is kept in 7z_wimlib.ini (disk.*).
+//  Every choice except the disk is kept in WimSmith.ini (disk.*).
 // ============================================================
 #pragma once
 #include "app.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     struct DiskTab
     {

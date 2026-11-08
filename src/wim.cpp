@@ -1,11 +1,11 @@
 // ============================================================
-//  7z_wimlib - wim.cpp
+//  WimSmith - wim.cpp
 //  Loading libwim-15.dll (see wim.h).
 // ============================================================
 #include "wim.h"
 #include <cstring>
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace wl
     {
@@ -49,7 +49,7 @@ namespace sevenwim
             static long counter;
             wchar_t tmp[MAX_PATH + 1];
             GetTempPathW(MAX_PATH + 1, tmp);
-            wstring file = Combine(tmp, L"7z_wimlib_gui_" + Num((long long)GetCurrentProcessId()) + L"_"
+            wstring file = Combine(tmp, L"WimSmith_gui_" + Num((long long)GetCurrentProcessId()) + L"_"
                 + Num((long long)InterlockedIncrement(&counter)) + L".txt");
             DeleteFileW(file.c_str());
             // wimlib keeps the file open until the next one is set: the one before can go now

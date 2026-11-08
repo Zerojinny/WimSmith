@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_splitjoin.h
+//  WimSmith - tab_splitjoin.h
 //  The split / join tab: a WIM file as split parts (.swm) of a chosen
 //  size (e.g. for FAT32), and the parts joined into one WIM file again.
 //  Both run in the helper without administrator rights.
@@ -7,7 +7,7 @@
 #pragma once
 #include "app.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     struct SplitJoinTab
     {

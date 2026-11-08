@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - mainwin.cpp
+//  WimSmith - mainwin.cpp
 //  The main window and the log window (see mainwin.h).
 // ============================================================
 #include "mainwin.h"
@@ -7,7 +7,7 @@
 #include "settings.h"
 #include <algorithm>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 
@@ -99,7 +99,7 @@ namespace sevenwim
     {
         // a smaller screen (a Windows PE without a video driver): maximized, the pages scroll
         maximize = !FitsWorkArea(900, 600);
-        hwnd = TopWindow(L"7z_wimlib", 900, 600, nullptr);
+        hwnd = TopWindow(L"WimSmith", 900, 600, nullptr);
         // in the middle of the work area (C#: CenterScreen)
         RECT wr, work;
         GetWindowRect(hwnd, &wr);

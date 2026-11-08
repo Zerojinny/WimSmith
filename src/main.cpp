@@ -1,6 +1,6 @@
 // ============================================================
-//  7z_wimlib - main.cpp
-//  Entry point: "7z_wimlib.exe --wim-helper <work folder>" runs the
+//  WimSmith - main.cpp
+//  Entry point: "WimSmith.exe --wim-helper <work folder>" runs the
 //  elevated helper (helper.cpp); otherwise the window opens.
 //  (The former C# / .NET version is kept in backup\cs-winforms.)
 // ============================================================
@@ -12,7 +12,7 @@
 #include <shellapi.h>
 #include <objbase.h>
 
-using namespace sevenwim;
+using namespace wimsmith;
 
 // without a choice: Korean on a Korean Windows, else English
 static std::wstring DefaultLanguage()
@@ -49,7 +49,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         {
             std::wstring text;
             for (const std::wstring& p : L::Problems) text += p + L"\r\n";
-            MessageBoxW(nullptr, text.c_str(), L"7z_wimlib", MB_OK | MB_ICONWARNING);
+            MessageBoxW(nullptr, text.c_str(), L"WimSmith", MB_OK | MB_ICONWARNING);
         }
         // the tabs live as long as the window: one App per language
         App* app = new App();

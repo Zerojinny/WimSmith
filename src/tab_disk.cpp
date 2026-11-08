@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_disk.cpp
+//  WimSmith - tab_disk.cpp
 //  The disk tab (see tab_disk.h).
 // ============================================================
 #include "tab_disk.h"
@@ -11,7 +11,7 @@
 #include <climits>
 #include <thread>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 
@@ -104,7 +104,7 @@ namespace sevenwim
         }
     }
 
-    // ---------- settings (7z_wimlib.ini, disk.*) ----------
+    // ---------- settings (WimSmith.ini, disk.*) ----------
     // Every choice of the tab is kept, except the disk: a disk to clear is
     // always chosen by hand.
 

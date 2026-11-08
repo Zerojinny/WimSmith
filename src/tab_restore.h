@@ -1,15 +1,15 @@
 // ============================================================
-//  7z_wimlib - tab_restore.h
+//  WimSmith - tab_restore.h
 //  The restore tab: formats a volume (NTFS) and applies one image of a
 //  WIM file to it, after two confirmations, or applies it into an empty
 //  folder; then (UEFI / BIOS) bcdboot writes the boot files to the
 //  chosen system partition. Not offered: the Windows drive, the drive
-//  of 7z_wimlib and the drive of the WIM file.
+//  of WimSmith and the drive of the WIM file.
 // ============================================================
 #pragma once
 #include "app.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     struct RestoreTab
     {

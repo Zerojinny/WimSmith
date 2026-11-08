@@ -1,9 +1,9 @@
 // ============================================================
-//  7z_wimlib - wim.h
+//  WimSmith - wim.h
 //  wimlib, loaded at run time from <lib>\libwim-15.dll (as the C#
 //  version did): it stays a separate, replaceable DLL under its own
-//  license (LGPL), and 7z_wimlib starts without it.
-//  Only the functions and constants that 7z_wimlib uses are declared
+//  license (LGPL), and WimSmith starts without it.
+//  Only the functions and constants that WimSmith uses are declared
 //  here (wimlib.h of wimlib 1.14, x64); structures are read by offset.
 // ============================================================
 #pragma once
@@ -11,7 +11,7 @@
 
 struct WIMStruct;
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace wl
     {

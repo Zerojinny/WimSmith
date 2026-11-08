@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_backup.h
+//  WimSmith - tab_backup.h
 //  The backup tab: saves a volume or a folder as a WIM image (a new
 //  file, or a new image of an existing file), optionally from a VSS
 //  snapshot (then the running Windows drive may be saved) and verified
@@ -8,12 +8,12 @@
 //  <folder of the last backup>\backup.wim.
 //  A new image of an existing file can take the unchanged files from the
 //  last image (wimlib --update-of: they are not read again); the user's
-//  exclusions (7z_wimlib.ini: backup.exclude) go to the helper as x1..xn.
+//  exclusions (WimSmith.ini: backup.exclude) go to the helper as x1..xn.
 // ============================================================
 #pragma once
 #include "app.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     struct BackupTab
     {

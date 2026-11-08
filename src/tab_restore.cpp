@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_restore.cpp
+//  WimSmith - tab_restore.cpp
 //  The restore tab (see tab_restore.h).
 // ============================================================
 #include "tab_restore.h"
@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <thread>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 
@@ -53,7 +53,7 @@ namespace sevenwim
         // other locales can be typed
         cboBootLang = Combo(page, true);
         for (const wchar_t* l : { L"ko-kr", L"en-us", L"ja-jp", L"zh-cn", L"zh-tw", L"de-de", L"fr-fr", L"es-es", L"ru-ru" }) ComboAdd(cboBootLang, l);
-        // the last language used (7z_wimlib.ini: restore.boot_lang)
+        // the last language used (WimSmith.ini: restore.boot_lang)
         wstring saved = Lower(GetSetting(L"restore.boot_lang", L"ko-kr"));
         SetWindowTextW(cboBootLang, IsLocale(saved) ? saved.c_str() : L"ko-kr");
         grid.Add(L::T(L"bk.row_boot"), { Box(chkUefi), Box(chkBios), Box(chkNoBoot), Txt(lblBootLang, 16, 4), Field(cboBootLang, 90) });

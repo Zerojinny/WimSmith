@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_backup.cpp
+//  WimSmith - tab_backup.cpp
 //  The backup tab (see tab_backup.h).
 // ============================================================
 #include "tab_backup.h"
@@ -9,7 +9,7 @@
 #include "tab_restore.h"
 #include <algorithm>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 

@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_info.h
+//  WimSmith - tab_info.h
 //  The info tab: the header of a WIM file and the details of its images
 //  (read here, nothing is changed); an image can be taken over to the
 //  restore, the export or the browse tab, the whole info copied, and
@@ -11,7 +11,7 @@
 #pragma once
 #include "app.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     struct InfoTab
     {

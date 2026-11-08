@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - storage.h
+//  WimSmith - storage.h
 //  Disks, partitions and volumes with the Windows API only (no
 //  PowerShell, so it works in a WinPE without it) - storage.cpp:
 //   - reading (no administrator rights needed): \\.\PhysicalDriveN
@@ -15,7 +15,7 @@
 #pragma once
 #include "common.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace storage
     {

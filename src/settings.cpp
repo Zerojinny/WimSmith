@@ -1,10 +1,10 @@
 // ============================================================
-//  7z_wimlib - settings.cpp
-//  7z_wimlib.ini (see settings.h).
+//  WimSmith - settings.cpp
+//  WimSmith.ini (see settings.h).
 // ============================================================
 #include "settings.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     wstring ExeDir()
     {
@@ -15,8 +15,12 @@ namespace sevenwim
 
     static wstring SettingsFile()
     {
-        wstring f = Combine(ExeDir(), L"7z_wimlib.ini");
-        wstring old = Combine(ExeDir(), L"Z_wimlib.ini");   // the name before the rename
+        wstring f = Combine(ExeDir(), L"WimSmith.ini");
+        // the names before the renames: 7z_wimlib.ini is copied (an old
+        // 7z_wimlib.exe next to it keeps its settings), Z_wimlib.ini moved
+        wstring old7z = Combine(ExeDir(), L"7z_wimlib.ini");
+        wstring old = Combine(ExeDir(), L"Z_wimlib.ini");
+        if (!FileExists(f) && FileExists(old7z)) CopyFileW(old7z.c_str(), f.c_str(), TRUE);
         if (!FileExists(f) && FileExists(old)) MoveFileW(old.c_str(), f.c_str());
         return f;
     }

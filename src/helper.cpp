@@ -1,6 +1,6 @@
 // ============================================================
-//  7z_wimlib - helper.cpp
-//  The elevated helper: 7z_wimlib.exe --wim-helper <work folder>
+//  WimSmith - helper.cpp
+//  The elevated helper: WimSmith.exe --wim-helper <work folder>
 //  (contract in helper.h). It reads job.ini and
 //    capture: saves a volume or folder (threads = compressor threads,
 //             0 = automatic) as a new WIM file (written to <file>.tmp
@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace wl;
 
@@ -744,7 +744,7 @@ namespace sevenwim
     {
         wstring wimFile = Get(job, L"wim");
         std::vector<wstring> parts;
-        for (const wstring& part : sevenwim::Split(Get(job, L"parts"), L'|'))
+        for (const wstring& part : wimsmith::Split(Get(job, L"parts"), L'|'))
             if (!Trim(part).empty()) parts.push_back(Trim(part));
         wstring why = JoinProblem(parts, wimFile);
         if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + wimFile + L")");

@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - lang.cpp
+//  WimSmith - lang.cpp
 //  The language files (see lang.h).
 // ============================================================
 #include "lang.h"
@@ -8,7 +8,7 @@
 
 namespace L
 {
-    using namespace sevenwim;
+    using namespace wimsmith;
 
     wstring Code = L"en", FontFamily = L"Segoe UI";
     std::vector<wstring> Problems;

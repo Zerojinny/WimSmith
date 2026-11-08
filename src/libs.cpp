@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - libs.cpp
+//  WimSmith - libs.cpp
 //  lib\: moving and downloading wimlib (see libs.h).
 // ============================================================
 #include "libs.h"
@@ -13,12 +13,12 @@
 #include <regex>
 #include <thread>
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace libs
     {
         static const wchar_t* const WimlibDllName = L"libwim-15.dll";
-        static const wchar_t* const UserAgent = L"7z_wimlib";
+        static const wchar_t* const UserAgent = L"WimSmith";
 
         wstring Dir(const wstring& root) { return Combine(root, L"lib"); }
         static wstring WimlibDll(const wstring& root) { return Combine(Dir(root), WimlibDllName); }
@@ -183,7 +183,7 @@ namespace sevenwim
             SYSTEMTIME t;
             GetLocalTime(&t);
             wchar_t stamp[64];
-            swprintf_s(stamp, L"7z_wimlib_download_%04d%02d%02d-%02d%02d%02d-%03d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
+            swprintf_s(stamp, L"WimSmith_download_%04d%02d%02d-%02d%02d%02d-%03d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
             wstring d = Combine(tmp, stamp);
             CreateDirs(d);
             return d;

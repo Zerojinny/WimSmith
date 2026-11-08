@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - storage.cpp
+//  WimSmith - storage.cpp
 //  Disks, partitions and volumes with the Windows API (see storage.h).
 // ============================================================
 #include "storage.h"
@@ -7,7 +7,7 @@
 #include <objbase.h>
 #include <algorithm>
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace storage
     {

@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - mainwin.h
+//  WimSmith - mainwin.h
 //  The main window (the C# MainForm + the frame of BackupPanel): the
 //  tab strip and its pages, a thin progress line and the footer
 //  (state | last log line | [Show log] | after done | [Cancel] |
@@ -9,7 +9,7 @@
 #pragma once
 #include "ui.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     class LogWindow
     {

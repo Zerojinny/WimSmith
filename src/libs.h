@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - libs.h
+//  WimSmith - libs.h
 //  The third-party program in <exe folder>\lib: libwim-15.dll, wimlib (x64).
 //  Migrate moves a libwim-15.dll of the old places (pe_tools\, the exe
 //  folder) into lib\. When it is missing, EnsureWimlib downloads the
@@ -13,7 +13,7 @@
 #pragma once
 #include "common.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace libs
     {

@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - lang.h
+//  WimSmith - lang.h
 //  All text on the screen comes from the language files (as in the C#
 //  version): <exe folder>\lang\<code>.ini first, else the copy embedded
 //  in the exe (resource type LANG, name = code; cpp\build.bat embeds

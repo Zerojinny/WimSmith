@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - tab_browse.h
+//  WimSmith - tab_browse.h
 //  The browse tab: the files of a WIM / ESD / SWM file, read with
 //  wimlib (lib\libwim-15.dll, the same as the other tabs).
 //   - wimlib_iterate_dir_tree lists the chosen image in the background;
@@ -8,7 +8,7 @@
 //     into a hidden work folder in the chosen folder (without ACLs, so no
 //     administrator rights), then they are moved up; a cancelled extract
 //     leaves nothing in the target.
-//   - Open: a file is extracted to %TEMP%\7z_wimlib_view and opened with
+//   - Open: a file is extracted to %TEMP%\WimSmith_view and opened with
 //     its program (a program file: its folder is shown instead).
 //   - Edit (the [Edit] button, the right mouse button, Del / F2 / F5): new
 //     folder, add files / a folder, rename, delete in the image shown.
@@ -23,7 +23,7 @@
 #include <atomic>
 #include <memory>
 
-namespace sevenwim
+namespace wimsmith
 {
     struct BrowseTab
     {

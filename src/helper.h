@@ -1,6 +1,6 @@
 // ============================================================
-//  7z_wimlib - helper.h
-//  The helper: 7z_wimlib.exe --wim-helper <work folder> (helper.cpp,
+//  WimSmith - helper.h
+//  The helper: WimSmith.exe --wim-helper <work folder> (helper.cpp,
 //  disk.cpp). The same contract as the C# helper:
 //    <work>\job.ini      the job ("key = value", UTF-8)
 //    <work>\status.txt   progress "P <percent> <phase> ...", log lines,
@@ -12,7 +12,7 @@
 #pragma once
 #include "common.h"
 
-namespace sevenwim
+namespace wimsmith
 {
     const long long MiB = 1048576;
 

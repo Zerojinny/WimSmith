@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - filedlg.cpp
+//  WimSmith - filedlg.cpp
 //  The file and folder dialogs of ui.h (OpenFile, OpenFiles, SaveFile,
 //  PickFolder) as a window of this program: no Explorer and no shell
 //  dialog (IFileDialog), so they also work in a Windows PE without
@@ -24,16 +24,16 @@
 
 namespace ui
 {
-    using sevenwim::Combine;
-    using sevenwim::DirExists;
-    using sevenwim::FileExists;
-    using sevenwim::FileExt;
-    using sevenwim::FullPath;
-    using sevenwim::Lower;
-    using sevenwim::Num;
-    using sevenwim::Split;
-    using sevenwim::Trim;
-    using sevenwim::ErrorMessage;
+    using wimsmith::Combine;
+    using wimsmith::DirExists;
+    using wimsmith::FileExists;
+    using wimsmith::FileExt;
+    using wimsmith::FullPath;
+    using wimsmith::Lower;
+    using wimsmith::Num;
+    using wimsmith::Split;
+    using wimsmith::Trim;
+    using wimsmith::ErrorMessage;
 
     namespace
     {
@@ -402,7 +402,7 @@ namespace ui
                 if (mode == ModeFolder) { SetText(txtName, cur); autoName = cur; }
                 if (!select.empty())
                     for (size_t i = 0; i < rows.size(); i++)
-                        if (sevenwim::EqualsI(rows[i].name, select))
+                        if (wimsmith::EqualsI(rows[i].name, select))
                         {
                             ListView_SetItemState(list, (int)i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
                             ListView_EnsureVisible(list, (int)i, FALSE);
@@ -535,7 +535,7 @@ namespace ui
                     return;
                 }
                 if (FileExt(p).empty()) p += DefaultExt();
-                wstring dir = sevenwim::DirName(p);
+                wstring dir = wimsmith::DirName(p);
                 if (!DirExists(dir)) { Info(L::F(L"fd.no_folder", dir), MB_ICONWARNING); return; }
                 if (FileExists(p) && overwritePrompt && !YesNo(L::F(L"fd.overwrite", p), MB_ICONWARNING)) return;
                 Done({ p });

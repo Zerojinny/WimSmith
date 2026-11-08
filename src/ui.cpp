@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - ui.cpp
+//  WimSmith - ui.cpp
 //  The window toolkit (see ui.h).
 // ============================================================
 #include "ui.h"
@@ -17,12 +17,12 @@ namespace ui
     HWND Main;
     HFONT FontUI, FontBold, FontMono;
 
-    static const wchar_t* const PanelClass = L"SevenWimPanel";
-    static const wchar_t* const TopClass = L"SevenWimWindow";
-    static const wchar_t* const MenuClass = L"SevenWimMenuOwner";
-    static const wchar_t* const CheckClass = L"SevenWimCheck";
-    static const wchar_t* const TabsClass = L"SevenWimTabs";
-    static const wchar_t* const ProgressClass = L"SevenWimProgress";
+    static const wchar_t* const PanelClass = L"WimSmithPanel";
+    static const wchar_t* const TopClass = L"WimSmithWindow";
+    static const wchar_t* const MenuClass = L"WimSmithMenuOwner";
+    static const wchar_t* const CheckClass = L"WimSmithCheck";
+    static const wchar_t* const TabsClass = L"WimSmithTabs";
+    static const wchar_t* const ProgressClass = L"WimSmithProgress";
     static const UINT WM_APP_POST = WM_APP + 1;
 
     // ---------- state of the windows ----------
@@ -1367,7 +1367,7 @@ namespace ui
         int lo = 0, hi = 0;
         if (it != upDowns.end()) SendMessageW(it->second, UDM_GETRANGE32, (WPARAM)&lo, (LPARAM)&hi);
         long long v;
-        if (!sevenwim::TryParseLong(GetText(h), v)) return lo;
+        if (!wimsmith::TryParseLong(GetText(h), v)) return lo;
         if (it != upDowns.end()) v = std::max<long long>(lo, std::min<long long>(hi, v));
         return (int)v;
     }
@@ -1747,11 +1747,11 @@ namespace ui
         return a && IsWindowEnabled(a) ? a : Main;
     }
 
-    void Info(const wstring& text, UINT icon) { MessageBoxW(ActiveOwner(), text.c_str(), L"7z_wimlib", MB_OK | icon); }
+    void Info(const wstring& text, UINT icon) { MessageBoxW(ActiveOwner(), text.c_str(), L"WimSmith", MB_OK | icon); }
 
     bool YesNo(const wstring& text, UINT icon)
     {
-        return MessageBoxW(ActiveOwner(), text.c_str(), L"7z_wimlib", MB_YESNO | icon) == IDYES;
+        return MessageBoxW(ActiveOwner(), text.c_str(), L"WimSmith", MB_YESNO | icon) == IDYES;
     }
 
     void OnKeys(HWND top, Fn ok, Fn cancel) { keyHandlers[top] = std::make_pair(ok, cancel); }

@@ -1,4 +1,4 @@
-# 7z_wimlib
+# WimSmith
 
 A Windows tool that backs up volumes or folders into WIM images, and restores WIM images to volumes or folders. It is a single exe that needs no installation, and it runs in Windows PE too.
 
@@ -27,17 +27,17 @@ No runtime such as .NET is needed.
 
 | File | Description |
 |---|---|
-| `7z_wimlib.exe` | the program |
+| `WimSmith.exe` | the program |
 | `lib\` | wimlib (`libwim-15.dll`) and its license texts |
 | `MANUAL.md`, `MANUAL.ko.md` | user manual (English, Korean) |
 | `README.md`, `README.ko.md` | this file |
-| `LICENSE` | the license of 7z_wimlib |
+| `LICENSE` | the license of WimSmith |
 
 ## Getting started
 
-1. Unpack the package into any folder, a USB drive included. `7z_wimlib.exe` and the `lib\` folder must stay together.
-2. Run `7z_wimlib.exe`.
-3. Settings are saved in `7z_wimlib.ini` in the same folder.
+1. Unpack the package into any folder, a USB drive included. `WimSmith.exe` and the `lib\` folder must stay together.
+2. Run `WimSmith.exe`.
+3. Settings are saved in `WimSmith.ini` in the same folder.
 
 When a file in `lib\` is missing, its newest version is downloaded the first time it is needed. To work without internet, keep the `lib\` folder and copy it along.
 
@@ -46,13 +46,13 @@ See the [user manual](MANUAL.md) for details.
 ## Caution
 
 - **Restore** formats the target volume, and **Disk** clears the whole disk. Check the target before you start. Both ask twice; the second time you must type the drive letter or the disk number.
-- The drive and disk of the running Windows, and the drive of 7z_wimlib, cannot be chosen as a restore or disk target.
+- The drive and disk of the running Windows, and the drive of WimSmith, cannot be chosen as a restore or disk target.
 
 ## License
 
-The code of 7z_wimlib is under the BSD 3-Clause license ([LICENSE](LICENSE)).
+The code of WimSmith is under the BSD 3-Clause license ([LICENSE](LICENSE)).
 
-wimlib in `lib\` is not part of 7z_wimlib and keeps its own license. 7z_wimlib uses it unchanged, as a separate DLL; replace the DLL to use another version.
+wimlib in `lib\` is not part of WimSmith and keeps its own license. WimSmith uses it unchanged, as a separate DLL; replace the DLL to use another version.
 
 | Program | Files | License | License texts | Source |
 |---|---|---|---|---|
@@ -61,3 +61,5 @@ wimlib in `lib\` is not part of 7z_wimlib and keeps its own license. 7z_wimlib u
 When you pass the package on, keep the license texts in `lib\`. The wimlib version is recorded in `lib\versions.ini`.
 
 7-Zip is not used any more. A `lib\` of an older version may still hold `7z.exe`, `7z.dll`, `7zFM.exe` and `7-Zip_License.txt`: they can be deleted.
+
+WimSmith was called **7z_wimlib** before. At its first start `WimSmith.exe` copies the settings of `7z_wimlib.ini` in its folder into `WimSmith.ini`; the old `7z_wimlib.exe` and `7z_wimlib.ini` can then be deleted.

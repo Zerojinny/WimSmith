@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - app.cpp
+//  WimSmith - app.cpp
 //  The shared part of the tabs and the job (see app.h).
 // ============================================================
 #include "app.h"
@@ -17,7 +17,7 @@
 #include <shellapi.h>
 #include <algorithm>
 
-namespace sevenwim
+namespace wimsmith
 {
     using namespace ui;
 
@@ -223,7 +223,7 @@ namespace sevenwim
         GetLocalTime(&t);
         wchar_t stamp[32];
         swprintf_s(stamp, L"%04d%02d%02d-%02d%02d%02d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
-        workDir = Combine(Combine(tmp, L"7z_wimlib_job"), stamp);
+        workDir = Combine(Combine(tmp, L"WimSmith_job"), stamp);
         try
         {
             CreateDirs(workDir);
@@ -386,7 +386,7 @@ namespace sevenwim
         if (onFailure) onFailure();
     }
 
-    // after a successful job: the work folder (and 7z_wimlib_job when it is empty)
+    // after a successful job: the work folder (and WimSmith_job when it is empty)
     void App::DeleteWorkDir()
     {
         if (workDir.empty() || !DirExists(workDir)) return;

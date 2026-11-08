@@ -1,7 +1,7 @@
 @echo off
 rem ============================================================
-rem  7z_wimlib - build.bat (Windows)
-rem  Compiles src\*.cpp into 7z_wimlib.exe (x64) in this folder with
+rem  WimSmith - build.bat (Windows)
+rem  Compiles src\*.cpp into WimSmith.exe (x64) in this folder with
 rem  the Visual C++ of Visual Studio (Community or Build Tools, the
 rem  "Desktop development with C++" workload), found with vswhere.
 rem  The C runtime is linked statically (/MT): the exe needs no
@@ -10,7 +10,7 @@ rem  Usage: build.bat [nopause]
 rem ============================================================
 setlocal
 cd /d "%~dp0"
-set "OUT_EXE=%~dp07z_wimlib.exe"
+set "OUT_EXE=%~dp0WimSmith.exe"
 set "OBJ=%~dp0obj"
 
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -63,6 +63,6 @@ exit /b 0
 
 :fail
 echo.
-echo [FAILED] 7z_wimlib.exe was not built.
+echo [FAILED] WimSmith.exe was not built.
 if /i not "%~1"=="nopause" pause
 exit /b 1

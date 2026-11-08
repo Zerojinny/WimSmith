@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - unzip.h
+//  WimSmith - unzip.h
 //  Reads a zip file without another program (the wimlib download:
 //  wimlib-<ver>-windows-x86_64-bin.zip). Stored and Deflate entries,
 //  checked with their CRC-32; no ZIP64, no encryption.
@@ -8,7 +8,7 @@
 #include "common.h"
 #include <functional>
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace unzip
     {

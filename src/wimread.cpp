@@ -1,5 +1,5 @@
 // ============================================================
-//  7z_wimlib - wimread.cpp
+//  WimSmith - wimread.cpp
 //  Reading a WIM file in the GUI process (no administrator rights):
 //  the images for the restore / export lists, and the header with the
 //  image details for the info tab.
@@ -8,7 +8,7 @@
 #include <cstring>
 #include <objbase.h>
 
-namespace sevenwim
+namespace wimsmith
 {
     namespace wl
     {
