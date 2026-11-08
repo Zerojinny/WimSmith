@@ -152,6 +152,17 @@ namespace ui
 
     int TextHeightWrapped(HFONT font, const wstring& text, int width);
 
+    // ---- menus ----
+    struct MenuItem
+    {
+        int id = 0;               // 0 and no text: a separator
+        wstring text, key;        // key: shown on the right ("F2")
+        bool enabled = true;
+    };
+    // a popup menu drawn in the theme (the one of Windows stays light);
+    // returns the id chosen, 0 = none
+    int PopupMenu(HWND owner, POINT pt, const std::vector<MenuItem>& items);
+
     // ---- messages and dialogs ----
     void Info(const wstring& text, UINT icon = MB_ICONINFORMATION);
     bool YesNo(const wstring& text, UINT icon = MB_ICONQUESTION);

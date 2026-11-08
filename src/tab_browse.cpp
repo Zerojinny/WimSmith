@@ -977,36 +977,45 @@ namespace sevenwim
         else sel = SelectedRows();
         Node* into = folder ? folder : current;
         bool edit = !running && !appBusy && notWritable.empty();
-        auto flag = [](bool on) { return MF_STRING | (on ? 0u : (UINT)MF_GRAYED); };
-        HMENU m = CreatePopupMenu();
+        std::vector<MenuItem> m;
+        auto add = [&m](int id, const wchar_t* key, bool on, const wchar_t* shortcut = L"")
+        {
+            MenuItem it;
+            it.id = id;
+            it.text = L::T(key);
+            it.key = shortcut;
+            it.enabled = on;
+            m.push_back(it);
+        };
+        auto line = [&m] { m.push_back(MenuItem()); };
+        auto note = [&m](const wstring& text) { MenuItem it; it.text = text; it.enabled = false; m.push_back(it); };
         if (!folder)
         {
-            AppendMenuW(m, flag(!running && sel.size() == 1), MenuOpen, L::T(L"br.menu_open").c_str());
-            AppendMenuW(m, flag(!running && !sel.empty()), MenuExtract, L::T(L"br.menu_extract").c_str());
-            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+            add(MenuOpen, L"br.menu_open", !running && sel.size() == 1, L"Enter");
+            add(MenuExtract, L"br.menu_extract", !running && !sel.empty());
+            line();
         }
-        AppendMenuW(m, flag(edit && into), MenuNewFolder, L::T(L"br.menu_new_folder").c_str());
-        AppendMenuW(m, flag(edit && into), MenuAddFiles, L::T(L"br.menu_add_files").c_str());
-        AppendMenuW(m, flag(edit && into), MenuAddFolder, L::T(L"br.menu_add_folder").c_str());
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(m, flag(edit && sel.size() == 1), MenuRename, L::T(L"br.menu_rename").c_str());
-        AppendMenuW(m, flag(edit && !sel.empty()), MenuDelete, L::T(L"br.menu_delete").c_str());
-        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(m, flag(!running && !appBusy), MenuRefresh, L::T(L"br.menu_refresh").c_str());
+        add(MenuNewFolder, L"br.menu_new_folder", edit && into);
+        add(MenuAddFiles, L"br.menu_add_files", edit && into);
+        add(MenuAddFolder, L"br.menu_add_folder", edit && into);
+        line();
+        add(MenuRename, L"br.menu_rename", edit && sel.size() == 1, L"F2");
+        add(MenuDelete, L"br.menu_delete", edit && !sel.empty(), L"Del");
+        line();
+        add(MenuRefresh, L"br.menu_refresh", !running && !appBusy, L"F5");
         if (notWritable.empty() && needsAdmin)
         {
             // the edits will ask for administrator rights
-            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L::T(L"br.menu_admin").c_str());
+            line();
+            note(L::T(L"br.menu_admin"));
         }
         if (!notWritable.empty())
         {
             // why the edit commands are grey
-            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L::F(L"br.not_writable_short", notWritable).c_str());
+            line();
+            note(L::F(L"br.not_writable_short", notWritable));
         }
-        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, app.win.hwnd, nullptr);
-        DestroyMenu(m);
+        int cmd = PopupMenu(app.win.hwnd, pt, m);
         switch (cmd)
         {
         case MenuOpen: OpenSelected(); break;

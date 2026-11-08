@@ -66,6 +66,7 @@ The elevated helper works in `%TEMP%\7z_wimlib_job\<time>` (job.ini, status.txt,
 
 - Source files use CRLF line ends; `sed -i` turns them into LF, so fix with `unix2dos` or edit with a script that keeps CRLF. The language files are UTF-8 with BOM.
 - `lang\en.ini` is the reference: add every new text there and in `lang\ko.ini`. Hint texts under the start buttons were removed on purpose; explanations go into the manual.
+- Popup menus go through `ui::PopupMenu` (owner-drawn items, menu background, the frame of the #32768 window): the menu of Windows stays light in the dark theme. Do not call `TrackPopupMenu` directly.
 - No PowerShell at run time (it is missing in many WinPE images): disks, volumes and formatting go through `src\storage.*`.
 - Elevated jobs cannot see the session's network or SUBST drives: paths given to the helper go through `SessionFreePath`.
 - Small screens (WinPE without a video driver, 640 x 480): every tab page sits in a scrolling host (`ui::ScrollHost`, minimum 828 x 490, lower for browse / info with `SetScrollMin`); the main window starts maximized when 900 x 600 does not fit, windows and dialogs are kept on the screen (`FitToWorkArea`), the tab strip and the footer get narrower. A new tab or dialog must keep working at that size: lay dialogs out from their client size, not from fixed coordinates.

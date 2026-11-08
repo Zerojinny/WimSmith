@@ -19,6 +19,7 @@ namespace ui
 
     static const wchar_t* const PanelClass = L"SevenWimPanel";
     static const wchar_t* const TopClass = L"SevenWimWindow";
+    static const wchar_t* const MenuClass = L"SevenWimMenuOwner";
     static const wchar_t* const CheckClass = L"SevenWimCheck";
     static const wchar_t* const TabsClass = L"SevenWimTabs";
     static const wchar_t* const ProgressClass = L"SevenWimProgress";
@@ -941,6 +942,160 @@ namespace ui
         InvalidateRect(p, nullptr, FALSE);
     }
 
+    // ---------- menus ----------
+    // Owner-drawn items (WM_MEASUREITEM / WM_DRAWITEM go to a hidden owner
+    // window), the menu background from SetMenuInfo, and the frame of the
+    // menu window (#32768, caught by a CBT hook while it is created) painted
+    // in WM_NCPAINT / WM_PRINT. Works without the theme service (WinPE).
+
+    static const int MenuPadX = 14, MenuGapKey = 36;
+
+    static void MenuFrame(HWND h, HDC dc)
+    {
+        RECT wr, cr;
+        GetWindowRect(h, &wr);
+        GetClientRect(h, &cr);
+        MapWindowPoints(h, nullptr, (POINT*)&cr, 2);
+        OffsetRect(&cr, -wr.left, -wr.top);
+        OffsetRect(&wr, -wr.left, -wr.top);
+        int saved = SaveDC(dc);
+        ExcludeClipRect(dc, cr.left, cr.top, cr.right, cr.bottom);
+        FillRect(dc, &wr, Brush(color::Panel));
+        HBRUSH border = Brush(color::Border);
+        FrameRect(dc, &wr, border);
+        RestoreDC(dc, saved);
+    }
+
+    static LRESULT CALLBACK MenuWindowSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR)
+    {
+        switch (m)
+        {
+        case WM_NCPAINT:
+        {
+            HDC dc = GetWindowDC(h);
+            MenuFrame(h, dc);
+            ReleaseDC(h, dc);
+            return 0;
+        }
+        case WM_PRINT:
+        {
+            // the fade animation draws the menu through WM_PRINT
+            LRESULT r = DefSubclassProc(h, m, wp, lp);
+            if (lp & PRF_NONCLIENT) MenuFrame(h, (HDC)wp);
+            return r;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(h, MenuWindowSub, id);
+            break;
+        }
+        return DefSubclassProc(h, m, wp, lp);
+    }
+
+    static HHOOK menuHook;
+
+    static LRESULT CALLBACK MenuHook(int code, WPARAM wp, LPARAM lp)
+    {
+        if (code == HCBT_CREATEWND)
+        {
+            HWND h = (HWND)wp;
+            wchar_t cls[16] = {};
+            GetClassNameW(h, cls, 16);
+            if (wcscmp(cls, L"#32768") == 0)
+            {
+                SetWindowSubclass(h, MenuWindowSub, 1, 0);
+                // Windows 11: the color of the rounded frame (ignored before)
+                COLORREF c = color::Border;
+                DwmSetWindowAttribute(h, 34 /* DWMWA_BORDER_COLOR */, &c, sizeof c);
+            }
+        }
+        return CallNextHookEx(menuHook, code, wp, lp);
+    }
+
+    static LRESULT CALLBACK MenuOwnerProc(HWND h, UINT m, WPARAM wp, LPARAM lp)
+    {
+        switch (m)
+        {
+        case WM_MEASUREITEM:
+        {
+            MEASUREITEMSTRUCT* mi = (MEASUREITEMSTRUCT*)lp;
+            if (mi->CtlType != ODT_MENU) break;
+            const MenuItem* it = (const MenuItem*)mi->itemData;
+            if (!it || (it->id == 0 && it->text.empty()))
+            {
+                mi->itemWidth = 0;
+                mi->itemHeight = S(9);
+                return TRUE;
+            }
+            int w = S(MenuPadX) + TextWidth(FontUI, it->text) + S(MenuPadX);
+            if (!it->key.empty()) w += S(MenuGapKey) + TextWidth(FontUI, it->key);
+            // Windows adds the width of a check mark itself
+            mi->itemWidth = (UINT)std::max(0, w - GetSystemMetrics(SM_CXMENUCHECK));
+            mi->itemHeight = (UINT)std::max(TextHeight(FontUI) + S(10), S(26));
+            return TRUE;
+        }
+        case WM_DRAWITEM:
+        {
+            const DRAWITEMSTRUCT* d = (const DRAWITEMSTRUCT*)lp;
+            if (d->CtlType != ODT_MENU) break;
+            const MenuItem* it = (const MenuItem*)d->itemData;
+            HDC dc = d->hDC;
+            RECT r = d->rcItem;
+            FillRect(dc, &r, Brush(color::Panel));
+            if (!it || (it->id == 0 && it->text.empty()))
+            {
+                RECT line = { r.left + S(8), (r.top + r.bottom) / 2, r.right - S(8), (r.top + r.bottom) / 2 + 1 };
+                FillRect(dc, &line, Brush(color::Border));
+                return TRUE;
+            }
+            bool grey = (d->itemState & (ODS_GRAYED | ODS_DISABLED)) != 0;
+            bool hot = (d->itemState & ODS_SELECTED) != 0 && !grey;
+            if (hot)
+            {
+                RECT sel = { r.left + S(3), r.top + S(1), r.right - S(3), r.bottom - S(1) };
+                FillRect(dc, &sel, Brush(color::Selected));
+            }
+            HGDIOBJ old = SelectObject(dc, FontUI);
+            SetBkMode(dc, TRANSPARENT);
+            RECT t = { r.left + S(MenuPadX), r.top, r.right - S(MenuPadX), r.bottom };
+            SetTextColor(dc, grey ? color::Dim : hot ? color::Strong : color::Text);
+            DrawTextW(dc, it->text.c_str(), -1, &t, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+            if (!it->key.empty())
+            {
+                SetTextColor(dc, grey ? color::Dim : hot ? color::Strong : color::Dim);
+                DrawTextW(dc, it->key.c_str(), -1, &t, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            }
+            SelectObject(dc, old);
+            return TRUE;
+        }
+        }
+        return DefWindowProcW(h, m, wp, lp);
+    }
+
+    int PopupMenu(HWND owner, POINT pt, const std::vector<MenuItem>& items)
+    {
+        if (items.empty()) return 0;
+        HWND host = CreateWindowExW(WS_EX_TOOLWINDOW, MenuClass, L"", WS_POPUP, 0, 0, 0, 0, owner, nullptr, Inst, nullptr);
+        if (!host) return 0;
+        HMENU m = CreatePopupMenu();
+        for (const MenuItem& it : items)
+        {
+            UINT flags = MF_OWNERDRAW;
+            if (it.id == 0 && it.text.empty()) flags |= MF_SEPARATOR;
+            else if (!it.enabled || it.id == 0) flags |= MF_GRAYED;
+            AppendMenuW(m, flags, (UINT_PTR)it.id, (LPCWSTR)&it);
+        }
+        MENUINFO mi = { sizeof mi };
+        mi.fMask = MIM_BACKGROUND | MIM_APPLYTOSUBMENUS;
+        mi.hbrBack = Brush(color::Panel);
+        SetMenuInfo(m, &mi);
+        menuHook = SetWindowsHookExW(WH_CBT, MenuHook, nullptr, GetCurrentThreadId());
+        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, host, nullptr);
+        if (menuHook) { UnhookWindowsHookEx(menuHook); menuHook = nullptr; }
+        DestroyMenu(m);
+        DestroyWindow(host);
+        return cmd;
+    }
+
     // ---------- start ----------
 
     void Init(HINSTANCE inst)
@@ -971,6 +1126,9 @@ namespace ui
         RegisterClassExW(&wc);
         wc.lpfnWndProc = ProgressProc;
         wc.lpszClassName = ProgressClass;
+        RegisterClassExW(&wc);
+        wc.lpfnWndProc = MenuOwnerProc;
+        wc.lpszClassName = MenuClass;
         RegisterClassExW(&wc);
     }
 
