@@ -3,25 +3,19 @@ title: "The wimlib download is unpacked by our own zip reader, not 7-Zip or tar.
 author: Zerojinny
 date: 2026-11-08
 branch: master
-cost: { minutes: 8, tokens: 152293 }
+cost: { minutes: 1, tokens: 1609 }
 id: l-c860e5ff
 scope: repo
 status: active
+replaces: l-d4787451
 src: agent
 touches:
-  - CLAUDE.md
-  - lang/en.ini
-  - lang/ko.ini
-  - src/tab_browse.cpp
-  - src/ui.cpp
-  - src/ui.h
-  - src/unzip.h
   - src/unzip.cpp
   - src/libs.cpp
 ---
 
 ## Decided
-7-Zip was removed completely (the user asked: the browse tab reads with wimlib, [Open in 7-Zip] was the last use). The only other use was unpacking the wimlib zip on download (7z.exe of lib\, else Windows' tar.exe, else 7-Zip was downloaded first just for that). The user chose a small zip reader in the source over tar.exe only, so the automatic download keeps working on Windows 8.1 and in WinPE images without tar.exe.
+7-Zip was removed completely (the user asked: the browse tab reads with wimlib, [Open in 7-Zip] was the last use). The only other use was unpacking the wimlib zip on download (7z.exe of lib\, else Windows' tar.exe, else 7-Zip was downloaded first just for that). The user chose a small zip reader in the source over tar.exe only, so the automatic download keeps working on Windows 8.1 and in WinPE images without tar.exe. This reverses the earlier call that an inflater was too much code.
 
 ## Tried and ruled out
 - tar.exe only: missing on Windows 8.1 and in many WinPE images; the download would fail there.
