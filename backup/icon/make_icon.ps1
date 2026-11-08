@@ -1,20 +1,20 @@
 # ============================================================
-#  7z_wimlib - make_icon.ps1
-#  Draws the program icon (three stacked teal layers with a down
-#  arrow = images in one WIM file, backup) with System.Drawing and
-#  writes 7z_wimlib.ico: 16, 20, 24, 32, 40, 48, 64 px as 32-bit BMP and
+#  WimSmith - make_icon.ps1
+#  Draws the program icon (three stacked teal layers with a hammer
+#  = images in one WIM file, worked on by the smith) with System.Drawing
+#  and writes WimSmith.ico: 16, 20, 24, 32, 40, 48, 64 px as 32-bit BMP and
 #  256 px as PNG. Each size is drawn on its own (no downscaling);
-#  the arrow line is thicker at 32 px and below.
+#  the hammer is thicker at 32 px and below. Up to the rename from
+#  7z_wimlib the icon had a down arrow instead (see git history).
 #  Colors follow src\Theme.cs (Accent #3DD6C6, AccentText #08201E).
 #
 #  Usage (from any folder):
 #    powershell -NoProfile -ExecutionPolicy Bypass -File backup\icon\make_icon.ps1
-#  Default output: 7z_wimlib.ico in the project folder (overwritten) and
-#  the PNG of each size in backup\icon\png\. Then run build_gui.bat.
-#  The previous icon is kept in backup\icon-old\DVT.ico.
+#  Default output: WimSmith.ico in the project folder (overwritten) and
+#  the PNG of each size in backup\icon\png\. Then run build.bat.
 # ============================================================
 param(
-    [string]$OutIco = (Join-Path $PSScriptRoot '..\..\7z_wimlib.ico'),
+    [string]$OutIco = (Join-Path $PSScriptRoot '..\..\WimSmith.ico'),
     [string]$PngDir = (Join-Path $PSScriptRoot 'png')
 )
 Add-Type -AssemblyName System.Drawing
@@ -43,12 +43,25 @@ function Render([int]$size) {
     # top layer
     Poly $g '#23B0A3' @(8,22, 32,34, 56,22, 56,27, 32,39, 8,27)
     Poly $g '#3DD6C6' @(32,10, 56,22, 32,34, 8,22)
-    # down arrow (backup)
-    $w = 3.2; if ($size -le 20) { $w = 4.4 } elseif ($size -le 32) { $w = 3.8 }
+    # hammer (WimSmith: the smith who works on the images)
+    $w = 3.4; if ($size -le 20) { $w = 4.6 } elseif ($size -le 32) { $w = 4.0 }
+    $ink = New-Object System.Drawing.SolidBrush (C '#08201E')
     $pen = New-Object System.Drawing.Pen (C '#08201E'), ([single]$w)
-    $pen.StartCap = 'Round'; $pen.EndCap = 'Round'; $pen.LineJoin = 'Round'
-    $g.DrawLine($pen, [single]32, [single]15, [single]32, [single]27)
-    $g.DrawLines($pen, [System.Drawing.PointF[]]@((New-Object System.Drawing.PointF 26.5, 22), (New-Object System.Drawing.PointF 32, 27.5), (New-Object System.Drawing.PointF 37.5, 22)))
+    $pen.StartCap = 'Round'; $pen.EndCap = 'Round'
+    $st = $g.Save()
+    $g.TranslateTransform([single]26, [single]30.5)
+    $g.RotateTransform([single]40)
+    $g.DrawLine($pen, [single]0, [single]0, [single]0, [single]-12)
+    $hw = 13.0; $hh = 5.6; if ($size -le 20) { $hw = 14.0; $hh = 6.6 }
+    $head = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $r = 1.6; $x0 = -$hw / 2; $y0 = -12 - $hh
+    $head.AddArc([single]$x0, [single]$y0, [single]($r*2), [single]($r*2), 180, 90)
+    $head.AddArc([single]($x0+$hw-$r*2), [single]$y0, [single]($r*2), [single]($r*2), 270, 90)
+    $head.AddArc([single]($x0+$hw-$r*2), [single]($y0+$hh-$r*2), [single]($r*2), [single]($r*2), 0, 90)
+    $head.AddArc([single]$x0, [single]($y0+$hh-$r*2), [single]($r*2), [single]($r*2), 90, 90)
+    $head.CloseFigure()
+    $g.FillPath($ink, $head); $head.Dispose(); $ink.Dispose()
+    $g.Restore($st)
     $pen.Dispose(); $g.Dispose()
     return $bmp
 }
