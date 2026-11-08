@@ -188,13 +188,16 @@ namespace ui
             Move(t, S(14), S(38), S(352), S(24));
             Move(ok, S(186), S(80), S(86), S(28));
             Move(cancel, S(280), S(80), S(86), S(28));
-            OnClick(ok, [d] { EndModal(d, 1); });
+            // the text is read on OK, while the field is still there (RunModal destroys the dialog)
+            wstring typed;
+            auto accept = [d, t, &typed] { typed = Trim(GetText(t)); EndModal(d, 1); };
+            OnClick(ok, accept);
             OnClick(cancel, [d] { EndModal(d, 2); });
-            OnKeys(d, [d] { EndModal(d, 1); }, [d] { EndModal(d, 2); });
+            OnKeys(d, accept, [d] { EndModal(d, 2); });
             SetFocus(t);
             SendMessageW(t, EM_SETSEL, 0, -1);
             bool r = RunModal(d) == 1;
-            if (r) value = Trim(GetText(t));
+            if (r) value = typed;
             return r && !value.empty();
         }
 
@@ -664,5 +667,10 @@ namespace ui
         if (!d.Run()) return false;
         folder = d.result[0];
         return true;
+    }
+
+    bool InputText(const wstring& title, const wstring& prompt, wstring& value)
+    {
+        return Prompt(Main, title, prompt, value);
     }
 }

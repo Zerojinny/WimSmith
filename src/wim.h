@@ -30,6 +30,7 @@ namespace sevenwim
         X(int, wimlib_extract_image, (WIMStruct*, int, const wchar_t*, int)) \
         X(int, wimlib_extract_paths, (WIMStruct*, int, const wchar_t*, const wchar_t* const*, size_t, int)) \
         X(int, wimlib_iterate_dir_tree, (WIMStruct*, int, const wchar_t*, int, DirTreeFunc, void*)) \
+        X(int, wimlib_update_image, (WIMStruct*, int, const void*, size_t, int)) \
         X(const wchar_t*, wimlib_get_image_property, (const WIMStruct*, int, const wchar_t*)) \
         X(int, wimlib_set_image_property, (WIMStruct*, int, const wchar_t*, const wchar_t*)) \
         X(int, wimlib_get_wim_info, (WIMStruct*, void*)) \
@@ -68,6 +69,11 @@ namespace sevenwim
         // struct wimlib_dir_entry, x64: full_path (16), attributes (48), last_write_time.tv_sec (88),
         // streams[0].resource.uncompressed_size (248 + 8: the unnamed data stream)
         const int DirEntryFullPath = 16, DirEntryAttributes = 48, DirEntryWriteTime = 88, DirEntrySize = 256;
+        // wimlib_update_image (browse tab): struct wimlib_update_command, x64, 40 bytes:
+        // op (0), then add { fs_source_path (8), wim_target_path (16), config_file (24), add_flags (32) },
+        // delete { wim_path (8), delete_flags (16) } or rename { wim_source_path (8), wim_target_path (16), rename_flags (24) }
+        const int UpdateAdd = 0, UpdateDelete = 1, UpdateRename = 2, UpdateCommandSize = 40;
+        const int AddNoAcls = 0x00000020, DeleteRecursive = 0x00000002;
         const int ErrAborted = 76;
         const int ErrPartsMissing = -2;   // a missing part of a split WIM: not a wimlib code
 

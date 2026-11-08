@@ -118,6 +118,7 @@ namespace sevenwim
         btnExtract = Button(page, L::T(L"br.btn_extract"));
         Primary(btnExtract, false);
         btnOpen = Button(page, L::T(L"br.btn_open"));
+        btnEdit = Button(page, L::T(L"br.btn_edit"));
         bar = Progress(page);
         btnCancel = Button(page, L::T(L"bk.btn_cancel"));
         lblState = Label(page, L::T(L"br.none"), FontUI, color::Text, SS_LEFT | SS_ENDELLIPSIS);
@@ -144,6 +145,49 @@ namespace sevenwim
         OnClick(btnUp, [this] { if (current && current->Parent) ShowFolder(current->Parent, true); });
         OnNotify(tree, [this](NMHDR* n) -> LRESULT
         {
+            if (n->code == NM_RCLICK)
+            {
+                // the folder under the mouse: selected, then its menu
+                POINT pt;
+                GetCursorPos(&pt);
+                TVHITTESTINFO hit = {};
+                hit.pt = pt;
+                ScreenToClient(tree, &hit.pt);
+                HTREEITEM item = TreeView_HitTest(tree, &hit);
+                if (!item) return 0;
+                TreeView_SelectItem(tree, item);
+                TVITEMW it = {};
+                it.mask = TVIF_PARAM;
+                it.hItem = item;
+                TreeView_GetItem(tree, &it);
+                if (it.lParam) ShowMenu(pt, (Node*)it.lParam);
+                return 1;
+            }
+            if (n->code == TVN_KEYDOWN)
+            {
+                NMTVKEYDOWN* k = (NMTVKEYDOWN*)n;
+                Node* node = current;
+                if (!node) return 0;
+                Row r;
+                r.Name = node->Name;
+                r.Path = node->Path;
+                r.Dir = node;
+                if (k->wVKey == VK_F2 && node->Parent) Rename(r, node->Parent);
+                else if (k->wVKey == VK_DELETE && node->Parent) Delete({ r });
+                else if (k->wVKey == VK_F5 && !running && top) { reopenPath = node->Path; ListImage(); }
+                else if (k->wVKey == VK_APPS)
+                {
+                    RECT rc;
+                    HTREEITEM sel = TreeView_GetSelection(tree);
+                    if (sel && TreeView_GetItemRect(tree, sel, &rc, TRUE))
+                    {
+                        POINT pt = { rc.left, rc.bottom };
+                        ClientToScreen(tree, &pt);
+                        ShowMenu(pt, node);
+                    }
+                }
+                return 0;
+            }
             if (n->code == TVN_ITEMEXPANDINGW)
             {
                 NMTREEVIEWW* t = (NMTREEVIEWW*)n;
@@ -188,8 +232,29 @@ namespace sevenwim
             case LVN_KEYDOWN:
             {
                 NMLVKEYDOWN* k = (NMLVKEYDOWN*)n;
+                std::vector<Row> sel = SelectedRows();
                 if (k->wVKey == VK_RETURN) OpenSelected();
                 else if (k->wVKey == VK_BACK && current && current->Parent) ShowFolder(current->Parent, true);
+                else if (k->wVKey == VK_DELETE && !sel.empty()) Delete(sel);
+                else if (k->wVKey == VK_F2 && sel.size() == 1) Rename(sel[0], current);
+                else if (k->wVKey == VK_F5 && !running && top) { reopenPath = current ? current->Path : wstring(); ListImage(); }
+                else if (k->wVKey == VK_APPS)
+                {
+                    // the menu at the focused row (or the top of the list)
+                    POINT pt = { S(20), S(30) };
+                    int f = ListView_GetNextItem(list, -1, LVNI_FOCUSED);
+                    RECT rc;
+                    if (f >= 0 && ListView_GetItemRect(list, f, &rc, LVIR_LABEL)) pt = { rc.left, rc.bottom };
+                    ClientToScreen(list, &pt);
+                    ShowMenu(pt, nullptr);
+                }
+                return true;
+            }
+            case NM_RCLICK:
+            {
+                POINT pt;
+                GetCursorPos(&pt);
+                ShowMenu(pt, nullptr);
                 return true;
             }
             }
@@ -199,6 +264,12 @@ namespace sevenwim
         OnListDoubleClick(list, [this] { OpenSelected(); });
         OnClick(btnExtract, [this] { ExtractSelected(); });
         OnClick(btnOpen, [this] { OpenSelected(); });
+        OnClick(btnEdit, [this]
+        {
+            RECT rc;
+            GetWindowRect(btnEdit, &rc);
+            ShowMenu(POINT{ rc.left, rc.bottom }, nullptr);
+        });
         OnClick(btnCancel, [this] { Cancel(); });
         // Enter in the file field reads it
         SetWindowSubclass(txtWim, [](HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR self) -> LRESULT
@@ -230,8 +301,9 @@ namespace sevenwim
         int x = 0;
         Move(btnExtract, x, by + S(2), S(150), S(28)); x += S(150) + S(8);
         Move(btnOpen, x, by + S(2), S(110), S(28)); x += S(110) + S(8);
+        Move(btnEdit, x, by + S(2), S(100), S(28)); x += S(100) + S(8);
         x += S(8);
-        Move(bar, x, by + S(15), S(200), S(4)); x += S(200) + S(8);
+        Move(bar, x, by + S(15), S(140), S(4)); x += S(140) + S(8);
         Move(btnCancel, x, by + S(2), S(80), S(28)); x += S(80) + S(8);
         Move(lblState, x + S(6), by + S(8), std::max(0, w - x - S(6)), TextHeight(FontUI) + S(2));
     }
@@ -252,6 +324,7 @@ namespace sevenwim
         Enable(btnUp, !running && current && current->Parent);
         Enable(btnExtract, !running && top && any);
         Enable(btnOpen, !running && top && any);
+        Enable(btnEdit, !running && top);
         Enable(btnCancel, running);
         Enable(tree, !running || !listing);
         Enable(list, !running || !listing);
@@ -426,13 +499,16 @@ namespace sevenwim
             std::shared_ptr<Node> root(new Node());
             root->Name = rootName;
             int count = 0, total = 1, found = 1;
-            wstring err;
+            wstring err, why;
             int rc;
             {
                 wl::Wim w;
                 rc = wl::OpenRead(wim, 0, nullptr, w, total, found);
                 if (rc == 0)
                 {
+                    // the edit commands: not for a split WIM or a read-only file
+                    if (total > 1) why = L::T(L"br.why_split");
+                    else if (GetFileAttributesW(wim.c_str()) & FILE_ATTRIBUTE_READONLY) why = L::T(L"br.why_readonly");
                     ListContext c = { root.get(), stop.get() };
                     rc = wl::wimlib_iterate_dir_tree(w.p, image, L"", wl::IterateRecursive | wl::IterateChildren, OnEntry, &c);
                     count = c.count;
@@ -442,16 +518,20 @@ namespace sevenwim
             if (rc == wl::ErrPartsMissing) err = PartsText(wim, total, found);
             else if (rc != 0) err = wl::ErrorText(rc);
             ULONGLONG took = GetTickCount64() - started;
-            Post(target, [this, root, count, rc, err, wim, image, took]
+            Post(target, [this, root, count, rc, err, wim, image, took, why]
             {
                 running = false;
-                ListDone(root, count, rc, err, wim, image, took);
+                ListDone(root, count, rc, err, wim, image, took, why);
             });
         }).detach();
     }
 
-    void BrowseTab::ListDone(std::shared_ptr<Node> root, int count, int rc, const wstring& err, const wstring& wim, int image, ULONGLONG took)
+    void BrowseTab::ListDone(std::shared_ptr<Node> root, int count, int rc, const wstring& err, const wstring& wim, int image,
+        ULONGLONG took, const wstring& why)
     {
+        wstring again = reopenPath;
+        reopenPath.clear();
+        if (rc != 0) doneText.clear();
         listing = false;
         ProgressMarquee(bar, false);
         ProgressValue(bar, 0);
@@ -473,13 +553,21 @@ namespace sevenwim
         }
         wimFile = wim;
         wimImage = image;
+        notWritable = why;
         top = root;
         TreeView_DeleteAllItems(tree);
         HTREEITEM t = AddTreeItem(TVI_ROOT, top.get());
         TreeView_Expand(tree, t, TVE_EXPAND);
-        ShowFolder(top.get(), true);
-        SetState(L::F(L"br.listed", App::Group(count), Fixed(std::max(0.1, took / 1000.0), 1, false)));
-        app.Log(L::F(L"br.log_listed", wim, count));
+        // after an edit or F5: the folder shown before (as far as it is still there)
+        ShowFolder(again.empty() ? top.get() : FindNode(again), true);
+        // after an edit: what was done (the listing that follows is not news)
+        if (!doneText.empty()) SetState(doneText);
+        else
+        {
+            SetState(L::F(L"br.listed", App::Group(count), Fixed(std::max(0.1, took / 1000.0), 1, false)));
+            app.Log(L::F(L"br.log_listed", wim, count));
+        }
+        doneText.clear();
         UpdateButtons();
     }
 
@@ -649,7 +737,7 @@ namespace sevenwim
 
     void BrowseTab::ShowProgress(HWND target, int pct, const wstring& state)
     {
-        Post(target, [this, pct, state] { ProgressValue(bar, pct); SetState(state + L"  " + Num(pct) + L"%"); });
+        Post(target, [this, pct, state] { ProgressMarquee(bar, false); ProgressValue(bar, pct); SetState(state + L"  " + Num(pct) + L"%"); });
     }
 
     // the paths (inside the image) straight into target (no folders of the
@@ -794,6 +882,294 @@ namespace sevenwim
             app.Log(one);
             Info(msg, killed ? MB_ICONWARNING : MB_ICONERROR);
         });
+    }
+
+    // ---------- edit (wimlib_update_image) ----------
+
+    BrowseTab::Node* BrowseTab::FindNode(const wstring& path) const
+    {
+        Node* n = top.get();
+        if (!n || path.empty()) return n;
+        for (const wstring& part : Split(path, L'\\'))
+        {
+            Node* next = nullptr;
+            for (auto& d : n->Dirs) if (EqualsI(d->Name, part)) { next = d.get(); break; }
+            if (!next) break;
+            n = next;
+        }
+        return n;
+    }
+
+    static wstring InImage(const BrowseTab::Node* folder, const wstring& name)
+    {
+        return folder->Path.empty() ? name : folder->Path + L"\\" + name;
+    }
+
+    static bool Has(const BrowseTab::Node* folder, const wstring& name)
+    {
+        for (auto& d : folder->Dirs) if (EqualsI(d->Name, name)) return true;
+        for (auto& f : folder->Files) if (EqualsI(f.Name, name)) return true;
+        return false;
+    }
+
+    // a file name Windows accepts
+    static bool ValidName(const wstring& name)
+    {
+        if (name.empty() || name == L"." || name == L"..") return false;
+        return name.find_first_of(L"\\/:*?\"<>|") == wstring::npos;
+    }
+
+    static wstring Names(const std::vector<wstring>& names, size_t max)
+    {
+        wstring s;
+        for (size_t i = 0; i < names.size() && i < max; i++) s += (i ? L"\r\n" : L"") + names[i];
+        if (names.size() > max) s += L"\r\n...";
+        return s;
+    }
+
+    bool BrowseTab::CanEdit()
+    {
+        if (running || !top || !FileExists(wimFile)) return false;
+        if (notWritable.empty()) return true;
+        Info(L::F(L"br.not_writable", wimFile, notWritable), MB_ICONWARNING);
+        return false;
+    }
+
+    enum { MenuOpen = 1, MenuExtract, MenuNewFolder, MenuAddFiles, MenuAddFolder, MenuRename, MenuDelete, MenuRefresh };
+
+    // folder: a folder of the tree (its menu acts on it); nullptr: the list
+    // (rename / delete act on the selected rows, new things go into the folder shown)
+    void BrowseTab::ShowMenu(POINT pt, Node* folder)
+    {
+        if (!top) return;
+        std::vector<Row> sel;
+        if (folder)
+        {
+            if (folder->Parent)
+            {
+                Row r;
+                r.Name = folder->Name;
+                r.Path = folder->Path;
+                r.Dir = folder;
+                sel.push_back(r);
+            }
+        }
+        else sel = SelectedRows();
+        Node* into = folder ? folder : current;
+        bool edit = !running && notWritable.empty();
+        auto flag = [](bool on) { return MF_STRING | (on ? 0u : (UINT)MF_GRAYED); };
+        HMENU m = CreatePopupMenu();
+        if (!folder)
+        {
+            AppendMenuW(m, flag(!running && sel.size() == 1), MenuOpen, L::T(L"br.menu_open").c_str());
+            AppendMenuW(m, flag(!running && !sel.empty()), MenuExtract, L::T(L"br.menu_extract").c_str());
+            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+        }
+        AppendMenuW(m, flag(edit && into), MenuNewFolder, L::T(L"br.menu_new_folder").c_str());
+        AppendMenuW(m, flag(edit && into), MenuAddFiles, L::T(L"br.menu_add_files").c_str());
+        AppendMenuW(m, flag(edit && into), MenuAddFolder, L::T(L"br.menu_add_folder").c_str());
+        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+        AppendMenuW(m, flag(edit && sel.size() == 1), MenuRename, L::T(L"br.menu_rename").c_str());
+        AppendMenuW(m, flag(edit && !sel.empty()), MenuDelete, L::T(L"br.menu_delete").c_str());
+        AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+        AppendMenuW(m, flag(!running), MenuRefresh, L::T(L"br.menu_refresh").c_str());
+        if (!notWritable.empty())
+        {
+            // why the edit commands are grey
+            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L::F(L"br.not_writable_short", notWritable).c_str());
+        }
+        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, app.win.hwnd, nullptr);
+        DestroyMenu(m);
+        switch (cmd)
+        {
+        case MenuOpen: OpenSelected(); break;
+        case MenuExtract: ExtractSelected(); break;
+        case MenuNewFolder: NewFolder(into); break;
+        case MenuAddFiles: AddFiles(into); break;
+        case MenuAddFolder: AddFolder(into); break;
+        case MenuRename: if (sel.size() == 1) Rename(sel[0], folder ? folder->Parent : current); break;
+        case MenuDelete: Delete(sel); break;
+        case MenuRefresh: reopenPath = into ? into->Path : wstring(); ListImage(); break;
+        }
+    }
+
+    void BrowseTab::NewFolder(Node* folder)
+    {
+        if (!folder || !CanEdit()) return;
+        wstring name = L::T(L"br.new_folder_name");
+        if (!InputText(L::T(L"br.menu_new_folder"), L::T(L"br.new_folder_prompt"), name)) return;
+        if (!ValidName(name)) { Info(L::F(L"br.bad_name", name), MB_ICONWARNING); return; }
+        if (Has(folder, name)) { Info(L::F(L"br.name_exists", name), MB_ICONWARNING); return; }
+        // wimlib adds folders from the disk: an empty one in %TEMP%
+        wchar_t tmp[MAX_PATH + 1];
+        GetTempPathW(MAX_PATH + 1, tmp);
+        wstring empty = Combine(tmp, L"7z_wimlib_empty_" + Num((long long)GetTickCount64()));
+        if (!CreateDirectoryW(empty.c_str(), nullptr)) { Info(ErrorMessage(GetLastError()), MB_ICONERROR); return; }
+        wstring target = InImage(folder, name);
+        RunUpdate({ { wl::UpdateAdd, empty, L"\\" + target, wl::AddNoAcls } }, L::F(L"br.op_new_folder", L"\\" + target), empty);
+    }
+
+    void BrowseTab::AddFiles(Node* folder)
+    {
+        if (!folder || !CanEdit()) return;
+        std::vector<wstring> files;
+        if (!OpenFiles({ { L::T(L"fd.all_files"), L"*.*" } }, wstring(), files) || files.empty()) return;
+        std::vector<wstring> exist;
+        for (const wstring& f : files) if (Has(folder, FileName(f))) exist.push_back(FileName(f));
+        if (!exist.empty() && !YesNo(L::F(L"br.confirm_replace", Names(exist, 10)), MB_ICONWARNING)) return;
+        std::vector<UpdateCmd> cmds;
+        for (const wstring& f : files) cmds.push_back({ wl::UpdateAdd, f, L"\\" + InImage(folder, FileName(f)), wl::AddNoAcls });
+        wstring what = L::F(L"br.op_add", files.size() == 1 ? FileName(files[0]) : L::F(L"br.items", (long long)files.size()),
+            L"\\" + folder->Path);
+        RunUpdate(cmds, what, wstring());
+    }
+
+    void BrowseTab::AddFolder(Node* folder)
+    {
+        if (!folder || !CanEdit()) return;
+        wstring dir;
+        if (!PickFolder(L::T(L"br.select_add_folder"), wstring(), dir)) return;
+        wstring full = FullPath(dir);
+        while (full.size() > 3 && (full.back() == L'\\' || full.back() == L'/')) full.pop_back();
+        wstring name = FileName(full);
+        // a drive root has no name to give the folder
+        if (!ValidName(name)) { Info(L::F(L"br.bad_name", full), MB_ICONWARNING); return; }
+        if (Has(folder, name) && !YesNo(L::F(L"br.confirm_merge", name), MB_ICONWARNING)) return;
+        RunUpdate({ { wl::UpdateAdd, full, L"\\" + InImage(folder, name), wl::AddNoAcls } },
+            L::F(L"br.op_add", name, L"\\" + folder->Path), wstring());
+    }
+
+    void BrowseTab::Rename(const Row& r, Node* parent)
+    {
+        if (!parent || !CanEdit()) return;
+        wstring name = r.Name;
+        if (!InputText(L::T(L"br.rename_title"), L::T(L"br.rename_prompt"), name) || name == r.Name) return;
+        if (!ValidName(name)) { Info(L::F(L"br.bad_name", name), MB_ICONWARNING); return; }
+        // another item of that name (the same item in other letters is fine)
+        if (!EqualsI(name, r.Name) && Has(parent, name)) { Info(L::F(L"br.name_exists", name), MB_ICONWARNING); return; }
+        wstring target = InImage(parent, name);
+        RunUpdate({ { wl::UpdateRename, L"\\" + r.Path, L"\\" + target, 0 } }, L::F(L"br.op_rename", L"\\" + r.Path, name), wstring());
+    }
+
+    void BrowseTab::Delete(const std::vector<Row>& items)
+    {
+        if (items.empty() || !CanEdit()) return;
+        std::vector<wstring> names;
+        for (const Row& r : items) names.push_back(r.Dir ? r.Name + L"\\" : r.Name);
+        if (!YesNo(L::F(L"br.confirm_delete", (long long)items.size(), wimImage, Names(names, 10), wimFile), MB_ICONWARNING)) return;
+        std::vector<UpdateCmd> cmds;
+        for (const Row& r : items) cmds.push_back({ wl::UpdateDelete, L"\\" + r.Path, wstring(), wl::DeleteRecursive });
+        RunUpdate(cmds, L::F(L"br.op_delete", items.size() == 1 ? L"\\" + items[0].Path : L::F(L"br.items", (long long)items.size())), wstring());
+    }
+
+    // wimlib's progress while the file is written: the percentage; a cancel stops wimlib
+    static int __cdecl OnUpdateProgress(int msg, void* info, void* ctx)
+    {
+        ExtractContext* c = (ExtractContext*)ctx;
+        if (c->abort->load()) return wl::StatusAbort;
+        if (msg == wl::MsgWriteStreams && info)
+        {
+            // struct wimlib_progress_info_write_streams: total_bytes (0), completed_bytes (16)
+            uint64_t total = *(const uint64_t*)info, done = *(const uint64_t*)((const char*)info + 16);
+            int pct = total > 0 ? (int)(done * 100 / total) : 0;
+            if (pct != c->lastPct)
+            {
+                c->lastPct = pct;
+                c->tab->ShowProgress(c->target, pct, c->state);
+            }
+        }
+        return wl::StatusContinue;
+    }
+
+    // the commands on the image shown, then the file is written in place
+    // (wimlib_overwrite appends; the old content stays valid until the end)
+    void BrowseTab::RunUpdate(const std::vector<UpdateCmd>& cmds, const wstring& what, const wstring& cleanup)
+    {
+        if (running || !top || cmds.empty()) { if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str()); return; }
+        running = true;
+        abort = std::make_shared<std::atomic<bool>>(false);
+        reopenPath = current ? current->Path : wstring();
+        ProgressMarquee(bar, true);
+        SetState(L::T(L"br.updating"));
+        UpdateButtons();
+        HWND win = app.win.hwnd;
+        wstring wim = wimFile, state = L::T(L"br.updating");
+        int image = wimImage;
+        ULONGLONG started = GetTickCount64();
+        std::shared_ptr<std::atomic<bool>> stop = abort;
+        std::thread([this, cmds, what, cleanup, win, wim, image, state, started, stop]
+        {
+            int rc;
+            {
+                wl::Wim w;
+                ExtractContext c = { stop.get(), this, win, state };
+                rc = wl::wimlib_open_wim_with_progress(wim.c_str(), wl::OpenWriteAccess, &w.p, OnUpdateProgress, &c);
+                if (rc != 0) w.p = nullptr;
+                else
+                {
+                    // the strings stay in these buffers while wimlib works
+                    std::vector<std::vector<wchar_t>> text;
+                    auto str = [&text](const wstring& s) -> wchar_t*
+                    {
+                        if (s.empty()) return nullptr;
+                        text.emplace_back(s.begin(), s.end());
+                        text.back().push_back(0);
+                        return text.back().data();
+                    };
+                    text.reserve(cmds.size() * 2);
+                    std::vector<unsigned char> raw(cmds.size() * wl::UpdateCommandSize, 0);
+                    for (size_t i = 0; i < cmds.size(); i++)
+                    {
+                        unsigned char* p = raw.data() + i * wl::UpdateCommandSize;
+                        const UpdateCmd& u = cmds[i];
+                        *(int*)p = u.op;
+                        *(wchar_t**)(p + 8) = str(u.a);
+                        if (u.op == wl::UpdateDelete) *(int*)(p + 16) = u.flags;
+                        else
+                        {
+                            *(wchar_t**)(p + 16) = str(u.b);
+                            if (u.op == wl::UpdateAdd) *(int*)(p + 32) = u.flags;     // config_file (24): none
+                            else *(int*)(p + 24) = u.flags;
+                        }
+                    }
+                    rc = wl::wimlib_update_image(w.p, image, raw.data(), cmds.size(), 0);
+                    if (rc == 0 && !stop->load()) rc = wl::wimlib_overwrite(w.p, 0, 0);
+                    if (stop->load()) rc = wl::ErrAborted;
+                }
+            }
+            if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str());
+            wstring err = rc != 0 && rc != wl::ErrAborted ? wl::ErrorText(rc) : wstring();
+            ULONGLONG took = GetTickCount64() - started;
+            Post(win, [this, rc, err, what, took]
+            {
+                running = false;
+                ProgressMarquee(bar, false);
+                ProgressValue(bar, 0);
+                UpdateDone(rc, err, what, took);
+            });
+        }).detach();
+    }
+
+    void BrowseTab::UpdateDone(int rc, const wstring& err, const wstring& what, ULONGLONG took)
+    {
+        if (rc == 0)
+        {
+            app.Log(L::F(L"br.log_update", wimFile, wimImage, what));
+            // the other tabs that show this file read it again
+            app.WimWritten(wimFile, false);
+            doneText = L::F(L"br.updated", what, Fixed(std::max(0.1, took / 1000.0), 1, false));
+            ListImage();
+            return;
+        }
+        wstring msg = rc == wl::ErrAborted ? L::T(L"br.update_cancelled") : L::F(L"br.update_failed", rc, err.empty() ? wstring(L"-") : err);
+        wstring one = msg;
+        for (size_t q; (q = one.find(L"\r\n")) != wstring::npos;) one.replace(q, 2, L" ");
+        app.Log(one);
+        SetState(L::T(rc == wl::ErrAborted ? L"bk.state_cancelled" : L"bk.state_failed"));
+        reopenPath.clear();
+        UpdateButtons();
+        Info(msg, rc == wl::ErrAborted ? MB_ICONWARNING : MB_ICONERROR);
     }
 
     // ---------- open ----------

@@ -170,6 +170,8 @@ namespace ui
     bool OpenFiles(const Filters& filters, const wstring& initialDir, std::vector<wstring>& files);
     bool SaveFile(const Filters& filters, const wstring& initialDir, const wstring& fileName, bool overwritePrompt, wstring& file);
     bool PickFolder(const wstring& title, const wstring& initialDir, wstring& folder);
+    // one line of text (OK with a non-empty value: true)
+    bool InputText(const wstring& title, const wstring& prompt, wstring& value);
 
     // ---- row layout of a tab (C# Grid / AddRow) ----
     // An item of a row: width (96-DPI px, 0 = the width of its text),

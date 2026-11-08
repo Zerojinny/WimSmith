@@ -226,14 +226,33 @@ Shows the WIM file's image count, compression, size, boot image, GUID and flags 
 
 ## 9. Browse
 
-Shows the files inside an image, read with wimlib (a split WIM too: choose any part). Administrator rights are not needed, and the WIM file is not changed.
+Shows the files inside an image, read with wimlib (a split WIM too: choose any part). Administrator rights are not needed. Viewing and extracting do not change the WIM file; only the edit commands below do.
 
 - Folder tree on the left, file list on the right; [Up] goes to the parent folder.
 - [Extract selected...]: extracts the selected files / folders to a folder of your choice; asks before overwriting.
 - [Open file]: extracts the file to a temporary folder and opens it with its program. In Windows PE without Explorer, text files open in Notepad, and for other files without a program the extracted location is shown.
 - Programs (.exe and the like) are not started: their location is shown in Explorer, or as a path without Explorer.
 - [Open in 7-Zip]: opens the file in the 7-Zip File Manager. This is the only part of the program that needs 7-Zip.
-- [Cancel] stops listing or extracting; a cancelled extraction leaves nothing in the target folder.
+- [Cancel] stops listing, extracting or editing; a cancelled extraction leaves nothing in the target folder.
+
+### Editing (changing the files of the image)
+
+The [Edit ▾] button, the **right-click menu** of the list or the folder tree, and the keys change the image shown.
+
+| Command | Key | What it does |
+|---|---|---|
+| New folder... | | an empty folder in the current folder (in the tree: in that folder) |
+| Add files... | | files of the PC into the current folder; files of the same name are replaced after a question |
+| Add a folder... | | a whole folder of the PC; a folder of the same name is merged after a question |
+| Rename... | F2 | the one selected file or folder |
+| Delete | Del | the selected files and folders (folders with their content), after a question |
+| Refresh | F5 | reads the list again |
+
+- Every command writes the WIM file right away. There is no undo: copy important files first.
+- The new content is appended to the file, so a cancelled or failed command leaves the WIM file usable as it was. Deleting does not make the file smaller; export it to a new file on the export tab for that.
+- Added files get no access rights (ACLs): no administrator rights are needed, and a restore gives them the rights of their place.
+- A split WIM (.swm) and a read-only file cannot be changed: the edit commands are grey in the menu, with the reason. Join a split WIM first.
+- Other tabs showing the same WIM file read its images again after an edit.
 
 ---
 
