@@ -1,0 +1,131 @@
+// ============================================================
+//  7z_wimlib - wim.cpp
+//  Loading libwim-15.dll (see wim.h).
+// ============================================================
+#include "wim.h"
+#include <cstring>
+
+namespace sevenwim
+{
+    namespace wl
+    {
+#define WL_DEFINE(ret, name, params) ret(__cdecl* name) params = nullptr;
+        WL_FUNCS(WL_DEFINE)
+#undef WL_DEFINE
+
+        static bool loaded;
+
+        wstring Load(const wstring& toolDir, bool acquirePrivileges)
+        {
+            if (loaded) return wstring();
+#ifndef _WIN64
+            return wstring(DllName) + L" needs a 64-bit process.";
+#else
+            wstring dll = Combine(toolDir, DllName);
+            if (!FileExists(dll)) return L"Not found: " + dll;
+            HMODULE h = LoadLibraryExW(dll.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+            if (!h) return L"LoadLibrary " + dll + L": error " + Num(GetLastError());
+#define WL_LOAD(ret, name, params) \
+            name = reinterpret_cast<ret(__cdecl*) params>(GetProcAddress(h, #name)); \
+            if (!name) return dll + L": " + FromUtf8(#name) + L" is missing (wimlib 1.14 or later is needed).";
+            WL_FUNCS(WL_LOAD)
+#undef WL_LOAD
+            int rc = wimlib_global_init(acquirePrivileges ? 0 : InitDontAcquirePrivileges);
+            if (rc != 0) return ErrorText(rc);
+            loaded = true;
+            return wstring();
+#endif
+        }
+
+        wstring ErrorText(int code)
+        {
+            const wchar_t* s = wimlib_get_error_string ? wimlib_get_error_string(code) : nullptr;
+            return L"wimlib error " + Num(code) + (s && *s ? L": " + wstring(s) : wstring());
+        }
+
+        wstring BeginMessages()
+        {
+            static wstring previous;
+            static long counter;
+            wchar_t tmp[MAX_PATH + 1];
+            GetTempPathW(MAX_PATH + 1, tmp);
+            wstring file = Combine(tmp, L"7z_wimlib_gui_" + Num((long long)GetCurrentProcessId()) + L"_"
+                + Num((long long)InterlockedIncrement(&counter)) + L".txt");
+            DeleteFileW(file.c_str());
+            // wimlib keeps the file open until the next one is set: the one before can go now
+            if (wimlib_set_error_file_by_name) wimlib_set_error_file_by_name(file.c_str());
+            if (!previous.empty()) DeleteFileW(previous.c_str());
+            previous = file;
+            return file;
+        }
+
+        wstring Messages(const wstring& file)
+        {
+            if (file.empty() || !FileExists(file)) return wstring();
+            try
+            {
+                std::vector<wstring> lines = SplitLines(ReadTextFile(file));
+                wstring text;
+                size_t from = lines.size() > 12 ? lines.size() - 12 : 0;
+                for (size_t n = from; n < lines.size(); n++)
+                    if (!Trim(lines[n]).empty()) text += (text.empty() ? L"" : L"\r\n") + TrimEnd(lines[n]);
+                return text;
+            }
+            catch (const HelperError&) { return wstring(); }
+        }
+
+        int UpdateImage(WIMStruct* wim, int image, const std::vector<UpdateCommand>& cmds)
+        {
+            // the strings stay in these buffers while wimlib works
+            std::vector<std::vector<wchar_t>> text;
+            text.reserve(cmds.size() * 2);
+            auto str = [&text](const wstring& s) -> wchar_t*
+            {
+                if (s.empty()) return nullptr;
+                text.emplace_back(s.begin(), s.end());
+                text.back().push_back(0);
+                return text.back().data();
+            };
+            std::vector<unsigned char> raw(cmds.size() * UpdateCommandSize, 0);
+            for (size_t i = 0; i < cmds.size(); i++)
+            {
+                unsigned char* p = raw.data() + i * UpdateCommandSize;
+                const UpdateCommand& u = cmds[i];
+                *(int*)p = u.op;
+                *(wchar_t**)(p + 8) = str(u.a);
+                if (u.op == UpdateDelete) *(int*)(p + 16) = u.flags;
+                else
+                {
+                    *(wchar_t**)(p + 16) = str(u.b);
+                    if (u.op == UpdateAdd) *(int*)(p + 32) = u.flags;     // config_file (24): none
+                    else *(int*)(p + 24) = u.flags;
+                }
+            }
+            return wimlib_update_image(wim, image, raw.data(), cmds.size(), 0);
+        }
+
+        wstring Property(const WIMStruct* wim, int image, const wchar_t* name)
+        {
+            const wchar_t* p = wimlib_get_image_property(wim, image, name);
+            return p ? wstring(p) : wstring();
+        }
+
+        template <class T> static T At(const unsigned char* b, size_t off)
+        {
+            T v;
+            memcpy(&v, b + off, sizeof v);
+            return v;
+        }
+
+        bool WimInfo::Read(WIMStruct* wim)
+        {
+            memset(b, 0, sizeof b);
+            return wimlib_get_wim_info(wim, b) == 0;
+        }
+        int WimInfo::ImageCount() const { return At<int32_t>(b, 16); }
+        int WimInfo::BootIndex() const { return At<int32_t>(b, 20); }
+        int WimInfo::PartNumber() const { return At<uint16_t>(b, 32); }
+        int WimInfo::TotalParts() const { return At<uint16_t>(b, 34); }
+        bool WimInfo::Integrity() const { return (At<uint32_t>(b, 48) & 0x1) != 0; }
+    }
+}
