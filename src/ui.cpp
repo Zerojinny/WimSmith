@@ -36,6 +36,8 @@ namespace ui
     static std::map<HWND, std::function<void(int, int)>> layouts;
     static std::map<HWND, std::function<void(HDC, const RECT&)>> painters;
     static std::map<HWND, SIZE> minSizes;
+    struct ScrollState { HWND inner = nullptr; int minW = 0, minH = 0, x = 0, y = 0; bool busy = false; };
+    static std::map<HWND, ScrollState> scrollers;          // scrolling host -> its inner panel
     static std::map<HWND, std::function<bool()>> closers;
     static std::map<HWND, Fn> destroyers;
     static std::map<std::pair<HWND, UINT_PTR>, Fn> timers;
@@ -117,7 +119,7 @@ namespace ui
     {
         handlers.erase(h); foreColors.erase(h); backColors.erase(h); layouts.erase(h); painters.erase(h);
         minSizes.erase(h); closers.erase(h); destroyers.erase(h); buttonKinds.erase(h); upDowns.erase(h);
-        boldRows.erase(h); listDouble.erase(h); listExtra.erase(h); keyHandlers.erase(h);
+        boldRows.erase(h); listDouble.erase(h); listExtra.erase(h); keyHandlers.erase(h); scrollers.erase(h);
         for (auto it = timers.begin(); it != timers.end();) it = it->first.first == h ? timers.erase(it) : std::next(it);
         if (hovered == h) hovered = nullptr;
     }
@@ -133,6 +135,7 @@ namespace ui
         handlers.clear(); foreColors.clear(); backColors.clear(); layouts.clear(); painters.clear();
         minSizes.clear(); closers.clear(); destroyers.clear(); timers.clear(); buttonKinds.clear();
         upDowns.clear(); boldRows.clear(); listDouble.clear(); listExtra.clear(); keyHandlers.clear(); modalResults.clear(); hovered = nullptr;
+        scrollers.clear();
     }
 
     COLORREF BackOf(HWND h)
@@ -363,6 +366,86 @@ namespace ui
         return false;
     }
 
+    // ---------- scrolling host ----------
+
+    // the bars, the range and the inner panel for the host's size; a bar
+    // shown or hidden changes the size (WM_SIZE again: busy keeps it out)
+    static void UpdateScroll(HWND v)
+    {
+        auto it = scrollers.find(v);
+        if (it == scrollers.end() || it->second.busy) return;
+        ScrollState& s = it->second;
+        s.busy = true;
+        RECT wr;
+        GetWindowRect(v, &wr);
+        int W = wr.right - wr.left, H = wr.bottom - wr.top;
+        int minW = S(s.minW), minH = S(s.minH);
+        int sbw = GetSystemMetrics(SM_CXVSCROLL), sbh = GetSystemMetrics(SM_CYHSCROLL);
+        bool needH = W < minW, needV = H < minH;
+        if (needH && !needV && H - sbh < minH) needV = true;
+        if (needV && !needH && W - sbw < minW) needH = true;
+        ShowScrollBar(v, SB_HORZ, needH);
+        ShowScrollBar(v, SB_VERT, needV);
+        int cw = std::max(0, W - (needV ? sbw : 0)), ch = std::max(0, H - (needH ? sbh : 0));
+        int iw = std::max(cw, minW), ih = std::max(ch, minH);
+        s.x = std::max(0, std::min(s.x, iw - cw));
+        s.y = std::max(0, std::min(s.y, ih - ch));
+        if (needH) { SCROLLINFO si = { sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, iw - 1, (UINT)cw, s.x }; SetScrollInfo(v, SB_HORZ, &si, TRUE); }
+        if (needV) { SCROLLINFO si = { sizeof si, SIF_RANGE | SIF_PAGE | SIF_POS, 0, ih - 1, (UINT)ch, s.y }; SetScrollInfo(v, SB_VERT, &si, TRUE); }
+        if (!needH) s.x = 0;
+        if (!needV) s.y = 0;
+        SetWindowPos(s.inner, nullptr, -s.x, -s.y, iw, ih, SWP_NOZORDER | SWP_NOACTIVATE);
+        s.busy = false;
+    }
+
+    static void OnScroll(HWND v, bool vertical, int code)
+    {
+        ScrollState& s = scrollers[v];
+        SCROLLINFO si = { sizeof si, SIF_ALL };
+        GetScrollInfo(v, vertical ? SB_VERT : SB_HORZ, &si);
+        int pos = vertical ? s.y : s.x;
+        switch (code)
+        {
+        case SB_LINEUP: pos -= S(24); break;
+        case SB_LINEDOWN: pos += S(24); break;
+        case SB_PAGEUP: pos -= (int)si.nPage; break;
+        case SB_PAGEDOWN: pos += (int)si.nPage; break;
+        case SB_THUMBTRACK: case SB_THUMBPOSITION: pos = si.nTrackPos; break;
+        case SB_TOP: pos = 0; break;
+        case SB_BOTTOM: pos = si.nMax; break;
+        default: return;
+        }
+        (vertical ? s.y : s.x) = pos;
+        UpdateScroll(v);
+    }
+
+    void ScrollIntoView(HWND c)
+    {
+        for (HWND p = c ? GetParent(c) : nullptr; p; p = GetParent(p))
+        {
+            auto it = scrollers.find(p);
+            if (it == scrollers.end()) continue;
+            RECT r, cr;
+            GetWindowRect(c, &r);
+            MapWindowPoints(nullptr, p, (POINT*)&r, 2);
+            GetClientRect(p, &cr);
+            ScrollState& s = it->second;
+            int m = S(8), x = s.x, y = s.y;
+            if (r.bottom + m > cr.bottom) s.y += r.bottom + m - cr.bottom;
+            if (r.top - m < s.y - y) s.y += r.top - m;
+            if (r.right + m > cr.right) s.x += r.right + m - cr.right;
+            if (r.left - m < s.x - x) s.x += r.left - m;
+            if (s.x != x || s.y != y) UpdateScroll(p);
+            return;
+        }
+    }
+
+    void SetScrollMin(HWND inner, int minW, int minH)
+    {
+        for (auto& kv : scrollers)
+            if (kv.second.inner == inner) { kv.second.minW = minW; kv.second.minH = minH; UpdateScroll(kv.first); }
+    }
+
     static LRESULT CALLBACK WindowProc(HWND h, UINT m, WPARAM wp, LPARAM lp)
     {
         LRESULT r = 0;
@@ -394,6 +477,26 @@ namespace ui
             EndPaint(h, &ps);
             return 0;
         }
+        case WM_VSCROLL:
+        case WM_HSCROLL:
+            // the scroll bars of a scrolling host (lp: not a scroll bar control)
+            if (!lp && scrollers.count(h)) { OnScroll(h, m == WM_VSCROLL, LOWORD(wp)); return 0; }
+            break;
+        case WM_MOUSEWHEEL:
+            if (scrollers.count(h))
+            {
+                ScrollState& s = scrollers[h];
+                int step = GET_WHEEL_DELTA_WPARAM(wp) * S(48) / WHEEL_DELTA;
+                bool vert = (GetWindowLongPtrW(h, GWL_STYLE) & WS_VSCROLL) != 0;
+                bool horz = (GetWindowLongPtrW(h, GWL_STYLE) & WS_HSCROLL) != 0;
+                // the wheel scrolls up / down; with Shift (or without a vertical bar) left / right
+                if (vert && !(GET_KEYSTATE_WPARAM(wp) & MK_SHIFT)) s.y -= step;
+                else if (horz) s.x -= step;
+                else break;
+                UpdateScroll(h);
+                return 0;
+            }
+            break;
         case WM_GETMINMAXINFO:
         {
             auto it = minSizes.find(h);
@@ -402,8 +505,11 @@ namespace ui
                 RECT rc = { 0, 0, S(it->second.cx), S(it->second.cy) };
                 AdjustWindowRectEx(&rc, (DWORD)GetWindowLongPtrW(h, GWL_STYLE), FALSE, (DWORD)GetWindowLongPtrW(h, GWL_EXSTYLE));
                 MINMAXINFO* mm = (MINMAXINFO*)lp;
-                mm->ptMinTrackSize.x = rc.right - rc.left;
-                mm->ptMinTrackSize.y = rc.bottom - rc.top;
+                // a screen smaller than that (640 x 480 in a Windows PE): the screen
+                MONITORINFO mi = { sizeof mi };
+                GetMonitorInfoW(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), &mi);
+                mm->ptMinTrackSize.x = std::min(rc.right - rc.left, mi.rcWork.right - mi.rcWork.left);
+                mm->ptMinTrackSize.y = std::min(rc.bottom - rc.top, mi.rcWork.bottom - mi.rcWork.top);
             }
             return 0;
         }
@@ -650,9 +756,19 @@ namespace ui
         std::vector<RECT> r;
         TabsState* s = TabsOf(h);
         int x = S(2), head = TabHeight(h);
-        for (const wstring& n : s->names)
+        // a short strip (a small screen): less room around the names, then
+        // all of them narrower (drawn with "...")
+        RECT cr;
+        GetClientRect(h, &cr);
+        int avail = std::max(0L, cr.right - S(4)), n = (int)s->names.size(), text = 0;
+        std::vector<int> tw;
+        for (const wstring& name : s->names) { tw.push_back(TextWidth(FontBold, name)); text += tw.back(); }
+        int pad = S(14);
+        if (n > 0 && text + 2 * pad * n > avail) pad = std::max(S(4), (avail - text) / (2 * n));
+        double k = n > 0 && text + 2 * pad * n > avail ? std::max(0.0, (double)(avail - 2 * pad * n)) / text : 1.0;
+        for (int i = 0; i < n; i++)
         {
-            int w = TextWidth(FontBold, n) + 2 * S(14);
+            int w = (int)(tw[i] * k) + 2 * pad;
             r.push_back(RECT{ x, 0, x + w, head });
             x += w;
         }
@@ -720,7 +836,7 @@ namespace ui
                 bool sel = (int)i == s->sel;
                 SetTextColor(dc, sel ? color::Strong : ((int)i == s->hover ? color::Text : color::Dim));
                 HGDIOBJ of = SelectObject(dc, sel ? FontBold : FontUI);
-                DrawTextW(dc, s->names[i].c_str(), -1, &r[i], DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+                DrawTextW(dc, s->names[i].c_str(), -1, &r[i], DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
                 SelectObject(dc, of);
                 if (sel)
                 {
@@ -902,12 +1018,18 @@ namespace ui
     int MessageLoop()
     {
         MSG msg = {};
+        HWND focus = nullptr;
         while (GetMessageW(&msg, nullptr, 0, 0) > 0)
         {
             HWND top = GetAncestor(msg.hwnd, GA_ROOT);
-            if (top && IsDialogMessageW(top, &msg)) continue;
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+            if (!(top && IsDialogMessageW(top, &msg)))
+            {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+            // the focus moved (Tab): a control outside a scrolled page comes into view
+            HWND f = GetFocus();
+            if (f != focus) { focus = f; if (f && !scrollers.empty()) ScrollIntoView(f); }
         }
         return (int)msg.wParam;
     }
@@ -922,7 +1044,47 @@ namespace ui
             CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, owner, nullptr, Inst, nullptr);
         backColors[win] = color::Back;
         DarkTitle(win);
+        FitToWorkArea(win);
         return win;
+    }
+
+    bool FitsWorkArea(int w, int h)
+    {
+        RECT rc = { 0, 0, S(w), S(h) }, work;
+        AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, WS_EX_CONTROLPARENT);
+        SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
+        return rc.right - rc.left <= work.right - work.left && rc.bottom - rc.top <= work.bottom - work.top;
+    }
+
+    void FitToWorkArea(HWND top)
+    {
+        MONITORINFO mi = { sizeof mi };
+        GetMonitorInfoW(MonitorFromWindow(top, MONITOR_DEFAULTTONEAREST), &mi);
+        RECT work = mi.rcWork, wr;
+        GetWindowRect(top, &wr);
+        int w = std::min(wr.right - wr.left, work.right - work.left);
+        int h = std::min(wr.bottom - wr.top, work.bottom - work.top);
+        int x = std::max(work.left, std::min(wr.left, work.right - w));
+        int y = std::max(work.top, std::min(wr.top, work.bottom - h));
+        if (x != wr.left || y != wr.top || w != wr.right - wr.left || h != wr.bottom - wr.top)
+            SetWindowPos(top, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    HWND ScrollHost(HWND parent, int minW, int minH, HWND& inner)
+    {
+        HWND v = CreateWindowExW(WS_EX_CONTROLPARENT, PanelClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
+            0, 0, 10, 10, parent, nullptr, Inst, nullptr);
+        backColors[v] = color::Back;
+        // dark scroll bars in the dark theme
+        SetWindowTheme(v, ThemeApp(L"DarkMode_Explorer"), nullptr);
+        inner = Panel(v, color::Back);
+        ScrollState s;
+        s.inner = inner;
+        s.minW = minW;
+        s.minH = minH;
+        scrollers[v] = s;
+        layouts[v] = [v](int, int) { UpdateScroll(v); };
+        return v;
     }
 
     HWND Panel(HWND parent, COLORREF back)
@@ -1456,6 +1618,7 @@ namespace ui
         HWND owner = GetWindow(dlg, GW_OWNER);
         modalResults.erase(dlg);
         if (owner) EnableWindow(owner, FALSE);
+        FitToWorkArea(dlg);
         ShowWindow(dlg, SW_SHOW);
         SetForegroundWindow(dlg);
         MSG msg = {};

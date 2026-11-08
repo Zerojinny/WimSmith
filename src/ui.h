@@ -82,7 +82,15 @@ namespace ui
     COLORREF BackOf(HWND h);
     void SetLayout(HWND panel, std::function<void(int w, int h)> f);
     void SetPaint(HWND panel, std::function<void(HDC dc, const RECT& r)> f);
-    void SetMinSize(HWND top, int w, int h);          // 96-DPI pixels of the client area
+    void SetMinSize(HWND top, int w, int h);          // 96-DPI pixels of the client area (at most the screen)
+    // small screens (a Windows PE without a video driver: 640 x 480, 800 x 600)
+    bool FitsWorkArea(int w, int h);                  // a top window of this client size fits the screen
+    void FitToWorkArea(HWND top);                     // smaller and moved, so that it is on the screen
+    // a scrolling host: the inner panel is at least minW x minH (96-DPI
+    // pixels); a smaller host gets scroll bars (and the mouse wheel)
+    HWND ScrollHost(HWND parent, int minW, int minH, HWND& inner);
+    void ScrollIntoView(HWND control);                // the scrolling host around it shows it
+    void SetScrollMin(HWND inner, int minW, int minH); // another minimum for the inner panel of a host
     void OnClose(HWND top, std::function<bool()> f);  // false: the window stays
     void OnDestroy(HWND top, Fn f);
     void SetTimer(HWND w, UINT_PTR id, UINT ms, Fn f);

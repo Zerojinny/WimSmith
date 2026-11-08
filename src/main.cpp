@@ -54,7 +54,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         // the tabs live as long as the window: one App per language
         App* app = new App();
         app->Create();
-        ShowWindow(app->win.hwnd, SW_SHOW);
+        ShowWindow(app->win.hwnd, app->win.maximize ? SW_MAXIMIZE : SW_SHOW);
         UpdateWindow(app->win.hwnd);
         app->RefreshStatus();
         ui::MessageLoop();

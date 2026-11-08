@@ -30,6 +30,7 @@ namespace sevenwim
         HWND lblState = nullptr, lblLast = nullptr, lnkLog = nullptr, lblAfter = nullptr;
         HWND cboAfter = nullptr, btnCancel = nullptr, cboLang = nullptr, cboTheme = nullptr;
         bool restart = false;                 // another language or theme was chosen
+        bool maximize = false;                // the screen is smaller than the window
         LogWindow log;
 
         void Create();
@@ -45,7 +46,7 @@ namespace sevenwim
         std::function<void()> stopExtracting;
 
     private:
-        std::vector<HWND> pages;
+        std::vector<HWND> pages, hosts;       // the pages of the tabs, their scrolling hosts
         std::vector<wstring> langCodes;
         void Layout(int w, int h);
         void LayoutFooter(int w, int h);

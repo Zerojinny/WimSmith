@@ -52,6 +52,8 @@ namespace sevenwim
 
     InfoTab::InfoTab(App& a, HWND p) : app(a), page(p), grid(p)
     {
+        // the list takes what is left: a low page is still usable (the buttons need 760 px)
+        SetScrollMin(page, 760, 280);
         txtWim = Edit(page);
         btnWim = Button(page, L::T(L"qbt.btn_browse"));
         btnRead = Button(page, L::T(L"in.btn_read"));

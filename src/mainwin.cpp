@@ -97,6 +97,8 @@ namespace sevenwim
 
     void MainWindow::Create()
     {
+        // a smaller screen (a Windows PE without a video driver): maximized, the pages scroll
+        maximize = !FitsWorkArea(900, 600);
         hwnd = TopWindow(L"7z_wimlib", 900, 600, nullptr);
         // in the middle of the work area (C#: CenterScreen)
         RECT wr, work;
@@ -105,7 +107,7 @@ namespace sevenwim
         SetWindowPos(hwnd, nullptr, work.left + (work.right - work.left - (wr.right - wr.left)) / 2,
             work.top + (work.bottom - work.top - (wr.bottom - wr.top)) / 2, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
         Main = hwnd;
-        SetMinSize(hwnd, 860, 580);
+        SetMinSize(hwnd, 600, 400);
         log.Create(hwnd);
 
         tabs = ui::Tabs(hwnd);
@@ -163,10 +165,14 @@ namespace sevenwim
 
     HWND MainWindow::AddPage(const wstring& title)
     {
-        HWND page = Panel(hwnd, color::Back);
+        // every page is laid out at least at the size the tabs were made for
+        // (828 x 490); a smaller window scrolls it
+        HWND page = nullptr;
+        HWND host = ScrollHost(hwnd, 828, 490, page);
         pages.push_back(page);
+        hosts.push_back(host);
         TabAdd(tabs, title);
-        ShowWindow(page, SW_HIDE);
+        ShowWindow(host, SW_HIDE);
         if (pages.size() == 1) TabSelect(tabs, 0);
         return page;
     }
@@ -185,7 +191,7 @@ namespace sevenwim
     void MainWindow::ShowPage()
     {
         int sel = TabIndex(tabs);
-        for (size_t i = 0; i < pages.size(); i++) ShowWindow(pages[i], (int)i == sel ? SW_SHOW : SW_HIDE);
+        for (size_t i = 0; i < hosts.size(); i++) ShowWindow(hosts[i], (int)i == sel ? SW_SHOW : SW_HIDE);
     }
 
     void MainWindow::Layout(int w, int h)
@@ -195,7 +201,10 @@ namespace sevenwim
         int head = TabHeight(tabs) + 1;
         Move(tabs, pad, top, w - 2 * pad, head);
         int pageTop = top + head + pad, pageBottom = h - footH - progH - pad;
-        for (HWND p : pages) Move(p, pad + pad, pageTop, w - 4 * pad, std::max(0, pageBottom - pageTop));
+        // a narrow window: the pages closer to the edge
+        int side = w < S(860) ? pad : 2 * pad;
+        for (HWND p : hosts) Move(p, side, pageTop, std::max(0, w - 2 * side), std::max(0, pageBottom - pageTop));
+        InvalidateRect(tabs, nullptr, FALSE);
         Move(progress, 0, h - footH - progH, w, progH);
         Move(footer, 0, h - footH, w, footH);
     }
@@ -205,12 +214,16 @@ namespace sevenwim
         auto mid = [h](int hh) { return (h - hh) / 2; };
         int textH = TextHeight(FontUI) + S(4);
         int x = S(12), right = w - S(8);
-        // from the right: language, theme, [Cancel], combo, label, [Show log]
-        right -= S(100); Move(cboLang, right, mid(S(23)), S(100), S(23)); right -= S(4);
-        right -= S(4) + S(90); Move(cboTheme, right, mid(S(23)), S(90), S(23)); right -= S(4);
+        // from the right: language, theme, [Cancel], combo, label, [Show log];
+        // a narrow window (a small screen): narrower combos, no "When done" label
+        bool narrow = w < S(820);
+        int langW = narrow ? S(84) : S(100), themeW = narrow ? S(72) : S(90), afterW = narrow ? S(110) : S(130);
+        right -= langW; Move(cboLang, right, mid(S(23)), langW, S(23)); right -= S(4);
+        right -= S(4) + themeW; Move(cboTheme, right, mid(S(23)), themeW, S(23)); right -= S(4);
         right -= S(8) + S(80); Move(btnCancel, right, mid(S(26)), S(80), S(26));
-        right -= S(8) + S(130); Move(cboAfter, right, mid(S(23)), S(130), S(23));
-        int aw = TextWidth(FontUI, GetText(lblAfter)) + S(2);
+        right -= S(8) + afterW; Move(cboAfter, right, mid(S(23)), afterW, S(23));
+        Show(lblAfter, !narrow);
+        int aw = narrow ? 0 : TextWidth(FontUI, GetText(lblAfter)) + S(2);
         right -= S(4) + aw; Move(lblAfter, right, mid(textH), aw, textH);
         int lw = TextWidth(FontUI, GetText(lnkLog)) + S(2);
         right -= S(14) + lw; Move(lnkLog, right, mid(textH), lw, textH);

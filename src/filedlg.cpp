@@ -263,22 +263,34 @@ namespace ui
                 Show(cboFilter, mode != ModeFolder);
                 Show(btnNew, mode == ModeSave || mode == ModeFolder);
 
-                Move(cboDrive, S(14), S(12), S(240), S(23));
-                Move(txtPath, S(262), S(12), S(746 - 262 - 8 - 70 - 8 - 96), S(23));
-                Move(btnUp, S(746 - 96 - 8 - 70), S(10), S(70), S(28));
-                Move(btnRefresh, S(746 - 96), S(10), S(96), S(28));
-                Move(list, S(14), S(46), S(732), S(358));
-                Move(lblName, S(14), S(416), S(80), S(23));
-                Move(txtName, S(96), S(416), S(mode == ModeFolder ? 650 : 450), S(23));
-                Move(cboFilter, S(554), S(416), S(192), S(23));
-                Move(btnNew, S(14), S(456), S(110), S(28));
-                int statusX = mode == ModeSave || mode == ModeFolder ? 134 : 14;
-                Move(lblStatus, S(statusX), S(458), S(552 - statusX), S(24));
-                Move(btnOk, S(560), S(456), S(90), S(28));
-                Move(btnCancel, S(656), S(456), S(90), S(28));
+                // laid out for the size of the window: 760 x 500, smaller on a small screen
+                SetLayout(dlg, [this](int w, int h) { Layout(w, h); });
+                Relayout(dlg);
 
                 FillDrives();
                 Connect();
+            }
+
+            void Layout(int w, int h)
+            {
+                int r = w - S(14);
+                int dw = std::min(S(240), std::max(S(110), (w - S(28)) / 3));
+                Move(cboDrive, S(14), S(12), dw, S(23));
+                Move(btnRefresh, r - S(96), S(10), S(96), S(28));
+                Move(btnUp, r - S(96) - S(8) - S(70), S(10), S(70), S(28));
+                int px = S(14) + dw + S(8);
+                Move(txtPath, px, S(12), std::max(0, r - S(96 + 8 + 70 + 8) - px), S(23));
+                Move(list, S(14), S(46), std::max(0, w - S(28)), std::max(S(40), h - S(96) - S(46)));
+                int y1 = h - S(84), y2 = h - S(44);
+                Move(lblName, S(14), y1, S(80), S(23));
+                int fw = mode == ModeFolder ? 0 : std::min(S(192), std::max(S(100), (w - S(28)) / 4));
+                Move(txtName, S(96), y1, std::max(0, r - (fw ? fw + S(8) : 0) - S(96)), S(23));
+                if (fw) Move(cboFilter, r - fw, y1, fw, S(23));
+                Move(btnNew, S(14), y2, S(110), S(28));
+                Move(btnCancel, r - S(90), y2, S(90), S(28));
+                Move(btnOk, r - S(90) - S(6) - S(90), y2, S(90), S(28));
+                int sx = S(mode == ModeSave || mode == ModeFolder ? 134 : 14);
+                Move(lblStatus, sx, y2 + S(2), std::max(0, r - S(186) - S(8) - sx), S(24));
             }
 
             // ---- drives ----

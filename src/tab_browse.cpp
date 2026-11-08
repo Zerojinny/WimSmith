@@ -83,6 +83,8 @@ namespace sevenwim
     {
         // short labels: the first row (field and three buttons) fits the smallest window
         grid.labelWidth = 110;
+        // the tree and the list take what is left: a low page is still usable
+        SetScrollMin(page, 800, 280);
         txtWim = Edit(page);
         btnBrowse = Button(page, L::T(L"qbt.btn_browse"));
         btnRead = Button(page, L::T(L"br.btn_read"));
