@@ -28,7 +28,7 @@
 | 파일 | 설명 |
 |---|---|
 | `7z_wimlib.exe` | 프로그램 |
-| `lib\` | wimlib(`libwim-15.dll`), 7-Zip(`7z.exe`, `7z.dll`, `7zFM.exe`)과 각 라이선스 문서 |
+| `lib\` | wimlib(`libwim-15.dll`), 탐색 탭의 [7-Zip에서 열기]에만 쓰는 7-Zip(`7z.exe`, `7z.dll`, `7zFM.exe`), 각 라이선스 문서 |
 | `MANUAL.ko.md`, `MANUAL.md` | 사용 설명서 (한국어, 영어) |
 | `README.ko.md`, `README.md` | 이 문서 |
 | `LICENSE` | 7z_wimlib의 라이선스 |

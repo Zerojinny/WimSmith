@@ -240,14 +240,11 @@ namespace sevenwim
 
     void BrowseTab::Cancel()
     {
-        if (!proc) return;
-        cancelRequested = true;
-        TerminateProcess(proc, 1);
+        if (running && abort) abort->store(true);
     }
 
     void BrowseTab::UpdateButtons()
     {
-        bool running = proc != nullptr;
         bool any = ListView_GetSelectedCount(list) > 0;
         Enable(btnRead, !running);
         Enable(txtWim, !running);
@@ -260,11 +257,9 @@ namespace sevenwim
         Enable(list, !running || !listing);
     }
 
-    wstring BrowseTab::SevenZip() const { return Combine(app.ToolDir(), L"7z.exe"); }
-
+    // 7-Zip: only for its file manager (lib\7zFM.exe), downloaded when missing
     bool BrowseTab::Ensure7zip()
     {
-        // lib\7z.exe: downloaded when missing
         wstring err = libs::Ensure7zip(app.root);
         if (err.empty()) return true;
         wstring msg = L::F(L"br.no_7zip", err);
@@ -287,12 +282,12 @@ namespace sevenwim
 
     void BrowseTab::ShowWim(const wstring& wim, int image)
     {
-        if (proc) return;
+        if (running) return;
         SetText(txtWim, wim);
         OpenWim(true);
         if (image > 0)
-            for (size_t n = 0; n < prefixes.size(); n++)
-                if (prefixes[n] == Num(image)) { ComboSelect(cboImage, (int)n); break; }
+            for (size_t n = 0; n < images.size(); n++)
+                if (images[n] == image) { ComboSelect(cboImage, (int)n); break; }
     }
 
     void BrowseTab::SetDefault(const wstring& wim)
@@ -303,122 +298,117 @@ namespace sevenwim
     // the images (wimlib), then the listing of the first one
     void BrowseTab::OpenWim(bool show)
     {
-        if (proc) return;
+        if (running) return;
         wstring wim = Trim(GetText(txtWim));
         if (wim.empty() || !FileExists(wim))
         {
             if (show) Info(L::F(L"msg.not_found", wim.empty() ? wstring(L"-") : wim), MB_ICONWARNING);
             return;
         }
-        if (!Ensure7zip()) return;
-        std::vector<wl::WimImage> images;
-        bool known = app.Images(wim, false, images);
+        std::vector<wl::WimImage> imgs;
+        if (!app.Images(wim, show, imgs) || imgs.empty()) return;
         listing = true;                       // no listing from the combo while it is filled
-        prefixes.clear();
+        images.clear();
         ComboClear(cboImage);
-        if (known && images.size() > 1)
+        for (const wl::WimImage& w : imgs)
         {
-            for (const wl::WimImage& w : images)
-            {
-                prefixes.push_back(Num(w.Index));
-                ComboAdd(cboImage, L::F(L"bk.image_line", w.Index, w.Name.empty() ? L::T(L"bk.no_name") : w.Name,
-                    w.TotalBytes >= 0 ? App::Gb(w.TotalBytes) : wstring(L"?")));
-            }
-        }
-        else
-        {
-            // one image (or wimlib could not tell): the whole file
-            wstring name = known && images.size() == 1 && !images[0].Name.empty() ? images[0].Name : FileName(wim);
-            prefixes.push_back(wstring());
-            ComboAdd(cboImage, known && images.size() == 1 ? L"1: " + name : name);
+            images.push_back(w.Index);
+            ComboAdd(cboImage, L::F(L"bk.image_line", w.Index, w.Name.empty() ? L::T(L"bk.no_name") : w.Name,
+                w.TotalBytes >= 0 ? App::Gb(w.TotalBytes) : wstring(L"?")));
         }
         ComboSelect(cboImage, 0);
         listing = false;
         ListImage();
     }
 
-    // starts 7z.exe (no window); out: its stdout (stderr goes to the same pipe)
-    bool BrowseTab::Start7z(const wstring& args, HANDLE& out)
+    // ---------- listing (wimlib_iterate_dir_tree) ----------
+
+    // "yyyy-MM-dd HH:mm:ss" in local time; seconds since 1970 (UTC)
+    static wstring TimeText(long long unixSeconds)
     {
-        SECURITY_ATTRIBUTES sa = { sizeof sa, nullptr, TRUE };
-        HANDLE outR, outW;
-        if (!CreatePipe(&outR, &outW, &sa, 0)) return false;
-        SetHandleInformation(outR, HANDLE_FLAG_INHERIT, 0);
-        HANDLE nul = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, nullptr);
-        STARTUPINFOW si = {};
-        si.cb = sizeof si;
-        si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_HIDE;
-        si.hStdInput = nul;
-        si.hStdOutput = outW;
-        si.hStdError = outW;
-        PROCESS_INFORMATION pi = {};
-        wstring exe = SevenZip();
-        wstring cmd = L"\"" + exe + L"\" " + args;
-        std::vector<wchar_t> line(cmd.begin(), cmd.end());
-        line.push_back(0);
-        wstring dir = app.ToolDir();
-        BOOL ok = CreateProcessW(exe.c_str(), line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, dir.c_str(), &si, &pi);
-        DWORD e = GetLastError();
-        CloseHandle(outW);
-        if (nul != INVALID_HANDLE_VALUE) CloseHandle(nul);
-        if (!ok) { CloseHandle(outR); SetLastError(e); return false; }
-        CloseHandle(pi.hThread);
-        proc = pi.hProcess;
-        out = outR;
-        return true;
+        if (unixSeconds <= 0) return wstring();
+        ULONGLONG ft = (ULONGLONG)unixSeconds * 10000000ULL + 116444736000000000ULL;
+        FILETIME f = { (DWORD)ft, (DWORD)(ft >> 32) };
+        SYSTEMTIME u, t;
+        if (!FileTimeToSystemTime(&f, &u) || !SystemTimeToTzSpecificLocalTime(nullptr, &u, &t)) return wstring();
+        wchar_t b[32];
+        swprintf_s(b, L"%04d-%02d-%02d %02d:%02d:%02d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+        return b;
     }
 
-    // "2024-04-01 16:39:55 D.... <size 12> <packed 12>  name"
-    static bool AddLine(BrowseTab::Node* root, const wstring& prefix, const wstring& line)
+    // the attribute letters (as 7-Zip shows them)
+    static wstring AttrText(DWORD a)
     {
-        if (line.size() < 54 || line[19] != L' ' || line[25] != L' ' || line[38] != L' ' || line[51] != L' ' || line[52] != L' ') return false;
-        wstring path = line.substr(53);
-        // alternate data streams (file:stream) are not shown
-        if (path.empty() || path.find(L':') != wstring::npos) return false;
-        wstring rel = path;
-        if (!prefix.empty())
-        {
-            if (!StartsWithI(path, prefix + L"\\")) return false;
-            rel = path.substr(prefix.size() + 1);
-        }
-        if (rel.empty()) return false;
-        wstring flags = line.substr(20, 5), attr;
-        for (wchar_t c : flags) if (c != L'.') attr += c;
-        bool dir = flags[0] == L'D';
-        wstring modified = Trim(line.substr(0, 19));
+        wstring s;
+        if (a & FILE_ATTRIBUTE_DIRECTORY) s += L'D';
+        if (a & FILE_ATTRIBUTE_READONLY) s += L'R';
+        if (a & FILE_ATTRIBUTE_HIDDEN) s += L'H';
+        if (a & FILE_ATTRIBUTE_SYSTEM) s += L'S';
+        if (a & FILE_ATTRIBUTE_ARCHIVE) s += L'A';
+        return s;
+    }
+
+    struct ListContext
+    {
+        BrowseTab::Node* root;
+        std::atomic<bool>* abort;
+        int count = 0;
+    };
+
+    // one file or folder of the image (struct wimlib_dir_entry); the parents come first
+    static int __cdecl OnEntry(const void* d, void* ctx)
+    {
+        ListContext* c = (ListContext*)ctx;
+        if (c->abort->load()) return 1;       // stops the iteration (its return value)
+        const char* b = (const char*)d;
+        const wchar_t* full = *(const wchar_t* const*)(b + wl::DirEntryFullPath);
+        DWORD attr = *(const uint32_t*)(b + wl::DirEntryAttributes);
+        long long seconds = *(const int64_t*)(b + wl::DirEntryWriteTime);
+        long long size = (long long)*(const uint64_t*)(b + wl::DirEntrySize);
+        if (!full) return 0;
+        wstring rel = full;
+        while (!rel.empty() && rel[0] == L'\\') rel.erase(0, 1);
+        if (rel.empty()) return 0;
         std::vector<wstring> parts = Split(rel, L'\\');
-        BrowseTab::Node* n = root;
+        BrowseTab::Node* n = c->root;
         for (size_t i = 0; i + 1 < parts.size(); i++) n = n->Child(parts[i]);
         const wstring& name = parts.back();
-        if (dir)
+        if (attr & FILE_ATTRIBUTE_DIRECTORY)
         {
-            BrowseTab::Node* d = n->Child(name);
-            d->Modified = modified;
-            d->Attr = attr;
+            BrowseTab::Node* dir = n->Child(name);
+            dir->Modified = TimeText(seconds);
+            dir->Attr = AttrText(attr);
         }
         else
         {
             BrowseTab::Row r;
             r.Name = name;
-            r.Path = path;
-            r.Size = ParseLong(line.substr(26, 12), -1);
-            r.Modified = modified;
-            r.Attr = attr;
+            r.Path = rel;
+            r.Size = size;
+            r.Modified = TimeText(seconds);
+            r.Attr = AttrText(attr);
             n->Files.push_back(r);
         }
-        return true;
+        c->count++;
+        return 0;
     }
 
-    // 7z l of the chosen image, read in the background
+    static wstring PartsText(const wstring& file, int total, int found)
+    {
+        return file + L": " + Num(total) + L" parts, " + Num(found) + L" found in its folder (all parts must keep their names).";
+    }
+
+    // the chosen image, read in the background (a split WIM: all its parts)
     void BrowseTab::ListImage()
     {
         int sel = ComboIndex(cboImage);
         wstring wim = Trim(GetText(txtWim));
-        if (sel < 0 || sel >= (int)prefixes.size() || proc || !FileExists(wim)) return;
-        wstring prefix = prefixes[sel], rootName = ComboItem(cboImage, sel);
-        wstring args = L"l -ba -sccUTF-8 \"" + wim + L"\"" + (prefix.empty() ? wstring() : L" \"" + prefix + L"\\*\"");
+        if (sel < 0 || sel >= (int)images.size() || running || !FileExists(wim)) return;
+        int image = images[sel];
+        wstring rootName = ComboItem(cboImage, sel);
         listing = true;
+        running = true;
+        abort = std::make_shared<std::atomic<bool>>(false);
         top.reset();
         current = nullptr;
         rows.clear();
@@ -427,65 +417,54 @@ namespace sevenwim
         SetText(lblPath, L"");
         ProgressMarquee(bar, true);
         SetState(L::T(L"br.listing"));
-        HANDLE out;
-        if (!Start7z(args, out))
-        {
-            listing = false;
-            ProgressMarquee(bar, false);
-            SetState(ErrorMessage(GetLastError()));
-            return;
-        }
         UpdateButtons();
-        HANDLE p = proc;
         HWND target = app.win.hwnd;
         ULONGLONG started = GetTickCount64();
-        std::thread([this, p, out, prefix, rootName, wim, target, started]
+        std::shared_ptr<std::atomic<bool>> stop = abort;
+        std::thread([this, wim, image, rootName, target, started, stop]
         {
             std::shared_ptr<Node> root(new Node());
             root->Name = rootName;
-            root->Path = prefix;
-            int count = 0;
-            std::string pending, errors;
-            char buf[65536];
-            DWORD got;
-            auto take = [&](const std::string& raw)
+            int count = 0, total = 1, found = 1;
+            wstring err;
+            int rc;
             {
-                std::string l = raw;
-                if (!l.empty() && l.back() == '\r') l.pop_back();
-                if (AddLine(root.get(), prefix, FromUtf8(l))) count++;
-                else if (!l.empty() && errors.size() < 4000) errors += l + "\n";
-            };
-            while (ReadFile(out, buf, sizeof buf, &got, nullptr) && got > 0)
-            {
-                pending.append(buf, got);
-                size_t nl;
-                while ((nl = pending.find('\n')) != std::string::npos) { take(pending.substr(0, nl)); pending.erase(0, nl + 1); }
+                wl::Wim w;
+                rc = wl::OpenRead(wim, 0, nullptr, w, total, found);
+                if (rc == 0)
+                {
+                    ListContext c = { root.get(), stop.get() };
+                    rc = wl::wimlib_iterate_dir_tree(w.p, image, L"", wl::IterateRecursive | wl::IterateChildren, OnEntry, &c);
+                    count = c.count;
+                    if (stop->load()) rc = wl::ErrAborted;
+                }
             }
-            if (!pending.empty()) take(pending);
-            CloseHandle(out);
-            WaitForSingleObject(p, INFINITE);
-            DWORD code = 1;
-            GetExitCodeProcess(p, &code);
-            wstring err = FromUtf8(errors);
+            if (rc == wl::ErrPartsMissing) err = PartsText(wim, total, found);
+            else if (rc != 0) err = wl::ErrorText(rc);
             ULONGLONG took = GetTickCount64() - started;
-            Post(target, [this, p, root, count, code, err, wim, took]
+            Post(target, [this, root, count, rc, err, wim, image, took]
             {
-                if (proc == p) proc = nullptr;
-                CloseHandle(p);
-                ListDone(root, count, (int)code, err, wim, took);
+                running = false;
+                ListDone(root, count, rc, err, wim, image, took);
             });
         }).detach();
     }
 
-    void BrowseTab::ListDone(std::shared_ptr<Node> root, int count, int code, const wstring& err, const wstring& wim, ULONGLONG took)
+    void BrowseTab::ListDone(std::shared_ptr<Node> root, int count, int rc, const wstring& err, const wstring& wim, int image, ULONGLONG took)
     {
         listing = false;
         ProgressMarquee(bar, false);
         ProgressValue(bar, 0);
-        if (code != 0 && count == 0)
+        if (rc == wl::ErrAborted)
+        {
+            SetState(L::T(L"bk.state_cancelled"));
+            UpdateButtons();
+            return;
+        }
+        if (rc != 0)
         {
             SetState(L::T(L"br.list_failed_short"));
-            wstring msg = L::F(L"br.list_failed", wim, code, Trim(err).empty() ? wstring(L"-") : Trim(err)), one = msg;
+            wstring msg = L::F(L"br.list_failed", wim, rc, Trim(err).empty() ? wstring(L"-") : Trim(err)), one = msg;
             for (size_t q; (q = one.find(L"\r\n")) != wstring::npos;) one.replace(q, 2, L" ");
             app.Log(one);
             Info(msg, MB_ICONWARNING);
@@ -493,6 +472,7 @@ namespace sevenwim
             return;
         }
         wimFile = wim;
+        wimImage = image;
         top = root;
         TreeView_DeleteAllItems(tree);
         HTREEITEM t = AddTreeItem(TVI_ROOT, top.get());
@@ -600,9 +580,6 @@ namespace sevenwim
         InvalidateRect(list, nullptr, TRUE);
         if (!rows.empty()) ListView_EnsureVisible(list, 0, FALSE);
         wstring rel = n->Path;
-        int sel = ComboIndex(cboImage);
-        wstring prefix = sel >= 0 && sel < (int)prefixes.size() ? prefixes[sel] : wstring();
-        if (!prefix.empty()) rel = rel.size() > prefix.size() ? rel.substr(prefix.size() + 1) : wstring();
         SetText(lblPath, L"\\" + rel + L"   " + L::F(L"br.folder_count", (long long)dirs.size(), (long long)files.size()));
         if (syncTree)
         {
@@ -640,79 +617,86 @@ namespace sevenwim
         return idx;
     }
 
-    // ---------- 7z x / e ----------
+    // ---------- extracting (wimlib_extract_paths) ----------
 
-    // with a list file; progress (-bsp1) to the bar; done(code, error text) on the GUI thread
-    void BrowseTab::RunExtract(const wstring& args, const std::vector<wstring>& paths, const wstring& state, std::function<void(int, const wstring&)> done)
+    struct ExtractContext
     {
-        wchar_t tmp[MAX_PATH + 1];
-        GetTempPathW(MAX_PATH + 1, tmp);
-        wstring listFile = Combine(tmp, L"7z_wimlib_7z_" + Num((long long)GetTickCount64()) + L".txt");
-        wstring text;
-        for (const wstring& p : paths) text += p + L"\r\n";
-        if (!WriteBytes(listFile, ToUtf8(text))) { Info(ErrorMessage(GetLastError()), MB_ICONERROR); return; }
-        cancelRequested = false;
-        HANDLE out;
-        if (!Start7z(args + L" -y -bso0 -bsp1 -bse1 -sccUTF-8 -scsUTF-8 \"@" + listFile + L"\"", out))
+        std::atomic<bool>* abort;
+        BrowseTab* tab;
+        HWND target;
+        wstring state;
+        int lastPct = -1;
+    };
+
+    // wimlib's progress: the percentage to the bar; a cancel stops wimlib
+    static int __cdecl OnExtractProgress(int msg, void* info, void* ctx)
+    {
+        ExtractContext* c = (ExtractContext*)ctx;
+        if (c->abort->load()) return wl::StatusAbort;
+        if (msg == wl::MsgExtractStreams && info)
         {
-            DWORD e = GetLastError();
-            DeleteFileW(listFile.c_str());
-            Info(ErrorMessage(e), MB_ICONERROR);
-            return;
+            // struct wimlib_progress_info_extract: total_bytes (40), completed_bytes (48)
+            uint64_t total = *(const uint64_t*)((const char*)info + 40), done = *(const uint64_t*)((const char*)info + 48);
+            int pct = total > 0 ? (int)(done * 100 / total) : 0;
+            if (pct != c->lastPct)
+            {
+                c->lastPct = pct;
+                c->tab->ShowProgress(c->target, pct, c->state);
+            }
         }
-        HANDLE p = proc;
+        return wl::StatusContinue;
+    }
+
+    void BrowseTab::ShowProgress(HWND target, int pct, const wstring& state)
+    {
+        Post(target, [this, pct, state] { ProgressValue(bar, pct); SetState(state + L"  " + Num(pct) + L"%"); });
+    }
+
+    // the paths (inside the image) straight into target (no folders of the
+    // image around them), in the background; done(rc, error text) on the GUI thread
+    void BrowseTab::RunExtract(const std::vector<wstring>& paths, const wstring& target, const wstring& state,
+        std::function<void(int, const wstring&)> done)
+    {
+        running = true;
+        abort = std::make_shared<std::atomic<bool>>(false);
         ProgressMarquee(bar, false);
         ProgressValue(bar, 0);
         SetState(state);
         UpdateButtons();
-        HWND target = app.win.hwnd;
-        std::thread([this, p, out, listFile, state, done, target]
+        HWND win = app.win.hwnd;
+        wstring wim = wimFile;
+        int image = wimImage;
+        std::shared_ptr<std::atomic<bool>> stop = abort;
+        std::thread([this, paths, target, state, done, win, wim, image, stop]
         {
-            std::string all;
-            char buf[4096];
-            DWORD got;
-            int lastPct = -1;
-            while (ReadFile(out, buf, sizeof buf, &got, nullptr) && got > 0)
+            int rc, total = 1, found = 1;
+            wstring err;
             {
-                std::string chunk(buf, got);
-                all += chunk;
-                // the last "nn%" of the chunk
-                int pct = -1;
-                for (size_t i = chunk.find('%'); i != std::string::npos; i = chunk.find('%', i + 1))
+                wl::Wim w;
+                rc = wl::OpenRead(wim, 0, nullptr, w, total, found);
+                if (rc == 0)
                 {
-                    size_t a = i;
-                    while (a > 0 && i - a < 3 && isdigit((unsigned char)chunk[a - 1])) a--;
-                    if (a < i) pct = atoi(chunk.substr(a, i - a).c_str());
-                }
-                if (pct >= 0 && pct <= 100 && pct != lastPct)
-                {
-                    lastPct = pct;
-                    Post(target, [this, pct, state] { ProgressValue(bar, pct); SetState(state + L"  " + Num(pct) + L"%"); });
+                    ExtractContext c = { stop.get(), this, win, state };
+                    wl::wimlib_register_progress_function(w.p, OnExtractProgress, &c);
+                    std::vector<wstring> wimPaths;
+                    for (const wstring& p : paths) wimPaths.push_back(L"\\" + p);
+                    std::vector<const wchar_t*> ptrs;
+                    for (const wstring& p : wimPaths) ptrs.push_back(p.c_str());
+                    CreateDirectoryW(target.c_str(), nullptr);
+                    // no ACLs: no administrator rights needed; names Windows does not allow are changed
+                    rc = wl::wimlib_extract_paths(w.p, image, target.c_str(), ptrs.data(), ptrs.size(),
+                        wl::ExtractNoAcls | wl::ExtractNoPreserveDirs | wl::ExtractReplaceInvalidNames);
+                    if (stop->load()) rc = wl::ErrAborted;
                 }
             }
-            CloseHandle(out);
-            WaitForSingleObject(p, INFINITE);
-            DWORD code = 1;
-            GetExitCodeProcess(p, &code);
-            DeleteFileW(listFile.c_str());
-            // the error lines of 7-Zip (stderr is sent to stdout with -bse1)
-            wstring errors;
-            for (char& c : all) if (c == '\b' || c == '\r') c = '\n';
-            for (const wstring& l : SplitLines(FromUtf8(all)))
+            if (rc == wl::ErrPartsMissing) err = PartsText(wim, total, found);
+            else if (rc != 0 && rc != wl::ErrAborted) err = wl::ErrorText(rc);
+            Post(win, [this, rc, err, done]
             {
-                wstring t = Trim(l);
-                size_t d = 0;
-                while (d < t.size() && d < 3 && iswdigit(t[d])) d++;
-                bool progress = d > 0 && d < t.size() && t[d] == L'%';
-                if (!t.empty() && !progress) errors += (errors.empty() ? L"" : L"\r\n") + t;
-            }
-            Post(target, [this, p, code, errors, done]
-            {
-                if (proc == p) proc = nullptr;
-                CloseHandle(p);
+                running = false;
                 ProgressValue(bar, 0);
                 UpdateButtons();
-                done((int)code, errors);
+                done(rc, err);
             });
         }).detach();
     }
@@ -741,7 +725,7 @@ namespace sevenwim
 
     void BrowseTab::ExtractSelected()
     {
-        if (proc || !top || !FileExists(wimFile)) return;
+        if (running || !top || !FileExists(wimFile)) return;
         std::vector<Row> sel = SelectedRows();
         if (sel.empty()) return;
         wstring dest;
@@ -757,7 +741,8 @@ namespace sevenwim
             if (!YesNo(L::F(L"br.confirm_overwrite", dest, names), MB_ICONWARNING)) return;
         }
 
-        // 7z keeps the path inside the image: into a work folder in the target, then moved up
+        // into a work folder in the target first, then moved up: a cancelled or
+        // failed extract leaves nothing half done in the target
         SYSTEMTIME t;
         GetLocalTime(&t);
         wchar_t stamp[32];
@@ -768,20 +753,19 @@ namespace sevenwim
         for (const Row& r : sel) paths.push_back(r.Path);
         app.Log(L::F(L"br.log_extract", (long long)sel.size(), folderPath.empty() ? wstring(L"\\") : folderPath, dest));
         ULONGLONG started = GetTickCount64();
-        RunExtract(L"x \"" + wimFile + L"\" -o\"" + stage + L"\"", paths, L::T(L"br.extracting"),
-            [this, sel, stage, folderPath, dest, started](int code, const wstring& errors)
+        RunExtract(paths, stage, L::T(L"br.extracting"),
+            [this, sel, stage, dest, started](int code, const wstring& errors)
         {
             wstring moveErr;
-            bool killed = cancelRequested;
+            bool killed = code == wl::ErrAborted;
             // cancelled: nothing half done is moved into the target
             if (!killed)
             {
                 try
                 {
-                    wstring from = folderPath.empty() ? stage : Combine(stage, folderPath);
                     for (const Row& r : sel)
                     {
-                        wstring src = Combine(from, r.Name);
+                        wstring src = Combine(stage, r.Name);
                         if (DirExists(src) || FileExists(src)) MoveMerge(src, Combine(dest, r.Name));
                     }
                 }
@@ -805,7 +789,7 @@ namespace sevenwim
             wstring one = msg;
             for (size_t q; (q = one.find(L"\r\n")) != wstring::npos;) one.replace(q, 2, L" ");
             app.Log(one);
-            Info(msg, code == 1 ? MB_ICONWARNING : MB_ICONERROR);
+            Info(msg, killed ? MB_ICONWARNING : MB_ICONERROR);
         });
     }
 
@@ -820,7 +804,7 @@ namespace sevenwim
 
     void BrowseTab::OpenSelected()
     {
-        if (proc) return;
+        if (running) return;
         std::vector<Row> sel = SelectedRows();
         if (sel.size() != 1) return;
         Row r = sel[0];
@@ -831,10 +815,10 @@ namespace sevenwim
         swprintf_s(stamp, L"%02d%02d%02d-%03d", t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
         wstring dir = Combine(ViewRoot(), stamp);
         wstring file = Combine(dir, r.Name);
-        RunExtract(L"e \"" + wimFile + L"\" -o\"" + dir + L"\"", { r.Path }, L::F(L"br.opening", r.Name),
+        RunExtract({ r.Path }, dir, L::F(L"br.opening", r.Name),
             [this, file, r](int code, const wstring& errors)
         {
-            if (cancelRequested) { SetState(L::T(L"bk.state_cancelled")); return; }
+            if (code == wl::ErrAborted) { SetState(L::T(L"bk.state_cancelled")); return; }
             if (code != 0 || !FileExists(file))
             {
                 SetState(L::T(L"bk.state_failed"));

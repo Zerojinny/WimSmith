@@ -28,7 +28,7 @@ No runtime such as .NET is needed.
 | File | Description |
 |---|---|
 | `7z_wimlib.exe` | the program |
-| `lib\` | wimlib (`libwim-15.dll`) and 7-Zip (`7z.exe`, `7z.dll`, `7zFM.exe`) with their license texts |
+| `lib\` | wimlib (`libwim-15.dll`); 7-Zip (`7z.exe`, `7z.dll`, `7zFM.exe`) only for [Open in 7-Zip] on the browse tab; their license texts |
 | `MANUAL.md`, `MANUAL.ko.md` | user manual (English, Korean) |
 | `README.md`, `README.ko.md` | this file |
 | `LICENSE` | the license of 7z_wimlib |

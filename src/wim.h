@@ -16,6 +16,8 @@ namespace sevenwim
     namespace wl
     {
         typedef int(__cdecl* ProgressFunc)(int msg, void* info, void* ctx);
+        // the callback of wimlib_iterate_dir_tree: a struct wimlib_dir_entry (read by offset)
+        typedef int(__cdecl* DirTreeFunc)(const void* dentry, void* ctx);
 
 #define WL_FUNCS(X) \
         X(int, wimlib_global_init, (int)) \
@@ -26,6 +28,8 @@ namespace sevenwim
         X(int, wimlib_write, (WIMStruct*, const wchar_t*, int, int, unsigned)) \
         X(int, wimlib_overwrite, (WIMStruct*, int, unsigned)) \
         X(int, wimlib_extract_image, (WIMStruct*, int, const wchar_t*, int)) \
+        X(int, wimlib_extract_paths, (WIMStruct*, int, const wchar_t*, const wchar_t* const*, size_t, int)) \
+        X(int, wimlib_iterate_dir_tree, (WIMStruct*, int, const wchar_t*, int, DirTreeFunc, void*)) \
         X(const wchar_t*, wimlib_get_image_property, (const WIMStruct*, int, const wchar_t*)) \
         X(int, wimlib_set_image_property, (WIMStruct*, int, const wchar_t*, const wchar_t*)) \
         X(int, wimlib_get_wim_info, (WIMStruct*, void*)) \
@@ -58,6 +62,12 @@ namespace sevenwim
         const int MsgVerifyIntegrity = 16, MsgCalcIntegrity = 17, MsgSplitBeginPart = 19, MsgSplitEndPart = 20;
         const int MsgBeginVerifyImage = 27, MsgVerifyStreams = 29;
         const int StatusContinue = 0, StatusAbort = 1;
+        // wimlib_iterate_dir_tree / wimlib_extract_paths (browse tab)
+        const int IterateRecursive = 0x00000001, IterateChildren = 0x00000002;
+        const int ExtractNoAcls = 0x00000040, ExtractReplaceInvalidNames = 0x00000800, ExtractNoPreserveDirs = 0x00200000;
+        // struct wimlib_dir_entry, x64: full_path (16), attributes (48), last_write_time.tv_sec (88),
+        // streams[0].resource.uncompressed_size (248 + 8: the unnamed data stream)
+        const int DirEntryFullPath = 16, DirEntryAttributes = 48, DirEntryWriteTime = 88, DirEntrySize = 256;
         const int ErrAborted = 76;
         const int ErrPartsMissing = -2;   // a missing part of a split WIM: not a wimlib code
 
