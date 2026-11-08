@@ -50,7 +50,7 @@ See the [user manual](MANUAL.md) for details.
 
 ## License
 
-The code of WimSmith is under the BSD 3-Clause license ([LICENSE](LICENSE)).
+The code of WimSmith is under the MIT license ([LICENSE](LICENSE)).
 
 wimlib in `lib\` is not part of WimSmith and keeps its own license. WimSmith uses it unchanged, as a separate DLL; replace the DLL to use another version.
 

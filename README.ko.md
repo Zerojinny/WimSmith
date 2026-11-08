@@ -50,7 +50,7 @@
 
 ## 라이선스
 
-WimSmith의 코드는 BSD 3-Clause 라이선스입니다([LICENSE](LICENSE)).
+WimSmith의 코드는 MIT 라이선스입니다([LICENSE](LICENSE)).
 
 `lib\` 폴더의 wimlib은 WimSmith의 일부가 아니며 자체 라이선스를 따릅니다. WimSmith는 wimlib을 고치지 않고 별도 DLL로 불러 씁니다. DLL을 바꾸면 다른 버전으로 교체할 수 있습니다.
 

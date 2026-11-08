@@ -78,7 +78,7 @@ The elevated helper works in `%TEMP%\WimSmith_job\<time>` (job.ini, status.txt, 
 
 ## License
 
-BSD 3-Clause, see [LICENSE](LICENSE). This applies to the code of this repository only.
+MIT, see [LICENSE](LICENSE). This applies to the code of this repository only.
 
 ### Third-party programs
 
