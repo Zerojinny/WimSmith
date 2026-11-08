@@ -250,7 +250,9 @@ The [Edit ▾] button, the **right-click menu** of the list or the folder tree, 
 
 - Every command writes the WIM file right away. There is no undo: copy important files first.
 - The new content is appended to the file, so a cancelled or failed command leaves the WIM file usable as it was. Deleting does not make the file smaller; export it to a new file on the export tab for that.
-- Added files get no access rights (ACLs): no administrator rights are needed, and a restore gives them the rights of their place.
+- Added files get no access rights (ACLs): a restore gives them the rights of their place.
+- Usually no administrator rights are needed. For a WIM file where a normal user may not write (the root of `C:\`, `Program Files`, …) Windows asks for them, and the change is done with them; the menu then says "Changes ask for administrator rights", and the progress and [Cancel] are in the footer.
+- A WIM file another program holds open (7-Zip, …) cannot be changed (wimlib error 47): close that program and try again.
 - A split WIM (.swm) and a read-only file cannot be changed: the edit commands are grey in the menu, with the reason. Join a split WIM first.
 - Other tabs showing the same WIM file read its images again after an edit.
 

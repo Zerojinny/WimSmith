@@ -902,6 +902,44 @@ namespace sevenwim
         return Finish(0, L"OK " + l + L": + boot files (" + fw + L")");
     }
 
+    // ---------- update (the edit commands of the browse tab, elevated) ----------
+
+    // c<n>_op, c<n>_a, c<n>_b, c<n>_flags (n = 1..count) on image <index> of <wim>,
+    // then the file is written in place (appended)
+    static int Update(const Job& job)
+    {
+        wstring wimFile = Get(job, L"wim");
+        int image = (int)ParseLong(Get(job, L"index"), 1);
+        long long count = ParseLong(Get(job, L"count"), 0);
+        if (!FileExists(wimFile)) return Finish(2, NotFound(wimFile));
+        if (count < 1) return Finish(87, L"No commands.");
+        std::vector<UpdateCommand> cmds;
+        for (long long n = 1; n <= count; n++)
+        {
+            wstring k = L"c" + Num(n) + L"_";
+            UpdateCommand u;
+            u.op = (int)ParseLong(Get(job, k + L"op"), -1);
+            u.a = Get(job, k + L"a");
+            u.b = Get(job, k + L"b");
+            u.flags = (int)ParseLong(Get(job, k + L"flags"), 0);
+            if (u.op < UpdateAdd || u.op > UpdateRename || u.a.empty()) return Finish(87, L"Command " + Num(n) + L" is not valid.");
+            Status((u.op == UpdateAdd ? L"Add " + u.a + L" -> " : u.op == UpdateDelete ? L"Delete " : L"Rename ") + (u.op == UpdateAdd ? u.b : u.a)
+                + (u.op == UpdateRename ? L" -> " + u.b : wstring()));
+            cmds.push_back(u);
+        }
+        Wim wim;
+        Status(L"Opening " + wimFile);
+        int rc = wimlib_open_wim_with_progress(wimFile.c_str(), OpenWriteAccess, &wim.p, OnProgress, nullptr);
+        if (rc != 0) { wim.p = nullptr; return Failed(rc, L"Open " + wimFile); }
+        Progress(-1, L"update", true);
+        rc = UpdateImage(wim.p, image, cmds);
+        if (rc != 0) return Failed(rc, L"Change image " + Num(image));
+        Status(L"Writing " + wimFile);
+        rc = wimlib_overwrite(wim.p, 0, 0);
+        if (rc != 0) return Failed(rc, L"Write " + wimFile);
+        return Finish(0, L"OK " + wimFile);
+    }
+
     // ---------- entry ----------
 
     int RunHelper(const std::vector<wstring>& args)
@@ -918,7 +956,7 @@ namespace sevenwim
             wstring mode = Get(job, L"mode");
             if (mode == L"disk") return Disk(job);     // diskpart / Storage module, no wimlib
             // export, split, join and verify run without administrator rights: no privileges to acquire
-            wstring err = Load(Get(job, L"tools"), mode == L"capture" || mode == L"apply");
+            wstring err = Load(Get(job, L"tools"), mode == L"capture" || mode == L"apply" || mode == L"update");
             if (!err.empty()) return Finish(2, err);
             wimlib_set_error_file_by_name(errorFile.c_str());
             if (mode == L"capture") return Capture(job);
@@ -927,6 +965,7 @@ namespace sevenwim
             if (mode == L"join") return Join(job);
             if (mode == L"verify") return Verify(job);
             if (mode == L"apply") return Apply(job);
+            if (mode == L"update") return Update(job);
             return Finish(87, L"Unknown mode: " + mode);
         }
         catch (const HelperError& e) { return Finish(1, e.msg); }

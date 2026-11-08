@@ -84,6 +84,16 @@ namespace sevenwim
         // error): a new file in %TEMP% for the next calls; Messages reads its
         // last lines ("" = none). The file before is deleted.
         wstring BeginMessages();
+        // one command of wimlib_update_image: add (a = file or folder on the disk,
+        // b = path in the image), delete (a = path in the image) or rename (a -> b)
+        struct UpdateCommand
+        {
+            int op = 0;
+            wstring a, b;
+            int flags = 0;
+        };
+        // the commands on an image (struct wimlib_update_command built by offset); 0 or the wimlib code
+        int UpdateImage(WIMStruct* wim, int image, const std::vector<UpdateCommand>& cmds);
         wstring Messages(const wstring& file);
         wstring Property(const WIMStruct* wim, int image, const wchar_t* name);
 

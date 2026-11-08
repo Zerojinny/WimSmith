@@ -279,6 +279,7 @@ namespace sevenwim
             if (m == WM_CHAR && wp == L'\r') return 0;
             return DefSubclassProc(h, m, wp, lp);
         }, 4, (DWORD_PTR)this);
+        app.busyHandlers.push_back([this](bool b) { appBusy = b; UpdateButtons(); });
         app.win.extracting = [this] { return Extracting(); };
         app.win.stopExtracting = [this] { Cancel(); };
         UpdateButtons();
@@ -318,13 +319,14 @@ namespace sevenwim
     void BrowseTab::UpdateButtons()
     {
         bool any = ListView_GetSelectedCount(list) > 0;
-        Enable(btnRead, !running);
-        Enable(txtWim, !running);
-        Enable(cboImage, !running && ComboCount(cboImage) > 1);
-        Enable(btnUp, !running && current && current->Parent);
-        Enable(btnExtract, !running && top && any);
-        Enable(btnOpen, !running && top && any);
-        Enable(btnEdit, !running && top);
+        bool busy = running || appBusy;
+        Enable(btnRead, !busy);
+        Enable(txtWim, !busy);
+        Enable(cboImage, !busy && ComboCount(cboImage) > 1);
+        Enable(btnUp, !busy && current && current->Parent);
+        Enable(btnExtract, !busy && top && any);
+        Enable(btnOpen, !busy && top && any);
+        Enable(btnEdit, !busy && top);
         Enable(btnCancel, running);
         Enable(tree, !running || !listing);
         Enable(list, !running || !listing);
@@ -421,6 +423,17 @@ namespace sevenwim
         return s;
     }
 
+    // the file cannot be opened for writing for want of rights (a WIM in the
+    // root of C:, in Program Files, ...): its edits go to the elevated helper.
+    // A file another program holds (sharing violation) is not such a case.
+    static bool NeedsAdmin(const wstring& file)
+    {
+        HANDLE h = CreateFileW(file.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (h != INVALID_HANDLE_VALUE) { CloseHandle(h); return false; }
+        return GetLastError() == ERROR_ACCESS_DENIED && !(GetFileAttributesW(file.c_str()) & FILE_ATTRIBUTE_READONLY);
+    }
+
     struct ListContext
     {
         BrowseTab::Node* root;
@@ -500,6 +513,7 @@ namespace sevenwim
             root->Name = rootName;
             int count = 0, total = 1, found = 1;
             wstring err, why;
+            bool admin = false;
             int rc;
             {
                 wl::Wim w;
@@ -509,6 +523,7 @@ namespace sevenwim
                     // the edit commands: not for a split WIM or a read-only file
                     if (total > 1) why = L::T(L"br.why_split");
                     else if (GetFileAttributesW(wim.c_str()) & FILE_ATTRIBUTE_READONLY) why = L::T(L"br.why_readonly");
+                    else admin = NeedsAdmin(wim);
                     ListContext c = { root.get(), stop.get() };
                     rc = wl::wimlib_iterate_dir_tree(w.p, image, L"", wl::IterateRecursive | wl::IterateChildren, OnEntry, &c);
                     count = c.count;
@@ -518,16 +533,16 @@ namespace sevenwim
             if (rc == wl::ErrPartsMissing) err = PartsText(wim, total, found);
             else if (rc != 0) err = wl::ErrorText(rc);
             ULONGLONG took = GetTickCount64() - started;
-            Post(target, [this, root, count, rc, err, wim, image, took, why]
+            Post(target, [this, root, count, rc, err, wim, image, took, why, admin]
             {
                 running = false;
-                ListDone(root, count, rc, err, wim, image, took, why);
+                ListDone(root, count, rc, err, wim, image, took, why, admin);
             });
         }).detach();
     }
 
     void BrowseTab::ListDone(std::shared_ptr<Node> root, int count, int rc, const wstring& err, const wstring& wim, int image,
-        ULONGLONG took, const wstring& why)
+        ULONGLONG took, const wstring& why, bool admin)
     {
         wstring again = reopenPath;
         reopenPath.clear();
@@ -554,6 +569,7 @@ namespace sevenwim
         wimFile = wim;
         wimImage = image;
         notWritable = why;
+        needsAdmin = admin;
         top = root;
         TreeView_DeleteAllItems(tree);
         HTREEITEM t = AddTreeItem(TVI_ROOT, top.get());
@@ -933,7 +949,7 @@ namespace sevenwim
 
     bool BrowseTab::CanEdit()
     {
-        if (running || !top || !FileExists(wimFile)) return false;
+        if (running || appBusy || !top || !FileExists(wimFile)) return false;
         if (notWritable.empty()) return true;
         Info(L::F(L"br.not_writable", wimFile, notWritable), MB_ICONWARNING);
         return false;
@@ -960,7 +976,7 @@ namespace sevenwim
         }
         else sel = SelectedRows();
         Node* into = folder ? folder : current;
-        bool edit = !running && notWritable.empty();
+        bool edit = !running && !appBusy && notWritable.empty();
         auto flag = [](bool on) { return MF_STRING | (on ? 0u : (UINT)MF_GRAYED); };
         HMENU m = CreatePopupMenu();
         if (!folder)
@@ -976,7 +992,13 @@ namespace sevenwim
         AppendMenuW(m, flag(edit && sel.size() == 1), MenuRename, L::T(L"br.menu_rename").c_str());
         AppendMenuW(m, flag(edit && !sel.empty()), MenuDelete, L::T(L"br.menu_delete").c_str());
         AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(m, flag(!running), MenuRefresh, L::T(L"br.menu_refresh").c_str());
+        AppendMenuW(m, flag(!running && !appBusy), MenuRefresh, L::T(L"br.menu_refresh").c_str());
+        if (notWritable.empty() && needsAdmin)
+        {
+            // the edits will ask for administrator rights
+            AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L::T(L"br.menu_admin").c_str());
+        }
         if (!notWritable.empty())
         {
             // why the edit commands are grey
@@ -1090,7 +1112,9 @@ namespace sevenwim
     // (wimlib_overwrite appends; the old content stays valid until the end)
     void BrowseTab::RunUpdate(const std::vector<UpdateCmd>& cmds, const wstring& what, const wstring& cleanup)
     {
-        if (running || !top || cmds.empty()) { if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str()); return; }
+        if (running || appBusy || !top || cmds.empty()) { if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str()); return; }
+        // checked again now (the file may have moved, or its rights changed)
+        if (NeedsAdmin(wimFile)) { RunUpdateElevated(cmds, what, cleanup); return; }
         running = true;
         abort = std::make_shared<std::atomic<bool>>(false);
         reopenPath = current ? current->Path : wstring();
@@ -1113,32 +1137,7 @@ namespace sevenwim
                 if (rc != 0) w.p = nullptr;
                 else
                 {
-                    // the strings stay in these buffers while wimlib works
-                    std::vector<std::vector<wchar_t>> text;
-                    auto str = [&text](const wstring& s) -> wchar_t*
-                    {
-                        if (s.empty()) return nullptr;
-                        text.emplace_back(s.begin(), s.end());
-                        text.back().push_back(0);
-                        return text.back().data();
-                    };
-                    text.reserve(cmds.size() * 2);
-                    std::vector<unsigned char> raw(cmds.size() * wl::UpdateCommandSize, 0);
-                    for (size_t i = 0; i < cmds.size(); i++)
-                    {
-                        unsigned char* p = raw.data() + i * wl::UpdateCommandSize;
-                        const UpdateCmd& u = cmds[i];
-                        *(int*)p = u.op;
-                        *(wchar_t**)(p + 8) = str(u.a);
-                        if (u.op == wl::UpdateDelete) *(int*)(p + 16) = u.flags;
-                        else
-                        {
-                            *(wchar_t**)(p + 16) = str(u.b);
-                            if (u.op == wl::UpdateAdd) *(int*)(p + 32) = u.flags;     // config_file (24): none
-                            else *(int*)(p + 24) = u.flags;
-                        }
-                    }
-                    rc = wl::wimlib_update_image(w.p, image, raw.data(), cmds.size(), 0);
+                    rc = wl::UpdateImage(w.p, image, cmds);
                     if (rc == 0 && !stop->load()) rc = wl::wimlib_overwrite(w.p, 0, 0);
                     if (stop->load()) rc = wl::ErrAborted;
                 }
@@ -1161,6 +1160,57 @@ namespace sevenwim
                 UpdateDone(rc, err, what, took);
             });
         }).detach();
+    }
+
+    // the same commands through the helper with administrator rights (Windows
+    // asks); progress, cancel and a failure message as for a backup
+    void BrowseTab::RunUpdateElevated(const std::vector<UpdateCmd>& cmds, const wstring& what, const wstring& cleanup)
+    {
+        Job job;
+        job[L"mode"] = L"update";
+        job[L"wim"] = wimFile;
+        job[L"index"] = Num(wimImage);
+        job[L"count"] = Num((long long)cmds.size());
+        for (size_t i = 0; i < cmds.size(); i++)
+        {
+            wstring k = L"c" + Num((long long)i + 1) + L"_";
+            const UpdateCmd& u = cmds[i];
+            job[k + L"op"] = Num(u.op);
+            // a file to add: a path the elevated helper can see (network / SUBST drives)
+            job[k + L"a"] = u.op == wl::UpdateAdd ? SessionFreePath(u.a) : u.a;
+            job[k + L"b"] = u.b;
+            job[k + L"flags"] = Num(u.flags);
+        }
+        reopenPath = current ? current->Path : wstring();
+        app.job = App::JobInfo();
+        app.job.mode = L"update";
+        app.job.wim = wimFile;
+        app.job.image = wimImage;
+        ULONGLONG started = GetTickCount64();
+        app.onSuccess = [this, what, cleanup, started](const wstring&) -> wstring
+        {
+            if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str());
+            UpdateDone(0, wstring(), what, GetTickCount64() - started);
+            return wstring();                 // no message box, no "after done"
+        };
+        app.onFailure = [this, cleanup]
+        {
+            if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str());
+            reopenPath.clear();
+            SetState(L::T(L"bk.state_failed"));
+            UpdateButtons();
+        };
+        app.Log(L::F(L"br.log_admin", wimFile));
+        SetState(L::T(L"br.updating_admin"));
+        app.StartHelper(job);
+        if (!app.Busy())
+        {
+            // not started (administrator rights refused)
+            if (!cleanup.empty()) RemoveDirectoryW(cleanup.c_str());
+            reopenPath.clear();
+            SetState(L::T(L"bk.state_cancelled"));
+        }
+        UpdateButtons();
     }
 
     void BrowseTab::UpdateDone(int rc, const wstring& err, const wstring& what, ULONGLONG took)

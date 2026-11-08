@@ -71,7 +71,9 @@ namespace sevenwim
         wstring notWritable;                  // why the WIM file shown cannot be changed ("" = it can)
         wstring reopenPath;                   // the folder to show again after an edit
         wstring doneText;                     // the state after the listing that follows an edit
-        struct UpdateCmd { int op; wstring a, b; int flags; };
+        typedef wl::UpdateCommand UpdateCmd;
+        bool needsAdmin = false;              // the file shown can be changed only with administrator rights
+        bool appBusy = false;                 // a job of the helper runs (here: an elevated edit)
 
         void Layout(int w, int h);
         void UpdateButtons();
@@ -81,7 +83,7 @@ namespace sevenwim
         void OpenWim(bool show);
         void ListImage();
         void ListDone(std::shared_ptr<Node> root, int count, int rc, const wstring& err, const wstring& wim, int image,
-            ULONGLONG took, const wstring& why);
+            ULONGLONG took, const wstring& why, bool admin);
         Node* FindNode(const wstring& path) const;
         // ---- edit ----
         void ShowMenu(POINT pt, Node* folder);        // folder: from the tree (else the list selection)
@@ -92,6 +94,7 @@ namespace sevenwim
         void Rename(const Row& r, Node* parent);
         void Delete(const std::vector<Row>& items);
         void RunUpdate(const std::vector<UpdateCmd>& cmds, const wstring& what, const wstring& cleanup);
+        void RunUpdateElevated(const std::vector<UpdateCmd>& cmds, const wstring& what, const wstring& cleanup);
         void UpdateDone(int rc, const wstring& err, const wstring& what, ULONGLONG took);
         HTREEITEM AddTreeItem(HTREEITEM parent, Node* n);
         void FillTreeItem(HTREEITEM item);

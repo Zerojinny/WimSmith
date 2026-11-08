@@ -74,6 +74,36 @@ namespace sevenwim
             catch (const HelperError&) { return wstring(); }
         }
 
+        int UpdateImage(WIMStruct* wim, int image, const std::vector<UpdateCommand>& cmds)
+        {
+            // the strings stay in these buffers while wimlib works
+            std::vector<std::vector<wchar_t>> text;
+            text.reserve(cmds.size() * 2);
+            auto str = [&text](const wstring& s) -> wchar_t*
+            {
+                if (s.empty()) return nullptr;
+                text.emplace_back(s.begin(), s.end());
+                text.back().push_back(0);
+                return text.back().data();
+            };
+            std::vector<unsigned char> raw(cmds.size() * UpdateCommandSize, 0);
+            for (size_t i = 0; i < cmds.size(); i++)
+            {
+                unsigned char* p = raw.data() + i * UpdateCommandSize;
+                const UpdateCommand& u = cmds[i];
+                *(int*)p = u.op;
+                *(wchar_t**)(p + 8) = str(u.a);
+                if (u.op == UpdateDelete) *(int*)(p + 16) = u.flags;
+                else
+                {
+                    *(wchar_t**)(p + 16) = str(u.b);
+                    if (u.op == UpdateAdd) *(int*)(p + 32) = u.flags;     // config_file (24): none
+                    else *(int*)(p + 24) = u.flags;
+                }
+            }
+            return wimlib_update_image(wim, image, raw.data(), cmds.size(), 0);
+        }
+
         wstring Property(const WIMStruct* wim, int image, const wchar_t* name)
         {
             const wchar_t* p = wimlib_get_image_property(wim, image, name);
