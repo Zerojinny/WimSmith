@@ -657,6 +657,10 @@ namespace sevenwim
     void BrowseTab::RunExtract(const std::vector<wstring>& paths, const wstring& target, const wstring& state,
         std::function<void(int, const wstring&)> done)
     {
+        // the target with all folders above it (wimlib makes only the last one;
+        // %TEMP%\7z_wimlib_view is deleted at start)
+        try { CreateDirs(target); }
+        catch (const HelperError& e) { SetState(L::T(L"bk.state_failed")); Info(e.msg, MB_ICONERROR); return; }
         running = true;
         abort = std::make_shared<std::atomic<bool>>(false);
         ProgressMarquee(bar, false);
@@ -682,7 +686,6 @@ namespace sevenwim
                     for (const wstring& p : paths) wimPaths.push_back(L"\\" + p);
                     std::vector<const wchar_t*> ptrs;
                     for (const wstring& p : wimPaths) ptrs.push_back(p.c_str());
-                    CreateDirectoryW(target.c_str(), nullptr);
                     // no ACLs: no administrator rights needed; names Windows does not allow are changed
                     rc = wl::wimlib_extract_paths(w.p, image, target.c_str(), ptrs.data(), ptrs.size(),
                         wl::ExtractNoAcls | wl::ExtractNoPreserveDirs | wl::ExtractReplaceInvalidNames);
