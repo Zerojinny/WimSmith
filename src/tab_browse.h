@@ -16,8 +16,6 @@
 //     appended, the file stays usable when this is cancelled or fails);
 //     added files get no ACLs (no administrator rights needed). Not for a
 //     split WIM or a read-only file. The listing is read again afterwards.
-//   - 7-Zip: the WIM file opened in 7-Zip's own file manager (lib\7zFM.exe,
-//     the only use of 7-Zip; downloaded when it is first needed).
 //  Only the edit commands write to the WIM file.
 // ============================================================
 #pragma once
@@ -56,7 +54,7 @@ namespace sevenwim
         };
 
     private:
-        HWND txtWim, btnBrowse, btnRead, btnFm, cboImage, btnUp, lblPath;
+        HWND txtWim, btnBrowse, btnRead, cboImage, btnUp, lblPath;
         HWND tree, splitter, list, btnExtract, btnOpen, btnEdit, bar, btnCancel, lblState;
         ui::Grid grid;
         std::vector<int> images;              // the items of cboImage: the image numbers
@@ -78,7 +76,6 @@ namespace sevenwim
         void Layout(int w, int h);
         void UpdateButtons();
         void SetState(const wstring& text) { ui::SetText(lblState, text); ui::Relayout(page); }
-        bool Ensure7zip();
         void ChooseWim();
         void OpenWim(bool show);
         void ListImage();
@@ -106,6 +103,5 @@ namespace sevenwim
             std::function<void(int, const wstring&)> done);
         void ExtractSelected();
         void OpenSelected();
-        void OpenIn7zFm();
     };
 }

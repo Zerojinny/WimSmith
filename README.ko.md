@@ -28,7 +28,7 @@
 | 파일 | 설명 |
 |---|---|
 | `7z_wimlib.exe` | 프로그램 |
-| `lib\` | wimlib(`libwim-15.dll`), 탐색 탭의 [7-Zip에서 열기]에만 쓰는 7-Zip(`7z.exe`, `7z.dll`, `7zFM.exe`), 각 라이선스 문서 |
+| `lib\` | wimlib(`libwim-15.dll`)과 그 라이선스 문서 |
 | `MANUAL.ko.md`, `MANUAL.md` | 사용 설명서 (한국어, 영어) |
 | `README.ko.md`, `README.md` | 이 문서 |
 | `LICENSE` | 7z_wimlib의 라이선스 |
@@ -52,11 +52,12 @@
 
 7z_wimlib의 코드는 BSD 3-Clause 라이선스입니다([LICENSE](LICENSE)).
 
-`lib\` 폴더의 프로그램은 7z_wimlib의 일부가 아니며 각자의 라이선스를 따릅니다. 7z_wimlib은 이 프로그램들을 고치지 않고 별도 DLL / 프로그램으로 불러 씁니다. 파일을 바꾸면 다른 버전으로 교체할 수 있습니다.
+`lib\` 폴더의 wimlib은 7z_wimlib의 일부가 아니며 자체 라이선스를 따릅니다. 7z_wimlib은 wimlib을 고치지 않고 별도 DLL로 불러 씁니다. DLL을 바꾸면 다른 버전으로 교체할 수 있습니다.
 
 | 프로그램 | 파일 | 라이선스 | 라이선스 문서 | 소스 |
 |---|---|---|---|---|
 | [wimlib](https://wimlib.net) | `libwim-15.dll` | LGPL v2.1 이상(또는 GPL v3 이상), libdivsufsort-lite(MIT) 포함 | `wimlib_COPYING*.txt` | https://wimlib.net/ |
-| [7-Zip](https://www.7-zip.org) | `7z.exe`, `7z.dll`, `7zFM.exe` | GNU LGPL, 일부 BSD 3-Clause, unRAR 제한 | `7-Zip_License.txt` | https://www.7-zip.org/ |
 
 다시 배포할 때는 `lib\`의 라이선스 문서를 그대로 두세요. wimlib 버전은 `lib\versions.ini`에 적혀 있습니다.
+
+이제 7-Zip은 쓰지 않습니다. 이전 버전의 `lib\`에 남아 있는 `7z.exe`, `7z.dll`, `7zFM.exe`, `7-Zip_License.txt`는 지워도 됩니다.

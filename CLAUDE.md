@@ -21,7 +21,7 @@ The other documents are for the people who use the program and ship with the rel
 - **Info**: the header of a WIM file (images, compression, size, boot image, GUID, flags) and the details of each image (edition, architecture, version, languages, size, files, dates); copy to the clipboard, or take an image over to the restore / export tab.
 - **Verify**: [Verify] on the info tab reads all the data of a WIM / ESD / SWM file and checks it against its SHA-1 hashes, the metadata of every image, and the integrity table when the file has one (`wimlib_verify_wim`). "Verify the WIM file after the backup" on the backup tab does the same right after a backup. Nothing is written.
 - **Integrity (`--check`)**: an option on the backup, restore, export and split / join tabs, off by default and not saved. Job key `check = 1`: files are opened with `WIMLIB_OPEN_FLAG_CHECK_INTEGRITY` (checked against their integrity table when they have one; a restore checks before formatting) and written with `WIMLIB_WRITE_FLAG_CHECK_INTEGRITY` (backup, export, every split part, the joined file).
-- **Browse**: the files of an image, read with wimlib (`wimlib_iterate_dir_tree`, in the GUI process, no elevation): folder tree and file list, extract the selected files / folders into a folder (`wimlib_extract_paths` without ACLs), open a file, or open the WIM in 7-Zip's file manager (the only use of 7-Zip). Edit commands ([Edit] button, right-click menu, Del / F2 / F5): new folder, add files / a folder, rename, delete, through `wimlib_update_image` + `wimlib_overwrite` (in place, appended; added files without ACLs); not for split or read-only files. A file the user may not write (root of C:, Program Files) goes to the elevated helper (job mode `update`, keys c<n>_op / _a / _b / _flags; `wl::UpdateImage` builds the commands for both). The version that listed and extracted with `7z.exe` is kept in `backup\cpp-7zip-browse\` (git tag `before-wimlib-browse`).
+- **Browse**: the files of an image, read with wimlib (`wimlib_iterate_dir_tree`, in the GUI process, no elevation): folder tree and file list, extract the selected files / folders into a folder (`wimlib_extract_paths` without ACLs), open a file. Edit commands ([Edit] button, right-click menu, Del / F2 / F5): new folder, add files / a folder, rename, delete, through `wimlib_update_image` + `wimlib_overwrite` (in place, appended; added files without ACLs); not for split or read-only files. A file the user may not write (root of C:, Program Files) goes to the elevated helper (job mode `update`, keys c<n>_op / _a / _b / _flags; `wl::UpdateImage` builds the commands for both). The version that listed and extracted with `7z.exe` is kept in `backup\cpp-7zip-browse\` (git tag `before-wimlib-browse`). 7-Zip is not used any more (its [Open in 7-Zip] button and download were removed).
 - **Boot files**: after a volume restore, `bcdboot` can write UEFI and/or BIOS boot files to a chosen system partition (with a boot manager language, default `ko-kr`). A partition without a drive letter gets one for that time.
 - **When done**: nothing / shut down / restart, after a 60-second countdown that can be cancelled.
 - Korean and English UI, dark or light theme (chosen in the footer, saved as `theme = dark | light` in `7z_wimlib.ini`); the backup tab shows a preview of the job below its options. The old light UI is kept in `backup\ui-classic\` (build it with the `build_gui.bat` there).
@@ -29,7 +29,7 @@ The other documents are for the people who use the program and ship with the rel
 ## Requirements
 
 - Windows 8.1 / 10 / 11 x64. `7z_wimlib.exe` is a single native exe (C++, static C runtime) and needs no runtime such as the .NET Framework; it runs in an x64 WinPE as well (no Explorer needed: the file dialogs are its own).
-- `lib\` next to `7z_wimlib.exe` holds the third-party programs: `libwim-15.dll` ([wimlib](https://wimlib.net), x64) and `7z.exe`, `7z.dll`, `7zFM.exe` ([7-Zip](https://www.7-zip.org), x64). A missing one is **downloaded automatically in its newest version** when it is first needed (wimlib from wimlib.net, 7-Zip from 7-zip.org / its GitHub releases, unpacked with `7zr.exe`; nothing is installed). `lib\versions.ini` records the versions; a `libwim-15.dll` in the old `pe_tools\` folder is moved into `lib\` at start. Without an internet connection, put the files there by hand. They are not part of this repository; their license texts are kept next to them in `lib\` (see [Third-party programs](#third-party-programs)).
+- `lib\` next to `7z_wimlib.exe` holds the third-party DLL `libwim-15.dll` ([wimlib](https://wimlib.net), x64). When it is missing it is **downloaded automatically in its newest version** when it is first needed (the zip of wimlib.net, unpacked by `src\unzip.cpp`: no 7-Zip or tar.exe needed; nothing is installed). `lib\versions.ini` records the version; a `libwim-15.dll` in the old `pe_tools\` folder is moved into `lib\` at start. Without an internet connection, put the file there by hand. It is not part of this repository; its license texts are kept next to it in `lib\` (see [Third-party programs](#third-party-programs)).
 - Administrator rights for backup, restore and the disk tab (Windows asks each time); export, split / join, info, verify and browse do not need them.
 
 ## Build
@@ -54,7 +54,7 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 | `src\helper.*` | the elevated helper (job.ini -> status.txt): backup, restore, export, split / join, verify, bcdboot |
 | `src\disk.*`, `src\storage.*` | disk tab: disks, partitions and volumes (IOCTLs of Windows, no PowerShell), clearing / initializing a disk, formatting (FormatEx), drive letters, the diskpart script, the disk job |
 | `src\wim.*`, `src\wimread.cpp` | wimlib (`lib\libwim-15.dll`, loaded at run time), WIM file and image information |
-| `src\libs.*` | `lib\` folder: moving and downloading wimlib and 7-Zip (WinHTTP), license texts |
+| `src\libs.*`, `src\unzip.*` | `lib\` folder: moving and downloading wimlib (WinHTTP), license texts; reading the zip (stored / Deflate, CRC-32) |
 | `src\ui.*` | the window toolkit on Win32: dark controls, tabs, lists, dialogs, row layout |
 | `src\lang.*`, `src\settings.*`, `src\util.cpp`, `src\common.h` | language files, `7z_wimlib.ini`, text / file / process helpers |
 | `app.rc`, `app.manifest` | icon and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
@@ -80,20 +80,19 @@ BSD 3-Clause, see [LICENSE](LICENSE). This applies to the code of this repositor
 
 ### Third-party programs
 
-7z_wimlib uses two separate programs. Their code is not part of this repository, and they keep their own licenses:
+7z_wimlib uses one separate program. Its code is not part of this repository, and it keeps its own license:
 
 | Program | Files in `lib\` | License | License texts in `lib\` | Source |
 |---|---|---|---|---|
 | [wimlib](https://wimlib.net) | `libwim-15.dll` | LGPL v2.1 or later for the library on Windows (or GPL v3 or later); includes libdivsufsort-lite (MIT) | `wimlib_COPYING.txt`, `wimlib_COPYING.LGPL.txt`, `wimlib_COPYING.GPLv3.txt`, `wimlib_COPYING.libdivsufsort-lite.txt` | https://wimlib.net/ |
-| [7-Zip](https://www.7-zip.org) | `7z.exe`, `7z.dll`, `7zFM.exe` | GNU LGPL, parts BSD 3-Clause, unRAR restriction | `7-Zip_License.txt` | https://www.7-zip.org/ |
 
 How 7z_wimlib uses them:
 
-- wimlib is loaded as a separate DLL (`libwim-15.dll`) and called through its public API; 7-Zip runs as a separate program (`7zFM.exe`, for [Open in 7-Zip] only). Neither is modified, and either can be replaced by another version by replacing its files in `lib\`.
-- The repository does not contain them. 7z_wimlib downloads them from their official sites on the user's PC, together with their license texts. When a program is there without its license texts (for example a `libwim-15.dll` moved from `pe_tools\`), 7z_wimlib downloads only the texts in the background at start.
+- wimlib is loaded as a separate DLL (`libwim-15.dll`) and called through its public API. It is not modified, and it can be replaced by another version by replacing the DLL in `lib\`.
+- The repository does not contain it. 7z_wimlib downloads it from wimlib.net on the user's PC, together with its license texts. When the DLL is there without its license texts (for example a `libwim-15.dll` moved from `pe_tools\`), 7z_wimlib downloads only the texts in the background at start.
 
 When you pass on 7z_wimlib **together with** `lib\` (for example in a zip file):
 
 - keep the license texts listed above in `lib\`;
-- say that these files are wimlib / 7-Zip under their own licenses, with the links to their sources above (the version of wimlib is in `lib\versions.ini` when 7z_wimlib downloaded it);
-- do not change the programs; if you do, the changed source has to be published under the same license.
+- say that this file is wimlib under its own license, with the links to their sources above (the version of wimlib is in `lib\versions.ini` when 7z_wimlib downloaded it);
+- do not change the DLL; if you do, the changed source has to be published under the same license.

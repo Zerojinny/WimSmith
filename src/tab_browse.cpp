@@ -88,8 +88,7 @@ namespace sevenwim
         txtWim = Edit(page);
         btnBrowse = Button(page, L::T(L"qbt.btn_browse"));
         btnRead = Button(page, L::T(L"br.btn_read"));
-        btnFm = Button(page, L::T(L"br.btn_7zfm"));
-        grid.Add(L::T(L"bk.row_wim"), { Field(txtWim, 360), Btn(btnBrowse, 100), Btn(btnRead, 80), Btn(btnFm, 120) });
+        grid.Add(L::T(L"bk.row_wim"), { Field(txtWim, 360), Btn(btnBrowse, 100), Btn(btnRead, 80) });
         cboImage = Combo(page);
         btnUp = Button(page, L::T(L"br.btn_up"));
         lblPath = Label(page, L"", FontUI, color::Dim, SS_LEFT | SS_ENDELLIPSIS);
@@ -140,7 +139,6 @@ namespace sevenwim
 
         OnClick(btnBrowse, [this] { ChooseWim(); });
         OnClick(btnRead, [this] { OpenWim(true); });
-        OnClick(btnFm, [this] { OpenIn7zFm(); });
         OnChange(cboImage, [this] { if (!listing) ListImage(); });
         OnClick(btnUp, [this] { if (current && current->Parent) ShowFolder(current->Parent, true); });
         OnNotify(tree, [this](NMHDR* n) -> LRESULT
@@ -332,19 +330,6 @@ namespace sevenwim
         Enable(list, !running || !listing);
     }
 
-    // 7-Zip: only for its file manager (lib\7zFM.exe), downloaded when missing
-    bool BrowseTab::Ensure7zip()
-    {
-        wstring err = libs::Ensure7zip(app.root);
-        if (err.empty()) return true;
-        wstring msg = L::F(L"br.no_7zip", err);
-        wstring one = msg;
-        for (size_t q; (q = one.find(L"\r\n")) != wstring::npos;) one.replace(q, 2, L" ");
-        app.Log(one);
-        Info(msg, MB_ICONWARNING);
-        return false;
-    }
-
     // ---------- open a WIM file ----------
 
     void BrowseTab::ChooseWim()
@@ -411,7 +396,7 @@ namespace sevenwim
         return b;
     }
 
-    // the attribute letters (as 7-Zip shows them)
+    // the attribute letters (R H S D A C E ...)
     static wstring AttrText(DWORD a)
     {
         wstring s;
@@ -1304,16 +1289,5 @@ namespace sevenwim
             if (explorer) ShellExecuteW(app.win.hwnd, L"open", L"rundll32.exe", (L"shell32.dll,OpenAs_RunDLL " + file).c_str(), nullptr, SW_SHOWNORMAL);
             else Info(L::F(L"br.no_program", file), MB_ICONWARNING);
         });
-    }
-
-    void BrowseTab::OpenIn7zFm()
-    {
-        wstring wim = Trim(GetText(txtWim));
-        if (wim.empty() || !FileExists(wim)) { Info(L::F(L"msg.not_found", wim.empty() ? wstring(L"-") : wim), MB_ICONWARNING); return; }
-        if (!Ensure7zip()) return;
-        wstring fm = Combine(app.ToolDir(), L"7zFM.exe");
-        if (!FileExists(fm)) { Info(L::F(L"msg.not_found", fm), MB_ICONWARNING); return; }
-        if ((INT_PTR)ShellExecuteW(app.win.hwnd, L"open", fm.c_str(), (L"\"" + wim + L"\"").c_str(), nullptr, SW_SHOWNORMAL) <= 32)
-            Info(ErrorMessage(GetLastError()), MB_ICONWARNING);
     }
 }

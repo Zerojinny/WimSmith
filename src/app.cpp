@@ -42,7 +42,7 @@ namespace sevenwim
         infoTab = new InfoTab(*this, win.AddPage(L::T(L"in.tab")));
         browse = new BrowseTab(*this, win.AddPage(L::T(L"br.tab")));
         Log(L::T(L"bk.note"));
-        libs::FetchMissingLicenses(root);     // license texts of wimlib / 7-Zip, when missing (background)
+        libs::FetchMissingLicenses(root);     // license texts of wimlib, when missing (background)
         Relayout(win.hwnd);
     }
 

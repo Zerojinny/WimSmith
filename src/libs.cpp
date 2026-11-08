@@ -1,10 +1,11 @@
 // ============================================================
 //  7z_wimlib - libs.cpp
-//  lib\: moving and downloading wimlib and 7-Zip (see libs.h).
+//  lib\: moving and downloading wimlib (see libs.h).
 // ============================================================
 #include "libs.h"
 #include "lang.h"
 #include "ui.h"
+#include "unzip.h"
 #include <winhttp.h>
 #include <algorithm>
 #include <atomic>
@@ -22,7 +23,6 @@ namespace sevenwim
         wstring Dir(const wstring& root) { return Combine(root, L"lib"); }
         static wstring WimlibDll(const wstring& root) { return Combine(Dir(root), WimlibDllName); }
         bool HasWimlib(const wstring& root) { return FileExists(WimlibDll(root)); }
-        bool Has7zip(const wstring& root) { return FileExists(Combine(Dir(root), L"7z.exe")) && FileExists(Combine(Dir(root), L"7z.dll")); }
 
         // libwim-15.dll of pe_tools\ or of the exe folder -> lib\ (once)
         void Migrate(const wstring& root)
@@ -205,14 +205,6 @@ namespace sevenwim
             return std::lexicographical_compare(y.begin(), y.end(), x.begin(), x.end());
         }
 
-        static int Run(const wstring& exe, const wstring& args, wstring& output)
-        {
-            std::string out, err;
-            int rc = RunProcess(exe, args, out, err);
-            output = FromCodePage(out + err, CP_OEMCP);
-            return rc;
-        }
-
         // ---------- wimlib ----------
 
         // licenseOnly: only the COPYING files (the DLL stays as it is)
@@ -234,15 +226,13 @@ namespace sevenwim
             Get(url, p, zip);
             p.Text(L::F(L"lib.unpacking", L"wimlib " + ver));
             CreateDirs(outDir);
-            // the zip: 7-Zip of lib\, else tar.exe of Windows 10 / 11
-            wstring sevenZ = Combine(Dir(root), L"7z.exe"), tar = Combine(SystemDir(), L"tar.exe"), output;
-            int code;
-            if (Has7zip(root)) code = Run(sevenZ, L"x \"" + zip + L"\" -o\"" + outDir + L"\" -y", output);
-            else if (FileExists(tar)) code = Run(tar, L"-xf \"" + zip + L"\" -C \"" + outDir + L"\"", output);
-            else throw HelperError{ L"No program to unpack " + url + L" (7-Zip in lib\\ or tar.exe of Windows)." };
-            if (code != 0) throw HelperError{ L"The zip file was not unpacked (code " + Num(code) + L").\r\n" + Trim(output) };
+            // only the DLL and the license texts of the top folder (unzip.cpp: no other program)
+            unzip::ExtractTop(zip, outDir, [licenseOnly](const wstring& name)
+            {
+                return StartsWithI(name, L"COPYING") || (!licenseOnly && EqualsI(name, WimlibDllName));
+            });
             wstring dll = Combine(outDir, WimlibDllName);
-            if (!FileExists(dll)) throw HelperError{ wstring(WimlibDllName) + L" is not in " + url };
+            if (!licenseOnly && !FileExists(dll)) throw HelperError{ wstring(WimlibDllName) + L" is not in " + url };
             wstring dir = Dir(root);
             CreateDirs(dir);
             // only the DLL and the license texts (the top folder of the zip)
@@ -262,71 +252,6 @@ namespace sevenwim
             DeleteFileOrThrow(WimlibDll(root));
             MoveFileOrThrow(part, WimlibDll(root));
             SetVersion(root, L"wimlib", ver);
-        }
-
-        // ---------- 7-Zip ----------
-
-        // licenseOnly: only License.txt (7z.exe / 7z.dll / 7zFM.exe stay as they are)
-        static void Download7zip(const wstring& root, Progress& p, bool licenseOnly)
-        {
-            p.Text(L::T(L"lib.finding"));
-            wstring installer, sevenZr, version;
-            try
-            {
-                const wchar_t* site = L"https://www.7-zip.org/download.html";
-                std::string page = Get(site, p);
-                // the page lists the newest version first
-                std::smatch m, r;
-                if (std::regex_search(page, m, std::regex("href=\"([^\"]*7z(\\d{4})-x64\\.exe)\""))
-                    && std::regex_search(page, r, std::regex("href=\"([^\"]*7zr\\.exe)\"")))
-                {
-                    installer = Resolve(site, FromUtf8(m[1].str()));
-                    sevenZr = Resolve(site, FromUtf8(r[1].str()));
-                    version = FromUtf8(m[2].str());
-                }
-            }
-            catch (const HelperError&) {}
-            if (installer.empty())
-            {
-                // the GitHub releases of 7-Zip
-                std::string json = Get(L"https://api.github.com/repos/ip7z/7zip/releases/latest", p);
-                std::regex rx("\"browser_download_url\"\\s*:\\s*\"([^\"]+)\"");
-                for (std::sregex_iterator it(json.begin(), json.end(), rx), end; it != end; ++it)
-                {
-                    std::string u = (*it)[1].str();
-                    std::smatch v;
-                    if (std::regex_search(u, v, std::regex("/7z(\\d{4})-x64\\.exe$"))) { installer = FromUtf8(u); version = FromUtf8(v[1].str()); }
-                    else if (u.size() >= 8 && u.compare(u.size() - 8, 8, "/7zr.exe") == 0) sevenZr = FromUtf8(u);
-                }
-                if (installer.empty() || sevenZr.empty()) throw HelperError{ L"No 7-Zip x64 download found (7-zip.org, GitHub ip7z/7zip)." };
-            }
-            wstring shown = version.size() == 4 ? version.substr(0, 2) + L"." + version.substr(2) : version;
-
-            TempFolder tmp;
-            wstring zr = Combine(tmp.path, L"7zr.exe"), inst = Combine(tmp.path, L"7z-x64.exe"), outDir = Combine(tmp.path, L"out");
-            p.Text(L::F(L"lib.downloading", L"7zr.exe"));
-            Get(sevenZr, p, zr);
-            p.Text(L::F(L"lib.downloading", L"7-Zip " + shown));
-            Get(installer, p, inst);
-            p.Text(L::F(L"lib.unpacking", L"7-Zip " + shown));
-            // the installer is a 7z archive: unpack the needed files, run nothing of it
-            wstring output;
-            int code = Run(zr, L"x \"" + inst + L"\" -o\"" + outDir + L"\" -y " + (licenseOnly ? L"" : L"7z.exe 7z.dll 7zFM.exe ") + L"License.txt", output);
-            if (code != 0 || (!licenseOnly && (!FileExists(Combine(outDir, L"7z.exe")) || !FileExists(Combine(outDir, L"7z.dll")))))
-                throw HelperError{ L"7zr.exe could not unpack " + installer + L" (code " + Num(code) + L").\r\n" + Trim(output) };
-            wstring dir = Dir(root);
-            CreateDirs(dir);
-            if (!licenseOnly)
-                for (const wchar_t* f : { L"7z.dll", L"7zFM.exe", L"7z.exe" })
-                {
-                    wstring src = Combine(outDir, f);
-                    if (FileExists(src) && !CopyFileW(src.c_str(), Combine(dir, f).c_str(), FALSE))
-                        throw HelperError{ Combine(dir, f) + L": " + ErrorMessage(GetLastError()) };
-                }
-            wstring lic = Combine(outDir, L"License.txt");
-            if (FileExists(lic)) CopyFileW(lic.c_str(), Combine(dir, L"7-Zip_License.txt").c_str(), FALSE);
-            else if (licenseOnly) throw HelperError{ L"License.txt is not in " + installer };
-            if (!licenseOnly) SetVersion(root, L"7zip", shown);
         }
 
         // ---------- the window while a download runs ----------
@@ -378,19 +303,7 @@ namespace sevenwim
         {
             Migrate(root);
             if (HasWimlib(root)) return wstring();
-            // the zip is unpacked with 7-Zip: fetched first when neither it nor tar.exe is there
-            if (!Has7zip(root) && !FileExists(Combine(SystemDir(), L"tar.exe")))
-            {
-                wstring e = Ensure7zip(root);
-                if (!e.empty()) return e;
-            }
             return RunDialog(L::T(L"lib.title_wimlib"), [root](Progress& p) { DownloadWimlib(root, p, false); });
-        }
-
-        wstring Ensure7zip(const wstring& root)
-        {
-            if (Has7zip(root)) return wstring();
-            return RunDialog(L::T(L"lib.title_7zip"), [root](Progress& p) { Download7zip(root, p, false); });
         }
 
         // ---------- license texts ----------
@@ -414,14 +327,11 @@ namespace sevenwim
         {
             if (licensesChecked) return;
             licensesChecked = true;
-            bool wim = HasWimlib(root) && !HasWimlibLicense(root);
-            bool sz = Has7zip(root) && !FileExists(Combine(Dir(root), L"7-Zip_License.txt"));
-            if (!wim && !sz) return;
-            std::thread([root, wim, sz]
+            if (!HasWimlib(root) || HasWimlibLicense(root)) return;
+            std::thread([root]
             {
                 Progress p;
-                if (sz) { try { Download7zip(root, p, true); } catch (...) {} }
-                if (wim) { try { DownloadWimlib(root, p, true); } catch (...) {} }
+                try { DownloadWimlib(root, p, true); } catch (...) {}
             }).detach();
         }
     }

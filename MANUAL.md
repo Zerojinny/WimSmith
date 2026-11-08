@@ -1,6 +1,6 @@
 # 7z_wimlib User Manual
 
-7z_wimlib is a Windows tool that backs up volumes or folders into WIM images and restores WIM images to volumes or folders. It can also prepare disks, export images, split and join WIM files, verify them, and browse the files inside an image. Everything is done with [wimlib](https://wimlib.net); [7-Zip](https://www.7-zip.org) is used only by the [Open in 7-Zip] button of the browse tab.
+7z_wimlib is a Windows tool that backs up volumes or folders into WIM images and restores WIM images to volumes or folders. It can also prepare disks, export images, split and join WIM files, verify them, and browse the files inside an image. Everything is done with [wimlib](https://wimlib.net).
 
 [한국어](MANUAL.ko.md)
 
@@ -33,7 +33,7 @@
 | File | Description |
 |---|---|
 | `7z_wimlib.exe` | the program (a single exe) |
-| `lib\` | wimlib (`libwim-15.dll`) and, for [Open in 7-Zip] only, 7-Zip (`7z.exe`, `7z.dll`, `7zFM.exe`), with their license texts |
+| `lib\` | wimlib (`libwim-15.dll`) and its license texts |
 | `7z_wimlib.ini` | the settings; created on the first run |
 
 When a file is missing from `lib\`, its newest version is downloaded the first time it is needed. To use the program without internet (Windows PE, for example), copy a filled `lib\` folder along with it.
@@ -232,7 +232,6 @@ Shows the files inside an image, read with wimlib (a split WIM too: choose any p
 - [Extract selected...]: extracts the selected files / folders to a folder of your choice; asks before overwriting.
 - [Open file]: extracts the file to a temporary folder and opens it with its program. In Windows PE without Explorer, text files open in Notepad, and for other files without a program the extracted location is shown.
 - Programs (.exe and the like) are not started: their location is shown in Explorer, or as a path without Explorer.
-- [Open in 7-Zip]: opens the file in the 7-Zip File Manager. This is the only part of the program that needs 7-Zip.
 - [Cancel] stops listing, extracting or editing; a cancelled extraction leaves nothing in the target folder.
 
 ### Editing (changing the files of the image)
@@ -313,7 +312,6 @@ A `lang\` folder next to `7z_wimlib.exe` with `ko.ini` / `en.ini` is read before
 | Problem | Cause and fix |
 |---|---|
 | "libwim-15.dll cannot be used" | wimlib is missing from `lib\` and could not be downloaded. Put `libwim-15.dll` of the wimlib Windows release (x64) into `lib\` |
-| "7-Zip cannot be used" | only [Open in 7-Zip] needs it: put `7zFM.exe`, `7z.exe` and `7z.dll` of 7-Zip (x64) into `lib\` |
 | Administrator request cancelled | backup, restore and disk jobs need administrator rights; start again and answer Yes |
 | The running Windows cannot be backed up | turn on *Back up from a VSS snapshot*, or back up from Windows PE |
 | A volume is missing from the restore targets | the drives of the running Windows, of 7z_wimlib and of the WIM file are not listed; move the WIM file or choose another target |
@@ -324,4 +322,4 @@ A `lang\` folder next to `7z_wimlib.exe` with `ko.ini` / `en.ini` is read before
 
 ---
 
-7z_wimlib uses wimlib (LGPL v2.1 or later, or GPL v3 or later) and 7-Zip (GNU LGPL, parts BSD 3-Clause, unRAR restriction) as separate programs. Their license texts are in the `lib\` folder.
+7z_wimlib uses wimlib (LGPL v2.1 or later, or GPL v3 or later) as a separate DLL. Its license texts are in the `lib\` folder.

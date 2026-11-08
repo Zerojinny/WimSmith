@@ -28,7 +28,7 @@ No runtime such as .NET is needed.
 | File | Description |
 |---|---|
 | `7z_wimlib.exe` | the program |
-| `lib\` | wimlib (`libwim-15.dll`); 7-Zip (`7z.exe`, `7z.dll`, `7zFM.exe`) only for [Open in 7-Zip] on the browse tab; their license texts |
+| `lib\` | wimlib (`libwim-15.dll`) and its license texts |
 | `MANUAL.md`, `MANUAL.ko.md` | user manual (English, Korean) |
 | `README.md`, `README.ko.md` | this file |
 | `LICENSE` | the license of 7z_wimlib |
@@ -52,11 +52,12 @@ See the [user manual](MANUAL.md) for details.
 
 The code of 7z_wimlib is under the BSD 3-Clause license ([LICENSE](LICENSE)).
 
-The programs in `lib\` are not part of 7z_wimlib and keep their own licenses. 7z_wimlib uses them unchanged, as a separate DLL and a separate program; replace their files to use another version.
+wimlib in `lib\` is not part of 7z_wimlib and keeps its own license. 7z_wimlib uses it unchanged, as a separate DLL; replace the DLL to use another version.
 
 | Program | Files | License | License texts | Source |
 |---|---|---|---|---|
 | [wimlib](https://wimlib.net) | `libwim-15.dll` | LGPL v2.1 or later (or GPL v3 or later); includes libdivsufsort-lite (MIT) | `wimlib_COPYING*.txt` | https://wimlib.net/ |
-| [7-Zip](https://www.7-zip.org) | `7z.exe`, `7z.dll`, `7zFM.exe` | GNU LGPL, parts BSD 3-Clause, unRAR restriction | `7-Zip_License.txt` | https://www.7-zip.org/ |
 
 When you pass the package on, keep the license texts in `lib\`. The wimlib version is recorded in `lib\versions.ini`.
+
+7-Zip is not used any more. A `lib\` of an older version may still hold `7z.exe`, `7z.dll`, `7zFM.exe` and `7-Zip_License.txt`: they can be deleted.

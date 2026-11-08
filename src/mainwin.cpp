@@ -152,7 +152,7 @@ namespace sevenwim
         OnClose(hwnd, [this]
         {
             if (Busy() && !YesNo(L::T(L"z.close_busy"), MB_ICONWARNING)) return false;
-            // 7-Zip of the browse tab: stopped with the window
+            // an extraction of the browse tab: stopped with the window
             if (extracting && extracting())
             {
                 if (!YesNo(L::T(L"z.close_extract"), MB_ICONWARNING)) return false;
