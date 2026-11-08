@@ -36,7 +36,10 @@ namespace sevenwim
         Primary(btnSplit, false);
         Item part = Field(numPart, 90);
         part.right = 4;
-        splitGrid.Add(L::T(L"sj.row_part"), { part, Txt(lblMb, 0, 12), Btn(btnSplit, 140) });
+        splitGrid.Add(L::T(L"sj.row_part"), { part, Txt(lblMb, 0, 12) });
+        chkSplitCheck = Check(split, L::T(L"sj.check_split"));
+        splitGrid.Add(L::T(L"bk.row_check"), { Box(chkSplitCheck) });
+        splitGrid.Add(L"", { Btn(btnSplit, 140) });
 
         join = Group(page, L::T(L"sj.group_join"));
         joinGrid.parent = join;
@@ -47,6 +50,8 @@ namespace sevenwim
         txtWim = Edit(join);
         btnWim = Button(join, L::T(L"qbt.btn_browse"));
         joinGrid.Add(L::T(L"sj.row_join_wim"), { Field(txtWim, 420), Btn(btnWim, 100) });
+        chkJoinCheck = Check(join, L::T(L"sj.check_join"));
+        joinGrid.Add(L::T(L"bk.row_check"), { Box(chkJoinCheck) });
         btnJoin = Button(join, L::T(L"sj.btn_join"));
         Primary(btnJoin, false);
         joinGrid.Add(L"", { Btn(btnJoin, 140) });
@@ -139,7 +144,7 @@ namespace sevenwim
 
     void SplitJoinTab::SetBusy(bool busy)
     {
-        for (HWND c : { btnSplit, btnJoin, txtSrc, txtSwm, txtFirst, txtWim }) Enable(c, !busy);
+        for (HWND c : { btnSplit, btnJoin, txtSrc, txtSwm, txtFirst, txtWim, chkSplitCheck, chkJoinCheck }) Enable(c, !busy);
     }
 
     void SplitJoinTab::StartSplit()
@@ -160,6 +165,7 @@ namespace sevenwim
         long long estimate = std::max(1LL, (size + partMb * MiB - 1) / (partMb * MiB));
         std::vector<wstring> old = SwmParts(swm);
         wstring what = !old.empty() ? L"\r\n\r\n" + L::F(L"sj.confirm_old_parts", (long long)old.size(), DirName(FullPath(swm))) : wstring();
+        if (Checked(chkSplitCheck)) what += L"\r\n\r\n" + L::T(L"sj.confirm_check_split");
         if (!YesNo(L::F(L"sj.confirm_split", source, swm, App::Group(partMb), estimate, what), old.empty() ? MB_ICONQUESTION : MB_ICONWARNING))
             return;
 
@@ -168,6 +174,7 @@ namespace sevenwim
         job[L"source"] = source;
         job[L"swm"] = swm;
         job[L"part_mb"] = Num(partMb);
+        job[L"check"] = Checked(chkSplitCheck) ? L"1" : L"0";
         app.job = App::JobInfo();
         app.job.wim = swm;
         app.onSuccess = [this](const wstring& elapsed)
@@ -209,6 +216,7 @@ namespace sevenwim
         long long total = 0;
         for (const wstring& part : parts) total += std::max(0LL, FileSize(part));
         wstring what = FileExists(wim) ? L::T(L"bk.confirm_replace") : L::T(L"bk.confirm_new");
+        if (Checked(chkJoinCheck)) what += L"\r\n" + L::T(L"sj.confirm_check_join");
         if (!YesNo(L::F(L"sj.confirm_join", parts[0], (long long)parts.size(), App::Gb(total), wim, what), MB_ICONQUESTION)) return;
 
         wstring list;
@@ -216,6 +224,7 @@ namespace sevenwim
         Job job;
         job[L"mode"] = L"join";
         job[L"parts"] = list;
+        job[L"check"] = Checked(chkJoinCheck) ? L"1" : L"0";
         job[L"wim"] = wim;
         app.job = App::JobInfo();
         app.job.wim = wim;

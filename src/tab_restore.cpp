@@ -48,6 +48,9 @@ namespace sevenwim
         cboSysPart = Combo(page);
         btnPartRefresh = Button(page, L::T(L"adk.btn_refresh"));
         grid.Add(L::T(L"bk.row_syspart"), { Field(cboSysPart, 520), Btn(btnPartRefresh, 90) });
+        // wimlib --check: the WIM file is checked against its integrity table first (off by default)
+        chkCheck = Check(page, L::T(L"rs.check"));
+        grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
         btnApply = Button(page, L::T(L"bk.btn_apply"));
         Primary(btnApply, true);
         grid.Add(L"", { Btn(btnApply, 160) });
@@ -371,7 +374,7 @@ namespace sevenwim
 
     void RestoreTab::SetBusy(bool busy)
     {
-        for (HWND c : { btnApply, cboTarget, cboImage, txtWim, btnPartRefresh }) Enable(c, !busy);
+        for (HWND c : { btnApply, cboTarget, cboImage, txtWim, btnPartRefresh, chkCheck }) Enable(c, !busy);
         if (busy) for (HWND c : { chkUefi, chkBios, chkNoBoot, cboSysPart, cboBootLang }) Enable(c, false);
         else UpdateBoot();
     }
@@ -422,6 +425,7 @@ namespace sevenwim
         // BIOS on MBR starts the active partition: the helper makes the system partition active
         if (hasSys && fw != L"UEFI" && !sys.Gpt() && !sys.Active)
             windows += L"\r\n" + L::F(L"bk.confirm_make_active", sys.Disk, sys.Number);
+        if (Checked(chkCheck)) windows += L"\r\n\r\n" + L::T(L"rs.confirm_check");
         if (!YesNo(L::F(L"bk.confirm_apply", tgt.Letter, tgt.Text, imgText, wim, windows), MB_ICONWARNING)) return;
         if (!app.ConfirmTyped(L::F(L"bk.confirm_type", tgt.Letter), letter)) return;
 
@@ -430,6 +434,7 @@ namespace sevenwim
         job[L"wim"] = wim;
         job[L"index"] = Num(img.Index);
         job[L"target"] = letter;
+        job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
         job[L"label"] = CleanLabel(GetText(txtLabel));
         if (hasSys)
         {
@@ -469,13 +474,16 @@ namespace sevenwim
             return;
         }
         if (!app.LoadWimlib()) return;
-        if (!YesNo(L::F(L"bk.confirm_apply_folder", folder, imgText, wim), MB_ICONQUESTION)) return;
+        wstring question = L::F(L"bk.confirm_apply_folder", folder, imgText, wim);
+        if (Checked(chkCheck)) question += L"\r\n\r\n" + L::T(L"rs.confirm_check_folder");
+        if (!YesNo(question, MB_ICONQUESTION)) return;
 
         Job job;
         job[L"mode"] = L"apply";
         job[L"wim"] = wim;
         job[L"index"] = Num(img.Index);
         job[L"folder"] = folder;
+        job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
         app.job = App::JobInfo();
         app.job.wim = wim;
         app.job.image = img.Index;

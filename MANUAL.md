@@ -78,6 +78,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 | New volume label | the label given when formatting |
 | UEFI/BIOS/None | which boot files to write afterwards, and the boot manager language (default `ko-kr`) |
 | System partition | where the boot files go |
+| Integrity | check the WIM file against its integrity table first (`--check`); a damaged file stops the job before anything is formatted. Off by default |
 
 ### To a volume
 
@@ -150,7 +151,7 @@ Saves a volume or folder as an image in a WIM file. The **job preview** on the r
 | Existing file | **Replace the file**: a new file is written and replaces the old one at the end (the old one stays until then). **Add a new image**: the image is appended to the existing file (with that file's compression) |
 | Snapshot | *Back up from a VSS snapshot* |
 | Verify | read the new file once more and verify it after the backup |
-| Integrity | add an integrity table to the WIM file (wimlib `--check`); off by default |
+| Integrity | add an integrity table to the WIM file (wimlib `--check`); when adding to an existing file, that file is checked against its integrity table first. Off by default |
 
 ### Backing up the running Windows
 
@@ -163,6 +164,7 @@ Saves a volume or folder as an image in a WIM file. The **job preview** on the r
 
 - **Verify** checks all data against its SHA-1 hashes right after the backup. The file is read once more, so it takes longer.
 - The **integrity table** holds a hash of every 10 MB of the file; later verifications check it too. Writing it takes extra time.
+- The integrity option is also on the restore, export and split / join tabs. A file with an integrity table is checked against it before the job (a file without one is used as it is), and a newly written file gets a table. A damaged file stops the job with "failed integrity check", and no result file is made.
 
 ---
 
@@ -174,6 +176,8 @@ Copies images of a WIM / ESD file into another WIM file. No administrator rights
 - convert ESD → WIM
 - gather images of several files into one (**Add the image(s)**)
 - rename an image or change its description (only when exporting one image; empty = those of the source)
+
+With **Integrity** checked, the source is checked against its integrity table and the target gets one (`--check`).
 
 Export one image or *all*. The bootable-image mark is kept. If the target already has an image with the same name, export that image alone under another name.
 
@@ -187,12 +191,14 @@ No administrator rights needed.
 
 - Splits a WIM file into `.swm` parts of a given size in MB, named `<name>.swm`, `<name>2.swm`, `<name>3.swm`, …
 - For a FAT32 USB drive use **4000 MB or less**. A part holding a single file larger than the part size gets bigger than that.
+- With **Integrity** checked, the WIM file is checked against its integrity table and every part gets one (`--check`).
 - Files with solid resources (ESD, LZMS solid) cannot be split: export them as LZX or XPRESS on the export tab first, then split the new file.
 
 ### Join (SWM parts → WIM)
 
 - Choose any part: the other parts in the same folder are found by themselves.
 - All parts must be in the same folder under their original names.
+- With **Integrity** checked, the parts are checked against their integrity tables and the joined file gets one (`--check`).
 
 A split WIM can be used as it is, without joining, for restore, export, info, verify and browse.
 

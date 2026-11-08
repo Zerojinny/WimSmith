@@ -51,6 +51,8 @@ namespace sevenwim
         rbAppend = Radio(page, L::T(L"ex.existing_append"), 1);
         SetChecked(rbReplace, true);
         grid.Add(L::T(L"bk.row_existing"), { Box(rbReplace), Box(rbAppend) });
+        chkCheck = Check(page, L::T(L"ex.check"));
+        grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
         btnExport = Button(page, L::T(L"ex.btn_export"));
         Primary(btnExport, false);
         grid.Add(L"", { Btn(btnExport, 160) });
@@ -145,7 +147,7 @@ namespace sevenwim
 
     void ExportTab::SetBusy(bool busy)
     {
-        for (HWND c : { btnExport, txtSrc, txtWim, cboImage }) Enable(c, !busy);
+        for (HWND c : { btnExport, txtSrc, txtWim, cboImage, chkCheck }) Enable(c, !busy);
     }
 
     void ExportTab::StartExport()
@@ -180,6 +182,7 @@ namespace sevenwim
             what = L::F(L"ex.confirm_append", (long long)old.size() + 1);
         }
         else if (exists) what = L::T(L"bk.confirm_replace");
+        if (Checked(chkCheck)) what += L"\r\n" + L::T(L"ex.confirm_check");
         int threads = NumberValue(numThreads);
         wstring threadText = ThreadText(threads);
         int ci = std::max(0, std::min(2, ComboIndex(cboComp)));
@@ -199,6 +202,7 @@ namespace sevenwim
         job[L"compression"] = Num(CompTypes[ci]);
         job[L"threads"] = Num(threads);
         job[L"append"] = append ? L"1" : L"0";
+        job[L"check"] = Checked(chkCheck) ? L"1" : L"0";
         app.job = App::JobInfo();
         app.job.wim = wim;
         app.job.image = one ? img.Index : 0;

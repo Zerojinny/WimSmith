@@ -228,6 +228,16 @@ namespace sevenwim
         return ErrorText(rc);
     }
 
+    // check = 1 (wimlib --check): a WIM file is opened against its integrity
+    // table (when it has one), and a written file gets an integrity table
+    static bool Check(const Job& job) { return Get(job, L"check") == L"1"; }
+    static int CheckOpen(const Job& job)
+    {
+        if (!Check(job)) return 0;
+        Status(L"Checking against the integrity table (--check)");
+        return OpenCheckIntegrity;
+    }
+
     static int ImageCount(WIMStruct* wim)
     {
         WimInfo i;
@@ -464,7 +474,7 @@ namespace sevenwim
             if (append)
             {
                 Status(L"Opening " + wimFile);
-                rc = wimlib_open_wim_with_progress(wimFile.c_str(), OpenWriteAccess, &wim.p, OnProgress, nullptr);
+                rc = wimlib_open_wim_with_progress(wimFile.c_str(), OpenWriteAccess | CheckOpen(job), &wim.p, OnProgress, nullptr);
                 if (rc != 0) { wim.p = nullptr; return Failed(rc, L"Open " + wimFile); }
             }
             else
@@ -583,10 +593,11 @@ namespace sevenwim
         Wim src;
         Status(L"Opening " + source);
         int total, found;
-        int rc = OpenRead(source, 0, OnProgress, src, total, found);
+        int rc = OpenRead(source, CheckOpen(job), OnProgress, src, total, found);
         if (rc == ErrPartsMissing) return Finish(2, OpenText(rc, source, total, found));
         if (rc != 0) return Failed(rc, L"Open " + source);
         if (total > 1) Status(L"Split WIM: " + Num(total) + L" parts");
+        int writeFlags = Check(job) ? WriteCheckIntegrity : 0;
         wstring tmp = append ? wstring() : wimFile + L".tmp";
         wstring step;
         int first = 0, last = 0;
@@ -599,7 +610,7 @@ namespace sevenwim
             if (append)
             {
                 Status(L"Opening " + wimFile);
-                rc = wimlib_open_wim_with_progress(wimFile.c_str(), OpenWriteAccess, &dest.p, OnProgress, nullptr);
+                rc = wimlib_open_wim_with_progress(wimFile.c_str(), OpenWriteAccess | CheckOpen(job), &dest.p, OnProgress, nullptr);
                 if (rc != 0) { dest.p = nullptr; return Failed(rc, L"Open " + wimFile); }
             }
             else
@@ -626,14 +637,14 @@ namespace sevenwim
                 {
                     step = L"Write images " + Num(first) + L"-" + Num(last) + L" to " + wimFile;
                     Status(L"Adding image(s) " + Num(first) + L"-" + Num(last) + L" to " + wimFile);
-                    rc = wimlib_overwrite(dest.p, 0, threads);
+                    rc = wimlib_overwrite(dest.p, writeFlags, threads);
                 }
                 else
                 {
                     step = L"Write " + tmp;
                     DeleteFileOrThrow(tmp);
                     Status(L"Writing " + tmp);
-                    rc = wimlib_write(dest.p, tmp.c_str(), AllImages, ctype == CompressionLzms ? WriteSolid : 0, threads);
+                    rc = wimlib_write(dest.p, tmp.c_str(), AllImages, (ctype == CompressionLzms ? WriteSolid : 0) | writeFlags, threads);
                 }
             }
         }
@@ -668,12 +679,13 @@ namespace sevenwim
         {
             Wim wim;
             Status(L"Opening " + source);
-            rc = wimlib_open_wim_with_progress(source.c_str(), 0, &wim.p, OnProgress, nullptr);
+            rc = wimlib_open_wim_with_progress(source.c_str(), CheckOpen(job), &wim.p, OnProgress, nullptr);
             if (rc != 0) { wim.p = nullptr; return Failed(rc, L"Open " + source); }
             Status(L"Splitting into parts of " + Num(partMb) + L" MB: " + swm);
             splitting = true;
             Progress(-1, L"split 0 0 0 0", true);
-            rc = wimlib_split(wim.p, swm.c_str(), (uint64_t)partMb * MiB, 0);
+            // every part gets its own integrity table
+            rc = wimlib_split(wim.p, swm.c_str(), (uint64_t)partMb * MiB, Check(job) ? WriteCheckIntegrity : 0);
             splitting = false;
         }
         if (rc != 0)
@@ -705,7 +717,8 @@ namespace sevenwim
         Progress(-1, L"join", true);
         std::vector<const wchar_t*> list;
         for (const wstring& p : parts) list.push_back(p.c_str());
-        int rc = wimlib_join_with_progress(list.data(), (unsigned)list.size(), tmp.c_str(), 0, 0, OnProgress, nullptr);
+        int rc = wimlib_join_with_progress(list.data(), (unsigned)list.size(), tmp.c_str(),
+            CheckOpen(job), Check(job) ? WriteCheckIntegrity : 0, OnProgress, nullptr);
         if (rc != 0)
         {
             DeleteFileW(tmp.c_str());
@@ -812,7 +825,7 @@ namespace sevenwim
     }
 
     // apply one image into an empty (or new) folder; nothing is formatted
-    static int ApplyToFolder(const wstring& wimFile, int index, const wstring& folder, const wstring& buildRoot)
+    static int ApplyToFolder(const Job& job, const wstring& wimFile, int index, const wstring& folder, const wstring& buildRoot)
     {
         wstring why = FolderTargetProblem(folder, wimFile, buildRoot);
         if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + folder + L")");
@@ -821,7 +834,7 @@ namespace sevenwim
 
         Wim wim;
         int total, found;
-        int rc = OpenRead(wimFile, 0, OnProgress, wim, total, found);
+        int rc = OpenRead(wimFile, CheckOpen(job), OnProgress, wim, total, found);
         if (rc == ErrPartsMissing) return Finish(2, OpenText(rc, wimFile, total, found));
         if (rc != 0) return Failed(rc, L"Open " + wimFile);
         if (total > 1) Status(L"Split WIM: " + Num(total) + L" parts");
@@ -847,7 +860,7 @@ namespace sevenwim
         wstring label = CleanLabel(Get(job, L"label"));
         int index = (int)ParseLong(Get(job, L"index"), 1);
         wstring folder = Get(job, L"folder");
-        if (!folder.empty()) return ApplyToFolder(wimFile, index, folder, Get(job, L"root"));
+        if (!folder.empty()) return ApplyToFolder(job, wimFile, index, folder, Get(job, L"root"));
         if (target.empty()) return Finish(87, L"No target volume.");
         wchar_t letter = UpperChar(target[0]);
         wstring l = wstring(1, letter);
@@ -858,7 +871,8 @@ namespace sevenwim
         {
             Wim wim;
             int total, found;
-            int rc = OpenRead(wimFile, 0, OnProgress, wim, total, found);
+            // with check: a damaged file is found before the volume is formatted
+            int rc = OpenRead(wimFile, CheckOpen(job), OnProgress, wim, total, found);
             if (rc == ErrPartsMissing) return Finish(2, OpenText(rc, wimFile, total, found));
             if (rc != 0) return Failed(rc, L"Open " + wimFile);
             if (total > 1) Status(L"Split WIM: " + Num(total) + L" parts");
