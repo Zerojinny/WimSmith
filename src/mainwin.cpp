@@ -159,6 +159,7 @@ namespace wimsmith
             return true;
         });
         OnDestroy(hwnd, [] { PostQuitMessage(0); });
+        UpdateMenuLanguage();
     }
 
     HWND MainWindow::AddPage(const wstring& title)
@@ -270,16 +271,40 @@ namespace wimsmith
 
     // the tabs a WIM file can open in (setting "open_tab"; App::OpenFile)
     static const wchar_t* const OpenTabs[][2] = {
-        { L"browse", L"br.tab" }, { L"info", L"in.tab" }, { L"restore", L"bk.tab_apply" }, { L"export", L"ex.tab" } };
+        { L"browse", L"br.tab" }, { L"info", L"in.tab" }, { L"restore", L"bk.tab_apply" }, { L"append", L"st.menu_append" },
+        { L"export", L"ex.tab" }, { L"splitjoin", L"sj.tab" } };
     // the type name of each extension in Explorer (assoc::Extensions)
     static const wchar_t* const AssocTypes[3] = { L"st.assoc_type_wim", L"st.assoc_type_esd", L"st.assoc_type_swm" };
+
+    // the right-click menu of each extension, in the language shown: what
+    // each kind of file can do (.esd: no new image, no split (solid);
+    // .swm: no new image, join)
+    static wstring RegisterMenus()
+    {
+        auto item = [](const wchar_t* id, const wchar_t* key) { return assoc::MenuItem{ id, L::T(key) }; };
+        std::vector<assoc::MenuItem> wim = { item(L"restore", L"bk.tab_apply"), item(L"append", L"st.menu_append"),
+            item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab") };
+        std::vector<assoc::MenuItem> esd = { wim[0], wim[2], wim[4], wim[5] };
+        std::vector<assoc::MenuItem> swm = { wim[0], wim[2], wim[3], wim[4], wim[5] };
+        wstring err = assoc::RegisterMenu(L".wim", wim);
+        if (err.empty()) err = assoc::RegisterMenu(L".esd", esd);
+        if (err.empty()) err = assoc::RegisterMenu(L".swm", swm);
+        assoc::Changed();
+        return err;
+    }
+
+    // the menu made in another language: in this one (at every start, only when it differs)
+    void MainWindow::UpdateMenuLanguage()
+    {
+        if (assoc::MenuRegistered() && assoc::MenuText(L".wim") != L::T(L"bk.tab_apply")) RegisterMenus();
+    }
 
     // [Settings]: the theme (saved as theme = dark | light; the window is made
     // again, like for a language), .wim / .esd / .swm opened with WimSmith,
     // and the tab they open in
     void MainWindow::ShowSettings()
     {
-        HWND d = Dialog(L::T(L"st.title"), 560, 200);
+        HWND d = Dialog(L::T(L"st.title"), 600, 234);
         Grid grid(d);
         grid.labelWidth = 170;
         HWND cboTheme = Combo(d);
@@ -307,6 +332,10 @@ namespace wimsmith
         }
         ComboSelect(cboTab, tabIndex);
         grid.Add(L::T(L"st.row_open_tab"), { Field(cboTab, 220) });
+        bool wasMenu = assoc::MenuRegistered(), wantMenu = wasMenu;
+        HWND chkMenu = Check(d, L::T(L"st.menu"));
+        SetChecked(chkMenu, wasMenu);
+        grid.Add(L::T(L"st.row_menu"), { Box(chkMenu) });
         HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
         Primary(ok, false);
         SetLayout(d, [=, &grid](int cw, int ch)
@@ -323,6 +352,7 @@ namespace wimsmith
             theme = ComboIndex(cboTheme);
             openTab = ComboIndex(cboTab);
             for (int n = 0; n < extCount; n++) want[n] = Checked(chkExt[n]);
+            wantMenu = Checked(chkMenu);
             EndModal(d, 1);
         });
         OnClick(cancel, [d] { EndModal(d, 2); });
@@ -355,6 +385,19 @@ namespace wimsmith
         if (!failed.empty()) Info(L::F(L"st.assoc_failed", failed), MB_ICONWARNING);
         // another program chosen in Windows (UserChoice) stays: the user picks WimSmith once
         if (!notDefault.empty()) Info(L::F(L"st.assoc_not_default", notDefault));
+        // the right-click menu: made again when on (this exe, this language), else taken away
+        if (wantMenu)
+        {
+            wstring err = RegisterMenus();
+            if (!err.empty()) Info(L::F(L"st.menu_failed", err), MB_ICONWARNING);
+            else if (!wasMenu) Log(L::T(L"st.menu_done"));
+        }
+        else if (wasMenu)
+        {
+            for (const wchar_t* ext : assoc::Extensions) assoc::UnregisterMenu(ext);
+            assoc::Changed();
+            Log(L::T(L"st.menu_removed"));
+        }
         if (theme >= 0 && (theme == 0) != DarkMode && CanRestart())
         {
             SetSetting(L"theme", theme == 0 ? L"dark" : L"light");

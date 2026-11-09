@@ -13,6 +13,8 @@ namespace wimsmith
     {
         SplitJoinTab(App& app, HWND page);
         void Refresh();
+        // a file opened from Explorer: a .swm part -> join, else -> split
+        void SetFile(const wstring& file);
 
         App& app;
         HWND page;

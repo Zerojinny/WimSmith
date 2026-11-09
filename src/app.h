@@ -50,9 +50,11 @@ namespace wimsmith
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown
-        // a WIM file given to the exe (opened from Explorer): in the tab of
-        // the setting "open_tab" (browse | info | restore | export, default browse)
-        void OpenFile(const wstring& file);
+        // a WIM file given to the exe (opened from Explorer): in the tab
+        // given (the right-click menu: --open <tab> <file>), else in the tab
+        // of the setting "open_tab"; tabs: browse (default) | info | restore |
+        // append (the backup tab, a new image of the file) | export | splitjoin
+        void OpenFile(const wstring& file, const wstring& tab = L"");
         bool Busy() const { return helper != nullptr; }
 
         // ---- shared ----

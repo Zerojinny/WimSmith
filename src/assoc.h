@@ -24,5 +24,15 @@ namespace wimsmith
         wstring Register(const wstring& ext, const wstring& typeName);   // "" = done, else the error
         void Unregister(const wstring& ext);   // the previous default of the extension comes back
         void Changed();                        // tells Explorer (once after the changes)
+
+        // the right-click menu "WimSmith >" of an extension, whatever program
+        // opens it (HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\
+        // WimSmith, a submenu); each item runs WimSmith.exe --open <id> "%1".
+        // Windows 11 shows it under "Show more options".
+        struct MenuItem { wstring id, text; };
+        bool MenuRegistered();                 // the menu of .wim runs this exe
+        wstring MenuText(const wstring& ext);  // the text of its first item (its language)
+        wstring RegisterMenu(const wstring& ext, const std::vector<MenuItem>& items);   // "" = done
+        void UnregisterMenu(const wstring& ext);
     }
 }

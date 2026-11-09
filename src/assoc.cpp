@@ -81,5 +81,46 @@ namespace wimsmith
         }
 
         void Changed() { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr); }
+
+        // ---------- the right-click menu ----------
+
+        static wstring MenuKey(const wstring& ext) { return L"Software\\Classes\\SystemFileAssociations\\" + ext + L"\\shell\\WimSmith"; }
+        static wstring MenuCommand(const wstring& id) { return L"\"" + Self() + L"\" --open " + id + L" \"%1\""; }
+
+        bool MenuRegistered()
+        {
+            return EqualsI(Read(MenuKey(L".wim"), L"Icon"), L"\"" + Self() + L"\",0");
+        }
+
+        wstring MenuText(const wstring& ext)
+        {
+            wstring shell = MenuKey(ext) + L"\\shell";
+            HKEY k;
+            if (RegOpenKeyExW(HKEY_CURRENT_USER, shell.c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return L"";
+            wchar_t name[256];
+            DWORD n = 256;
+            LSTATUS r = RegEnumKeyExW(k, 0, name, &n, nullptr, nullptr, nullptr, nullptr);
+            RegCloseKey(k);
+            return r == ERROR_SUCCESS ? Read(shell + L"\\" + name, L"MUIVerb") : L"";
+        }
+
+        wstring RegisterMenu(const wstring& ext, const std::vector<MenuItem>& items)
+        {
+            wstring key = MenuKey(ext);
+            RegDeleteTreeW(HKEY_CURRENT_USER, key.c_str());   // the items of before (another language, another list)
+            LSTATUS r = Write(key, L"MUIVerb", L"WimSmith");
+            if (r == ERROR_SUCCESS) r = Write(key, L"Icon", L"\"" + Self() + L"\",0");
+            if (r == ERROR_SUCCESS) r = Write(key, L"SubCommands", L"");   // its items are under shell\ below it
+            // the key names give the order: 1_..., 2_..., ...
+            for (size_t n = 0; n < items.size() && r == ERROR_SUCCESS; n++)
+            {
+                wstring item = key + L"\\shell\\" + std::to_wstring(n + 1) + L"_" + items[n].id;
+                r = Write(item, L"MUIVerb", items[n].text);
+                if (r == ERROR_SUCCESS) r = Write(item + L"\\command", nullptr, MenuCommand(items[n].id));
+            }
+            return r == ERROR_SUCCESS ? L"" : ErrorMessage((DWORD)r);
+        }
+
+        void UnregisterMenu(const wstring& ext) { RegDeleteTreeW(HKEY_CURRENT_USER, MenuKey(ext).c_str()); }
     }
 }

@@ -19,6 +19,7 @@ namespace wimsmith
     {
         BackupTab(App& app, HWND page);
         void Refresh();                       // the default file and the sources
+        void SetTarget(const wstring& wim);   // a new image of this file (opened from Explorer)
 
         App& app;
         HWND page;

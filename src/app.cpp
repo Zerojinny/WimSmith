@@ -109,11 +109,23 @@ namespace wimsmith
         if (EqualsI(info, wim) || (!toRestore && info.empty())) { SetText(infoTab->txtWim, wim); infoTab->ReadInfo(false); }
     }
 
-    void App::OpenFile(const wstring& file)
+    void App::OpenFile(const wstring& file, const wstring& tabGiven)
     {
         wstring wim = FullPath(file);
         if (!FileExists(wim)) { Log(L::F(L"st.open_missing", file)); return; }
-        wstring tab = GetSetting(L"open_tab", L"browse");
+        wstring tab = tabGiven.empty() ? GetSetting(L"open_tab", L"browse") : tabGiven;
+        if (EqualsI(tab, L"append"))
+        {
+            win.SelectPage(backup->page);
+            backup->SetTarget(wim);
+            return;
+        }
+        if (EqualsI(tab, L"splitjoin"))
+        {
+            win.SelectPage(splitJoin->page);
+            splitJoin->SetFile(wim);
+            return;
+        }
         if (EqualsI(tab, L"info"))
         {
             SetText(infoTab->txtWim, wim);

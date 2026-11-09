@@ -89,6 +89,22 @@ namespace wimsmith
         if (Trim(GetText(txtSrc)).empty() && FileExists(def)) { SetText(txtSrc, def); SetText(txtSwm, DefaultSwm(def)); }
     }
 
+    void SplitJoinTab::SetFile(const wstring& file)
+    {
+        if (EqualsI(FileExt(file), L".swm"))
+        {
+            std::vector<wstring> parts = SwmParts(file);
+            SetText(txtFirst, parts.empty() ? file : parts[0]);
+            SetText(txtWim, L"");
+            ShowParts();
+        }
+        else
+        {
+            SetText(txtSrc, file);
+            SetText(txtSwm, DefaultSwm(file));
+        }
+    }
+
     void SplitJoinTab::ChooseSource()
     {
         wstring cur = Trim(GetText(txtSrc)), file;

@@ -259,6 +259,13 @@ namespace wimsmith
         FillSources();
     }
 
+    void BackupTab::SetTarget(const wstring& wim)
+    {
+        SetText(txtWim, wim);
+        SetChecked(rbAppend, true);
+        UpdatePreview();
+    }
+
     const Volume* BackupTab::Source() const
     {
         int i = ComboIndex(cboSource);
