@@ -125,16 +125,31 @@ If,%cmb_OpenTab%,Equal,"Split / Join",Set,%OpenTab%,"splitjoin"
 TXTAddLine,"%Ini%","open_tab = %OpenTab%",Append
 
 ///////////////////////////////////////////////////////////////////////////////////
+// Opening a file (WimSmith.exe <file>, --open <tab> <file>) came with WimSmith 1.1.
+// Its lang\en.ini has st.menu_append from then on: without it (1.0) the file
+// associations and the right-click menu are left out.
+Set,%OpensFiles%,True
+If,ExistFile,"%Dest%\lang\en.ini",Begin
+  IniRead,"%Dest%\lang\en.ini","ui","st.menu_append",%Probe%,"Default="
+  If,"%Probe%",Equal,"",Begin
+    Set,%OpensFiles%,False
+    Echo,"WimSmith: this version cannot open files (1.1 or later needed): no file associations and no right-click menu. Use a newer release or a local folder.",WARN
+  End
+End
+
+///////////////////////////////////////////////////////////////////////////////////
 // File associations (PhoenixAPI Associate: also set as the user's choice at startup)
-If,%cb_AssocWim%,Equal,True,Associate,.wim,"%PEExe%"
-If,%cb_AssocEsd%,Equal,True,Associate,.esd,"%PEExe%"
-If,%cb_AssocSwm%,Equal,True,Associate,.swm,"%PEExe%"
+If,%OpensFiles%,Equal,True,Begin
+  If,%cb_AssocWim%,Equal,True,Associate,.wim,"%PEExe%"
+  If,%cb_AssocEsd%,Equal,True,Associate,.esd,"%PEExe%"
+  If,%cb_AssocSwm%,Equal,True,Associate,.swm,"%PEExe%"
+End
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Right-click menu "WimSmith >" of .wim / .esd / .swm (WimSmith.exe --open <tab> "%1"),
 // in the language of WimSmith: the texts come from its lang\<code>.ini (the same
 // ones WimSmith uses), English when that file is missing
-If,%cb_ContextMenu%,Equal,True,Begin
+If,%OpensFiles%-%cb_ContextMenu%,Equal,True-True,Begin
   Set,%LangIni%,"%Dest%\lang\%LangCode%.ini"
   If,Not,ExistFile,"%LangIni%",Begin
     Echo,"WimSmith: [%LangIni%] was not found, the right-click menu is in English.",WARN
