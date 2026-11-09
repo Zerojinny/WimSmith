@@ -98,12 +98,22 @@ If,Not,ExistFile,"%Dest%\lib\libwim-15.dll",Begin
 End
 
 ///////////////////////////////////////////////////////////////////////////////////
+// The language of WimSmith and of its right-click menu: the one chosen, or with
+// "PE language" the language of the PE source (%SourceLang%, e.g. ko-KR -> ko)
+Set,%LangCode%,"en"
+If,%cmb_Language%,Equal,"Korean [ko]",Set,%LangCode%,"ko"
+If,%cmb_Language%,Equal,"PE language",Begin
+  StrFormat,Left,"%SourceLang%",2,%SrcLang2%
+  If,%SrcLang2%,Equal,"ko",Set,%LangCode%,"ko"
+End
+Echo,"WimSmith language: [%LangCode%] (PE source language: [%SourceLang%])"
+
+///////////////////////////////////////////////////////////////////////////////////
 // WimSmith.ini (next to the exe): language, theme, the tab a WIM file opens in
 Echo,"Configuring %ScriptTitle%..."
 Set,%Ini%,"%Dest%\WimSmith.ini"
 FileCreateBlank,"%Ini%"
-If,%cmb_Language%,Equal,"Korean [ko]",TXTAddLine,"%Ini%","language = ko",Append
-If,%cmb_Language%,Equal,"English [en]",TXTAddLine,"%Ini%","language = en",Append
+TXTAddLine,"%Ini%","language = %LangCode%",Append
 If,%cmb_Theme%,Equal,"Light",TXTAddLine,"%Ini%","theme = light",Append
 Else,TXTAddLine,"%Ini%","theme = dark",Append
 Set,%OpenTab%,"browse"
@@ -122,24 +132,20 @@ If,%cb_AssocSwm%,Equal,True,Associate,.swm,"%PEExe%"
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Right-click menu "WimSmith >" of .wim / .esd / .swm (WimSmith.exe --open <tab> "%1"),
-// in the language of WimSmith (English unless Korean is chosen)
+// in the language of WimSmith: the texts come from its lang\<code>.ini (the same
+// ones WimSmith uses), English when that file is missing
 If,%cb_ContextMenu%,Equal,True,Begin
-  If,%cmb_Language%,Equal,"Korean [ko]",Begin
-    Set,%tRestore%,"복구 (WIM 적용)"
-    Set,%tAppend%,"이미지 추가 (백업)"
-    Set,%tExport%,"내보내기"
-    Set,%tSplitJoin%,"나누기 / 합치기"
-    Set,%tInfo%,"정보"
-    Set,%tBrowse%,"탐색"
+  Set,%LangIni%,"%Dest%\lang\%LangCode%.ini"
+  If,Not,ExistFile,"%LangIni%",Begin
+    Echo,"WimSmith: [%LangIni%] was not found, the right-click menu is in English.",WARN
+    Set,%LangIni%,"%Dest%\lang\en.ini"
   End
-  Else,Begin
-    Set,%tRestore%,"Restore (apply a WIM)"
-    Set,%tAppend%,"Add an image (backup)"
-    Set,%tExport%,"Export"
-    Set,%tSplitJoin%,"Split / Join"
-    Set,%tInfo%,"Info"
-    Set,%tBrowse%,"Browse"
-  End
+  IniRead,"%LangIni%","ui","bk.tab_apply",%tRestore%,"Default=Restore (apply a WIM)"
+  IniRead,"%LangIni%","ui","st.menu_append",%tAppend%,"Default=Add an image (backup)"
+  IniRead,"%LangIni%","ui","ex.tab",%tExport%,"Default=Export"
+  IniRead,"%LangIni%","ui","sj.tab",%tSplitJoin%,"Default=Split / Join"
+  IniRead,"%LangIni%","ui","in.tab",%tInfo%,"Default=Info"
+  IniRead,"%LangIni%","ui","br.tab",%tBrowse%,"Default=Browse"
   RegLoadHives
   // .wim: every item
   Run,%ScriptFile%,AddMenu,.wim
@@ -265,7 +271,7 @@ WriteInterface,Value,%ScriptFile%,Interface,cb_PinToTaskbar,False
 WriteInterface,Value,%ScriptFile%,Interface,cb_PinToStartMenu,False
 WriteInterface,Value,%ScriptFile%,Interface,txt_StartMenuFolder,"Backup & Imaging"
 WriteInterface,Value,%ScriptFile%,Interface,txt_ShortcutName,"WimSmith"
-WriteInterface,Value,%ScriptFile%,Interface,cmb_Language,"Windows default"
+WriteInterface,Value,%ScriptFile%,Interface,cmb_Language,"PE language"
 WriteInterface,Value,%ScriptFile%,Interface,cmb_Theme,"Dark"
 WriteInterface,Value,%ScriptFile%,Interface,cmb_OpenTab,"Browse"
 WriteInterface,Value,%ScriptFile%,Interface,cb_AssocWim,True
@@ -303,7 +309,7 @@ txt_StartMenuFolder="Start Menu folder:",1,0,12,256,140,21,"Backup & Imaging"
 txt_ShortcutName="Shortcut Name:",1,0,12,293,140,21,WimSmith
 bvl_Options=Options,1,12,170,145,523,175,8,Bold
 lbl_Language=Language:,1,1,180,168,130,16,8,Normal
-cmb_Language="Windows default",1,4,320,165,160,21,"Windows default","Korean [ko]","English [en]"
+cmb_Language="PE language",1,4,320,165,160,21,"PE language","Korean [ko]","English [en]","__WimSmith and its right-click menu in this language. PE language: the language of the PE source (Korean for ko-*, otherwise English)."
 lbl_Theme=Theme:,1,1,180,195,130,16,8,Normal
 cmb_Theme=Dark,1,4,320,192,160,21,Dark,Light
 lbl_OpenTab="Open a WIM file in:",1,1,180,222,130,16,8,Normal
