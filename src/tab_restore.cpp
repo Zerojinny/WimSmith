@@ -112,7 +112,9 @@ namespace wimsmith
 
     void RestoreTab::Refresh()
     {
-        wstring def = app.DefaultWim();
+        // the last WIM file of this tab (restore.wim), else the one of the last backup
+        wstring def = RestoreWim();
+        if (def.empty() || !FileExists(def)) def = app.DefaultWim();
         if (Trim(GetText(txtWim)).empty() && FileExists(def)) { SetText(txtWim, def); ReadImages(false); }
         else FillTargets();
     }
@@ -223,6 +225,8 @@ namespace wimsmith
                 + (w.Description.empty() ? wstring() : L"  - " + w.Description));
         if (!images.empty()) ComboSelect(cboImage, 0);
         app.Log(L::F(L"bk.log_read", wim, (long long)images.size()));
+        wstring full = FullPath(wim);
+        if (!full.empty()) SetRestoreWim(full);
     }
 
     void RestoreTab::SetWim(const wstring& wim, int image)

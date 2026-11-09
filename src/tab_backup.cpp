@@ -425,7 +425,7 @@ namespace wimsmith
         wstring msg = L::F(L"bk.capture_done", j.wim, j.image) + (j.verify ? L"\r\n" + L::T(L"vf.capture_verified") : wstring())
             + L"\r\n\r\n" + elapsed;
         wstring full = FullPath(j.wim);
-        if (!full.empty()) SetImageFolder(DirName(full));
+        if (!full.empty()) SetSetting(L"image_folder", DirName(full));
         app.WimWritten(j.wim);
         UpdatePreview();
         return msg;

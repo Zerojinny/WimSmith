@@ -71,42 +71,40 @@ namespace wimsmith
 
     bool RelativePaths() { return GetSetting(L"relative_paths", L"0") == L"1"; }
 
-    // dir relative to the exe folder (".\WIM" -> "WIM", "..\Backup"), or "" when
-    // that is not possible (another drive, a network path)
-    static wstring RelativeToExe(const wstring& dir)
+    // file relative to the exe folder (".\WIM\a.wim" -> "WIM\a.wim", "..\Backup\a.wim"),
+    // or "" when that is not possible (another drive, a network path)
+    static wstring RelativeToExe(const wstring& file)
     {
         wchar_t rel[MAX_PATH];
-        if (dir.size() >= MAX_PATH || !PathRelativePathToW(rel, ExeDir().c_str(), FILE_ATTRIBUTE_DIRECTORY, dir.c_str(), FILE_ATTRIBUTE_DIRECTORY))
+        if (file.size() >= MAX_PATH || !PathRelativePathToW(rel, ExeDir().c_str(), FILE_ATTRIBUTE_DIRECTORY, file.c_str(), FILE_ATTRIBUTE_NORMAL))
             return wstring();
         wstring r = rel;
         if (r.compare(0, 2, L".\\") == 0) r = r.substr(2);
-        return r.empty() ? wstring(L".") : r;
+        return r;
     }
 
-    wstring ImageFolder()
+    wstring RestoreWim()
     {
-        wstring dir = GetSetting(L"image_folder", L"");
-        if (dir.empty() || !PathIsRelativeW(dir.c_str())) return dir;
-        wstring full = FullPath(Combine(ExeDir(), dir));
-        while (full.size() > 3 && full.back() == L'\\') full.pop_back();
-        return full;
+        wstring file = GetSetting(L"restore.wim", L"");
+        if (file.empty() || !PathIsRelativeW(file.c_str())) return file;
+        return FullPath(Combine(ExeDir(), file));
     }
 
-    void SetImageFolder(const wstring& dir)
+    void SetRestoreWim(const wstring& file)
     {
-        wstring value = dir;
+        wstring value = file;
         if (RelativePaths())
         {
-            wstring rel = RelativeToExe(dir);
+            wstring rel = RelativeToExe(file);
             if (!rel.empty()) value = rel;
         }
-        SetSetting(L"image_folder", value);
+        if (value != GetSetting(L"restore.wim", L"")) SetSetting(L"restore.wim", value);
     }
 
     void SetRelativePaths(bool on)
     {
-        wstring dir = ImageFolder();
+        wstring file = RestoreWim();
         SetSetting(L"relative_paths", on ? L"1" : L"0");
-        if (!dir.empty()) SetImageFolder(dir);
+        if (!file.empty()) SetRestoreWim(file);
     }
 }

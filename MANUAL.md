@@ -73,7 +73,7 @@ The tabs are at the top. The footer at the bottom has:
 | Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
 | Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
 | Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*. On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
-| Paths | saves the folder of the last backup relative to `WimSmith.exe` (e.g. `WIM` or `..\Backup`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
+| Restore: path | the restore tab remembers its last WIM file; with this on, it is saved relative to `WimSmith.exe` (e.g. `WIM\pc.wim` or `..\Backup\pc.wim`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
 
 When another program was chosen for one of these extensions in Windows before, Windows keeps it, and WimSmith says so: right-click such a file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, its boxes are shown cleared: check them again.
 
@@ -348,8 +348,9 @@ Next to `WimSmith.exe`. Values changed in the window are saved here; it can also
 | `language` | `ko`, `en` |
 | `theme` | `dark` (default), `light` |
 | `open_tab` | the tab a WIM file opens in: `browse` (default), `info`, `restore`, `append`, `export`, `splitjoin` |
-| `image_folder` | the folder of the last WIM file backed up to (relative to `WimSmith.exe` with *Paths* on) |
-| `relative_paths` | `1`: *Paths* in [Settings] is on |
+| `image_folder` | the folder of the last WIM file backed up to |
+| `restore.wim` | the last WIM file of the restore tab (relative to `WimSmith.exe` with *Restore: path* on) |
+| `relative_paths` | `1`: *Restore: path* in [Settings] is on |
 | `restore.boot_lang` | boot manager language (default `ko-kr`) |
 | `backup.snapshot` | the VSS snapshot box |
 | `backup.update_of` | the *Fast* box of the backup tab (default on) |

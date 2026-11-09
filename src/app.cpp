@@ -65,7 +65,7 @@ namespace wimsmith
 
     wstring App::DefaultWim() const
     {
-        wstring dir = ImageFolder();
+        wstring dir = GetSetting(L"image_folder", L"");
         return dir.empty() ? wstring() : Combine(dir, DefaultWimName);
     }
 
