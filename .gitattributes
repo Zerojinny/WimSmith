@@ -1,0 +1,2 @@
+# PEBakery scripts of PhoenixPE use LF (phoenixpe\WimSmith.script)
+*.script text eol=lf
