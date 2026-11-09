@@ -67,6 +67,8 @@ The tabs are at the top. The footer at the bottom has:
 
 Language and theme cannot be changed while a job runs. Closing the window during a job leaves the job running, but its progress can no longer be seen.
 
+The last tab, **?**, shows the version, the author, the e-mail address (click it to write a mail, or [Copy]), the web page, the license (MIT, with its full text) and the wimlib in `lib\` with its license. Without a browser or mail program (Windows PE) a clicked address is copied to the clipboard.
+
 Every start button asks for confirmation first. Formatting a volume and clearing a disk ask a second time, and you must type the drive letter or disk number.
 
 ---
@@ -371,4 +373,4 @@ A `lang\` folder next to `WimSmith.exe` with `ko.ini` / `en.ini` is read before 
 
 ---
 
-WimSmith uses wimlib (LGPL v2.1 or later, or GPL v3 or later) as a separate DLL. Its license texts are in the `lib\` folder.
+WimSmith is under the MIT License (see the **?** tab or `LICENSE`). WimSmith uses wimlib (LGPL v2.1 or later, or GPL v3 or later) as a separate DLL. Its license texts are in the `lib\` folder.

@@ -24,6 +24,7 @@ namespace wimsmith
     struct SplitJoinTab;
     struct InfoTab;
     struct BrowseTab;
+    struct AboutTab;
 
     // a volume (or a chosen folder: Letter 0) of the source / target lists
     struct Volume
@@ -45,6 +46,7 @@ namespace wimsmith
         SplitJoinTab* splitJoin = nullptr;
         InfoTab* infoTab = nullptr;
         BrowseTab* browse = nullptr;
+        AboutTab* about = nullptr;
 
         void Create();
         void RefreshStatus();                 // the default files and the lists, once shown

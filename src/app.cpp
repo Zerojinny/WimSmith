@@ -7,6 +7,7 @@
 #include "lang.h"
 #include "libs.h"
 #include "settings.h"
+#include "tab_about.h"
 #include "tab_backup.h"
 #include "tab_disk.h"
 #include "tab_export.h"
@@ -42,6 +43,7 @@ namespace wimsmith
         splitJoin = new SplitJoinTab(*this, win.AddPage(L::T(L"sj.tab")));
         infoTab = new InfoTab(*this, win.AddPage(L::T(L"in.tab")));
         browse = new BrowseTab(*this, win.AddPage(L::T(L"br.tab")));
+        about = new AboutTab(*this, win.AddPage(L::T(L"ab.tab")));
         Log(L"WimSmith " WS_VERSION_W L" - " WS_COPYRIGHT_W);
         Log(L::T(L"bk.note"));
         libs::FetchMissingLicenses(root);     // license texts of wimlib, when missing (background)
@@ -77,7 +79,7 @@ namespace wimsmith
         // lib\libwim-15.dll: downloaded when missing
         wstring err = libs::EnsureWimlib(root);
         if (err.empty()) err = wl::Load(ToolDir(), false);
-        if (err.empty()) return true;
+        if (err.empty()) { if (about) about->Refresh(); return true; }   // the wimlib line of the "?" tab
         Log(err);
         Info(L::F(L"bk.no_wimlib", err, ToolDir()), MB_ICONWARNING);
         return false;

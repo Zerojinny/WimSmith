@@ -6,6 +6,9 @@
 
 1 ICON "WimSmith.ico"
 
+// the text of the license, shown on the "?" tab (tab_about.cpp)
+LICENSE TEXT "LICENSE"
+
 // file properties -> Details: version, copyright and license
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION     WS_VER_MAJOR, WS_VER_MINOR, WS_VER_PATCH, WS_VER_BUILD
@@ -28,7 +31,7 @@ BEGIN
             VALUE "OriginalFilename", "WimSmith.exe"
             VALUE "ProductName",      "WimSmith"
             VALUE "ProductVersion",   WS_VERSION_STR
-            VALUE "Comments",         "MIT License. https://github.com/Zerojinny/WimSmith - uses wimlib (libwim-15.dll, LGPL v2.1 or later / GPL v3 or later), a separate DLL under its own license."
+            VALUE "Comments",         "MIT License. " WS_URL_STR " - " WS_EMAIL_STR " - uses wimlib (libwim-15.dll, LGPL v2.1 or later / GPL v3 or later), a separate DLL under its own license."
         END
     END
     BLOCK "VarFileInfo"

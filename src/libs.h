@@ -23,5 +23,7 @@ namespace wimsmith
         // "" = ready, else the reason (a window shows the download)
         wstring EnsureWimlib(const wstring& root);
         void FetchMissingLicenses(const wstring& root);
+        // the version of wimlib in lib\versions.ini ("" = not recorded)
+        wstring WimlibVersion(const wstring& root);
     }
 }

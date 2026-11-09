@@ -63,6 +63,22 @@ namespace wimsmith
             WriteBytes(f, ToUtf8(text));
         }
 
+        wstring WimlibVersion(const wstring& root)
+        {
+            wstring f = Combine(Dir(root), L"versions.ini");
+            if (!FileExists(f)) return L"";
+            try
+            {
+                for (const wstring& l : SplitLines(ReadTextFile(f)))
+                {
+                    size_t eq = l.find(L'=');
+                    if (eq != wstring::npos && EqualsI(Trim(l.substr(0, eq)), L"wimlib")) return Trim(l.substr(eq + 1));
+                }
+            }
+            catch (const HelperError&) {}
+            return L"";
+        }
+
         // ---------- progress of a download ----------
 
         struct Progress

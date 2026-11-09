@@ -52,15 +52,15 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 |---|---|
 | `src\main.cpp` | entry point: the window, or `--wim-helper` |
 | `src\app.*`, `src\mainwin.*` | what the tabs share (volumes, confirmations, running a job), the main window, footer and log window |
-| `src\tab_*.*` | the tabs: restore, disk, backup, export, split / join, info, browse |
+| `src\tab_*.*` | the tabs: restore, disk, backup, export, split / join, info, browse, "?" (`tab_about`: version, author, e-mail, web page, license text, wimlib) |
 | `src\helper.*` | the elevated helper (job.ini -> status.txt): backup, restore, export, split / join, verify, bcdboot |
 | `src\disk.*`, `src\storage.*` | disk tab: disks, partitions and volumes (IOCTLs of Windows, no PowerShell), clearing / initializing a disk, formatting (FormatEx), drive letters, the diskpart script, the disk job |
 | `src\wim.*`, `src\wimread.cpp` | wimlib (`lib\libwim-15.dll`, loaded at run time), WIM file and image information |
 | `src\libs.*`, `src\unzip.*` | `lib\` folder: moving and downloading wimlib (WinHTTP), license texts; reading the zip (stored / Deflate, CRC-32) |
 | `src\ui.*` | the window toolkit on Win32: dark controls, tabs, lists, dialogs, row layout |
 | `src\lang.*`, `src\settings.*`, `src\util.cpp`, `src\common.h` | language files, `WimSmith.ini`, text / file / process helpers |
-| `src\version.h` | the version (1.0) and the copyright / license line: the version resource of the exe (file properties -> Details), the window title and the first log line |
-| `app.rc`, `app.manifest` | icon, version resource and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
+| `src\version.h` | the version (1.0), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
+| `app.rc`, `app.manifest` | icon, version resource, `LICENSE` (resource type TEXT, shown on the "?" tab) and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
 
 The elevated helper works in `%TEMP%\WimSmith_job\<time>` (job.ini, status.txt, wimlib_errors.txt); the folder is deleted after a successful job and kept after a failed one.
