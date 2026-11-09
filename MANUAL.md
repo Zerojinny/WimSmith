@@ -70,10 +70,10 @@ The tabs are at the top. The footer at the bottom has:
 | Setting | Description |
 |---|---|
 | Theme | Dark / Light; the window is rebuilt in the new colors |
-| WIM files | *Open .wim files with WimSmith*: a double-click on a `.wim` file in Explorer starts WimSmith with it. Set for your Windows user only, no administrator rights; clear the box to undo it (the program used before comes back) |
-| Open a WIM file in | the tab a `.wim` file opens in: Browse (default), Info, Restore or Export. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
+| Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
+| Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore or Export. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
 
-When another program was chosen for `.wim` files in Windows before, Windows keeps it, and WimSmith says so: right-click a `.wim` file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, check the box again.
+When another program was chosen for one of these extensions in Windows before, Windows keeps it, and WimSmith says so: right-click such a file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, its boxes are shown cleared: check them again.
 
 Language and theme cannot be changed while a job runs. Closing the window during a job leaves the job running, but its progress can no longer be seen.
 

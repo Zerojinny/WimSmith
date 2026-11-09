@@ -268,12 +268,15 @@ namespace wimsmith
         DestroyWindow(hwnd);
     }
 
-    // the tabs a .wim file can open in (setting "open_tab"; App::OpenFile)
+    // the tabs a WIM file can open in (setting "open_tab"; App::OpenFile)
     static const wchar_t* const OpenTabs[][2] = {
         { L"browse", L"br.tab" }, { L"info", L"in.tab" }, { L"restore", L"bk.tab_apply" }, { L"export", L"ex.tab" } };
+    // the type name of each extension in Explorer (assoc::Extensions)
+    static const wchar_t* const AssocTypes[3] = { L"st.assoc_type_wim", L"st.assoc_type_esd", L"st.assoc_type_swm" };
 
     // [Settings]: the theme (saved as theme = dark | light; the window is made
-    // again, like for a language), .wim opened with WimSmith, and its tab
+    // again, like for a language), .wim / .esd / .swm opened with WimSmith,
+    // and the tab they open in
     void MainWindow::ShowSettings()
     {
         HWND d = Dialog(L::T(L"st.title"), 560, 200);
@@ -284,10 +287,16 @@ namespace wimsmith
         ComboAdd(cboTheme, L::T(L"z.theme_light"));
         ComboSelect(cboTheme, DarkMode ? 0 : 1);
         grid.Add(L::T(L"st.row_theme"), { Field(cboTheme, 160) });
-        bool wasRegistered = assoc::Registered();
-        HWND chkAssoc = Check(d, L::T(L"st.assoc"));
-        SetChecked(chkAssoc, wasRegistered);
-        grid.Add(L::T(L"st.row_assoc"), { Box(chkAssoc) });
+        const int extCount = 3;
+        bool was[extCount], want[extCount];
+        HWND chkExt[extCount];
+        for (int n = 0; n < extCount; n++)
+        {
+            was[n] = want[n] = assoc::Registered(assoc::Extensions[n]);
+            chkExt[n] = Check(d, assoc::Extensions[n]);
+            SetChecked(chkExt[n], was[n]);
+        }
+        grid.Add(L::T(L"st.row_assoc"), { Box(chkExt[0]), Box(chkExt[1]), Box(chkExt[2]) });
         HWND cboTab = Combo(d);
         wstring tab = GetSetting(L"open_tab", L"browse");
         int tabIndex = 0;
@@ -309,12 +318,11 @@ namespace wimsmith
         });
         Relayout(d);
         int theme = 0, openTab = 0;
-        bool associate = false;
         OnClick(ok, [&, d]
         {
             theme = ComboIndex(cboTheme);
             openTab = ComboIndex(cboTab);
-            associate = Checked(chkAssoc);
+            for (int n = 0; n < extCount; n++) want[n] = Checked(chkExt[n]);
             EndModal(d, 1);
         });
         OnClick(cancel, [d] { EndModal(d, 2); });
@@ -322,19 +330,31 @@ namespace wimsmith
         if (RunModal(d) != 1) return;
 
         if (openTab >= 0) SetSetting(L"open_tab", OpenTabs[openTab][0]);
-        if (associate && (!wasRegistered || !assoc::Default()))
+        // each extension: set (again, when Windows does not open it with WimSmith) or taken back
+        wstring done, removed, notDefault, failed;
+        auto add = [](wstring& list, const wstring& ext) { list += (list.empty() ? L"" : L", ") + ext; };
+        for (int n = 0; n < extCount; n++)
         {
-            wstring err = assoc::Register(L::T(L"st.assoc_type"));
-            if (!err.empty()) Info(L::F(L"st.assoc_failed", err), MB_ICONWARNING);
-            // another program chosen in Windows (UserChoice) stays: the user picks WimSmith once
-            else if (!assoc::Default()) Info(L::T(L"st.assoc_not_default"));
-            else Log(L::T(L"st.assoc_done"));
+            wstring ext = assoc::Extensions[n];
+            if (want[n] && (!was[n] || !assoc::Default(ext)))
+            {
+                wstring err = assoc::Register(ext, L::T(AssocTypes[n]));
+                if (!err.empty()) add(failed, ext + L" (" + err + L")");
+                else if (!assoc::Default(ext)) add(notDefault, ext);
+                else add(done, ext);
+            }
+            else if (!want[n] && was[n])
+            {
+                assoc::Unregister(ext);
+                add(removed, ext);
+            }
         }
-        else if (!associate && wasRegistered)
-        {
-            assoc::Unregister();
-            Log(L::T(L"st.assoc_removed"));
-        }
+        if (!done.empty() || !removed.empty() || !notDefault.empty() || !failed.empty()) assoc::Changed();
+        if (!done.empty()) Log(L::F(L"st.assoc_done", done));
+        if (!removed.empty()) Log(L::F(L"st.assoc_removed", removed));
+        if (!failed.empty()) Info(L::F(L"st.assoc_failed", failed), MB_ICONWARNING);
+        // another program chosen in Windows (UserChoice) stays: the user picks WimSmith once
+        if (!notDefault.empty()) Info(L::F(L"st.assoc_not_default", notDefault));
         if (theme >= 0 && (theme == 0) != DarkMode && CanRestart())
         {
             SetSetting(L"theme", theme == 0 ? L"dark" : L"light");
