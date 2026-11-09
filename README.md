@@ -61,5 +61,3 @@ wimlib in `lib\` is not part of WimSmith and keeps its own license. WimSmith use
 When you pass the package on, keep the license texts in `lib\`. The wimlib version is recorded in `lib\versions.ini`.
 
 7-Zip is not used any more. A `lib\` of an older version may still hold `7z.exe`, `7z.dll`, `7zFM.exe` and `7-Zip_License.txt`: they can be deleted.
-
-WimSmith was called **7z_wimlib** before. At its first start `WimSmith.exe` copies the settings of `7z_wimlib.ini` in its folder into `WimSmith.ini`; the old `7z_wimlib.exe` and `7z_wimlib.ini` can then be deleted.

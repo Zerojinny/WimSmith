@@ -5,19 +5,14 @@
 # build result (build.bat) and its object files
 WimSmith.exe
 obj/
-# the same under its old names (7z_wimlib, backup/ui-classic)
-7z_wimlib.exe
-Z_wimlib.exe
+# the exes built from the old sources in backup\
+backup/**/*.exe
 
 # settings of this PC (language, folder of the last backup)
 WimSmith.ini
-7z_wimlib.ini
 
 # third-party programs, downloaded by WimSmith.exe (wimlib)
 lib/
 # old place of the wimlib DLL (moved into lib\ at start)
 pe_tools/
 libwim-15.dll
-
-# the exe of the C++ port before it became 7z_wimlib.exe (now WimSmith.exe)
-7z_wimlib_native.exe

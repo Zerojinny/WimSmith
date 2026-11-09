@@ -61,5 +61,3 @@ WimSmith의 코드는 MIT 라이선스입니다([LICENSE](LICENSE)).
 다시 배포할 때는 `lib\`의 라이선스 문서를 그대로 두세요. wimlib 버전은 `lib\versions.ini`에 적혀 있습니다.
 
 이제 7-Zip은 쓰지 않습니다. 이전 버전의 `lib\`에 남아 있는 `7z.exe`, `7z.dll`, `7zFM.exe`, `7-Zip_License.txt`는 지워도 됩니다.
-
-WimSmith의 이전 이름은 **7z_wimlib**입니다. `WimSmith.exe`를 처음 실행하면 같은 폴더의 `7z_wimlib.ini` 설정을 `WimSmith.ini`로 복사합니다. 그 뒤에는 예전 `7z_wimlib.exe`와 `7z_wimlib.ini`를 지워도 됩니다.

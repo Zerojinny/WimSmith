@@ -1,7 +1,5 @@
 # WimSmith — notes for development
 
-Called 7z_wimlib until 7-Zip was no longer used; `src\settings.cpp` copies an old `7z_wimlib.ini` into `WimSmith.ini` at the first start. The project folder and the git history (tags, `backup\`) keep the old name.
-
 A small Windows tool to back up a volume or folder to a WIM image and restore it, using [wimlib](https://wimlib.net). This file describes the program and its source for whoever works on it.
 
 The other documents are for the people who use the program and ship with the release; keep them in step when a feature changes:
