@@ -109,6 +109,30 @@ namespace wimsmith
         if (EqualsI(info, wim) || (!toRestore && info.empty())) { SetText(infoTab->txtWim, wim); infoTab->ReadInfo(false); }
     }
 
+    void App::OpenFile(const wstring& file)
+    {
+        wstring wim = FullPath(file);
+        if (!FileExists(wim)) { Log(L::F(L"st.open_missing", file)); return; }
+        wstring tab = GetSetting(L"open_tab", L"browse");
+        if (EqualsI(tab, L"info"))
+        {
+            SetText(infoTab->txtWim, wim);
+            win.SelectPage(infoTab->page);
+            infoTab->ReadInfo(true);
+        }
+        else if (EqualsI(tab, L"restore"))
+        {
+            win.SelectPage(restore->page);
+            restore->SetWim(wim, 1);
+        }
+        else if (EqualsI(tab, L"export"))
+        {
+            win.SelectPage(exportTab->page);
+            exportTab->SetSource(wim, 0);
+        }
+        else Browse(wim, 0);
+    }
+
     void App::Browse(const wstring& wim, int image)
     {
         win.SelectPage(browse->page);

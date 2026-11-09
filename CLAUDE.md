@@ -24,7 +24,8 @@ The other documents are for the people who use the program and ship with the rel
 - **Browse**: the files of an image, read with wimlib (`wimlib_iterate_dir_tree`, in the GUI process, no elevation): folder tree and file list, extract the selected files / folders into a folder (`wimlib_extract_paths` without ACLs), open a file. Edit commands ([Edit] button, right-click menu, Del / F2 / F5): new folder, add files / a folder, rename, delete, through `wimlib_update_image` + `wimlib_overwrite` (in place, appended; added files without ACLs); not for split or read-only files. A file the user may not write (root of C:, Program Files) goes to the elevated helper (job mode `update`, keys c<n>_op / _a / _b / _flags; `wl::UpdateImage` builds the commands for both). The version that listed and extracted with `7z.exe` is kept in `backup\cpp-7zip-browse\` (git tag `before-wimlib-browse`). 7-Zip is not used any more (its [Open in 7-Zip] button and download were removed).
 - **Boot files**: after a volume restore, `bcdboot` can write UEFI and/or BIOS boot files to a chosen system partition (with a boot manager language, default `ko-kr`). A partition without a drive letter gets one for that time.
 - **When done**: nothing / shut down / restart, after a 60-second countdown that can be cancelled.
-- Korean and English UI, dark or light theme (chosen in the footer, saved as `theme = dark | light` in `WimSmith.ini`); the backup tab shows a preview of the job below its options. The old light UI is kept in `backup\ui-classic\` (build it with the `build_gui.bat` there).
+- **Settings** ([Settings] in the footer, `MainWindow::ShowSettings`): the theme; **.wim opened with WimSmith** (`src\assoc.*`: ProgID `WimSmith.wim` under HKCU\Software\Classes, no elevation; the previous default of `.wim` is kept in the value `WimSmith.PreviousDefault` and given back when the box is cleared; a UserChoice made in Windows wins, then the user is told to pick WimSmith under *Open with*); the tab a WIM file opens in (`open_tab = browse | info | restore | export`, default browse). `WimSmith.exe <file>` opens the file in that tab (`App::OpenFile`, only with the first window).
+- Korean and English UI, dark or light theme (chosen in [Settings], saved as `theme = dark | light` in `WimSmith.ini`); the backup tab shows a preview of the job below its options. The old light UI is kept in `backup\ui-classic\` (build it with the `build_gui.bat` there).
 
 ## Requirements
 
@@ -57,7 +58,8 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 | `src\libs.*`, `src\unzip.*` | `lib\` folder: moving and downloading wimlib (WinHTTP), license texts; reading the zip (stored / Deflate, CRC-32) |
 | `src\ui.*` | the window toolkit on Win32: dark controls, tabs, lists, dialogs, row layout |
 | `src\lang.*`, `src\settings.*`, `src\util.cpp`, `src\common.h` | language files, `WimSmith.ini`, text / file / process helpers |
-| `src\version.h` | the version (1.0), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
+| `src\assoc.*` | `.wim` opened with WimSmith for the current user (registry under HKCU, no elevation) |
+| `src\version.h` | the version (1.1), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
 | `app.rc`, `app.manifest` | icon, version resource, `LICENSE` (resource type TEXT, shown on the "?" tab) and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
 

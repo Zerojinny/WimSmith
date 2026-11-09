@@ -34,6 +34,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         LocalFree(argv);
     }
     if (!args.empty() && args[0] == L"--wim-helper") return RunHelper(args);
+    // "WimSmith.exe <file>": a WIM file opened from Explorer (assoc.cpp)
+    std::wstring openFile = args.empty() ? L"" : args[0];
 
     // COM for the shell icons (SHGetFileInfo) and ShellExecute
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
@@ -57,6 +59,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         ShowWindow(app->win.hwnd, app->win.maximize ? SW_MAXIMIZE : SW_SHOW);
         UpdateWindow(app->win.hwnd);
         app->RefreshStatus();
+        // only with the first window (not again after a language or theme change)
+        if (!openFile.empty()) { app->OpenFile(openFile); openFile.clear(); }
         ui::MessageLoop();
         bool again = app->win.restart;
         ui::Reset();

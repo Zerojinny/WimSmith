@@ -3,6 +3,7 @@
 //  The main window and the log window (see mainwin.h).
 // ============================================================
 #include "mainwin.h"
+#include "assoc.h"
 #include "lang.h"
 #include "settings.h"
 #include "version.h"
@@ -115,7 +116,7 @@ namespace wimsmith
         progress = Progress(hwnd);
         footer = Panel(hwnd, color::Footer);
 
-        // footer: state | last log line | [Show log] | after done | [Cancel] | theme | language
+        // footer: state | last log line | [Show log] | after done | [Cancel] | [Settings] | language
         lblState = Label(footer, L"", FontUI, color::Text, SS_LEFT | SS_CENTERIMAGE);
         lblLast = Link(footer, L"");
         SendMessageW(lblLast, WM_SETFONT, (WPARAM)FontMono, FALSE);
@@ -130,11 +131,7 @@ namespace wimsmith
         ComboSelect(cboAfter, 0);
         btnCancel = Button(footer, L::T(L"bk.btn_cancel"));
         Enable(btnCancel, false);
-        cboTheme = Combo(footer);
-        ComboAdd(cboTheme, L::T(L"z.theme_dark"));
-        ComboAdd(cboTheme, L::T(L"z.theme_light"));
-        ComboSelect(cboTheme, DarkMode ? 0 : 1);
-        Tooltip(cboTheme, L::T(L"z.theme_tip"));
+        btnSettings = Button(footer, L::T(L"st.btn"));
         cboLang = Combo(footer);
         for (const auto& kv : L::Available())
         {
@@ -146,7 +143,7 @@ namespace wimsmith
         OnClick(lblLast, [this] { log.ShowNear(hwnd); });
         OnClick(lnkLog, [this] { log.ShowNear(hwnd); });
         OnChange(cboLang, [this] { ChangeLanguage(); });
-        OnChange(cboTheme, [this] { ChangeTheme(); });
+        OnClick(btnSettings, [this] { ShowSettings(); });
         OnChange(tabs, [this] { ShowPage(); });
         SetLayout(hwnd, [this](int w, int h) { Layout(w, h); });
         SetLayout(footer, [this](int w, int h) { LayoutFooter(w, h); });
@@ -215,12 +212,13 @@ namespace wimsmith
         auto mid = [h](int hh) { return (h - hh) / 2; };
         int textH = TextHeight(FontUI) + S(4);
         int x = S(12), right = w - S(8);
-        // from the right: language, theme, [Cancel], combo, label, [Show log];
+        // from the right: language, [Settings], [Cancel], combo, label, [Show log];
         // a narrow window (a small screen): narrower combos, no "When done" label
         bool narrow = w < S(820);
-        int langW = narrow ? S(84) : S(100), themeW = narrow ? S(72) : S(90), afterW = narrow ? S(110) : S(130);
+        int langW = narrow ? S(84) : S(100), afterW = narrow ? S(110) : S(130);
+        int setW = std::max(narrow ? S(64) : S(80), TextWidth(FontUI, GetText(btnSettings)) + S(20));
         right -= langW; Move(cboLang, right, mid(S(23)), langW, S(23)); right -= S(4);
-        right -= S(4) + themeW; Move(cboTheme, right, mid(S(23)), themeW, S(23)); right -= S(4);
+        right -= S(4) + setW; Move(btnSettings, right, mid(S(26)), setW, S(26)); right -= S(4);
         right -= S(8) + S(80); Move(btnCancel, right, mid(S(26)), S(80), S(26));
         right -= S(8) + afterW; Move(cboAfter, right, mid(S(23)), afterW, S(23));
         Show(lblAfter, !narrow);
@@ -270,19 +268,79 @@ namespace wimsmith
         DestroyWindow(hwnd);
     }
 
-    // the theme: saved as theme = dark | light; the window is made again (like a language)
-    void MainWindow::ChangeTheme()
+    // the tabs a .wim file can open in (setting "open_tab"; App::OpenFile)
+    static const wchar_t* const OpenTabs[][2] = {
+        { L"browse", L"br.tab" }, { L"info", L"in.tab" }, { L"restore", L"bk.tab_apply" }, { L"export", L"ex.tab" } };
+
+    // [Settings]: the theme (saved as theme = dark | light; the window is made
+    // again, like for a language), .wim opened with WimSmith, and its tab
+    void MainWindow::ShowSettings()
     {
-        int i = ComboIndex(cboTheme);
-        if (i < 0 || (i == 0) == DarkMode) return;
-        if (!CanRestart())
+        HWND d = Dialog(L::T(L"st.title"), 560, 200);
+        Grid grid(d);
+        grid.labelWidth = 170;
+        HWND cboTheme = Combo(d);
+        ComboAdd(cboTheme, L::T(L"z.theme_dark"));
+        ComboAdd(cboTheme, L::T(L"z.theme_light"));
+        ComboSelect(cboTheme, DarkMode ? 0 : 1);
+        grid.Add(L::T(L"st.row_theme"), { Field(cboTheme, 160) });
+        bool wasRegistered = assoc::Registered();
+        HWND chkAssoc = Check(d, L::T(L"st.assoc"));
+        SetChecked(chkAssoc, wasRegistered);
+        grid.Add(L::T(L"st.row_assoc"), { Box(chkAssoc) });
+        HWND cboTab = Combo(d);
+        wstring tab = GetSetting(L"open_tab", L"browse");
+        int tabIndex = 0;
+        for (int n = 0; n < (int)(sizeof OpenTabs / sizeof OpenTabs[0]); n++)
         {
-            ComboSelect(cboTheme, DarkMode ? 0 : 1);
-            return;
+            ComboAdd(cboTab, L::T(OpenTabs[n][1]));
+            if (EqualsI(tab, OpenTabs[n][0])) tabIndex = n;
         }
-        SetSetting(L"theme", i == 0 ? L"dark" : L"light");
-        restart = true;
-        DestroyWindow(hwnd);
+        ComboSelect(cboTab, tabIndex);
+        grid.Add(L::T(L"st.row_open_tab"), { Field(cboTab, 220) });
+        HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
+        Primary(ok, false);
+        SetLayout(d, [=, &grid](int cw, int ch)
+        {
+            grid.Place(S(8), S(12), cw - S(16));
+            int by = ch - S(14) - S(28);
+            Move(ok, cw - S(14) - S(86) * 2 - S(8), by, S(86), S(28));
+            Move(cancel, cw - S(14) - S(86), by, S(86), S(28));
+        });
+        Relayout(d);
+        int theme = 0, openTab = 0;
+        bool associate = false;
+        OnClick(ok, [&, d]
+        {
+            theme = ComboIndex(cboTheme);
+            openTab = ComboIndex(cboTab);
+            associate = Checked(chkAssoc);
+            EndModal(d, 1);
+        });
+        OnClick(cancel, [d] { EndModal(d, 2); });
+        OnKeys(d, nullptr, [d] { EndModal(d, 2); });
+        if (RunModal(d) != 1) return;
+
+        if (openTab >= 0) SetSetting(L"open_tab", OpenTabs[openTab][0]);
+        if (associate && (!wasRegistered || !assoc::Default()))
+        {
+            wstring err = assoc::Register(L::T(L"st.assoc_type"));
+            if (!err.empty()) Info(L::F(L"st.assoc_failed", err), MB_ICONWARNING);
+            // another program chosen in Windows (UserChoice) stays: the user picks WimSmith once
+            else if (!assoc::Default()) Info(L::T(L"st.assoc_not_default"));
+            else Log(L::T(L"st.assoc_done"));
+        }
+        else if (!associate && wasRegistered)
+        {
+            assoc::Unregister();
+            Log(L::T(L"st.assoc_removed"));
+        }
+        if (theme >= 0 && (theme == 0) != DarkMode && CanRestart())
+        {
+            SetSetting(L"theme", theme == 0 ? L"dark" : L"light");
+            restart = true;
+            DestroyWindow(hwnd);
+        }
     }
 
     bool MainWindow::CanRestart()

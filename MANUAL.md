@@ -62,8 +62,18 @@ The tabs are at the top. The footer at the bottom has:
 | Show log | opens the log window (copy, clear) |
 | When done | *Do nothing / Shut down / Restart* when the job ends; shut down and restart can be cancelled during a 60-second countdown |
 | Cancel | stops the running job at wimlib's next progress step |
-| Theme | Dark / Light; the window is rebuilt in the new colors |
+| Settings | opens the settings (below) |
 | Language | 한국어 / English |
+
+**[Settings]**:
+
+| Setting | Description |
+|---|---|
+| Theme | Dark / Light; the window is rebuilt in the new colors |
+| WIM files | *Open .wim files with WimSmith*: a double-click on a `.wim` file in Explorer starts WimSmith with it. Set for your Windows user only, no administrator rights; clear the box to undo it (the program used before comes back) |
+| Open a WIM file in | the tab a `.wim` file opens in: Browse (default), Info, Restore or Export. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
+
+When another program was chosen for `.wim` files in Windows before, Windows keeps it, and WimSmith says so: right-click a `.wim` file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, check the box again.
 
 Language and theme cannot be changed while a job runs. Closing the window during a job leaves the job running, but its progress can no longer be seen.
 
@@ -335,6 +345,7 @@ Next to `WimSmith.exe`. Values changed in the window are saved here; it can also
 |---|---|
 | `language` | `ko`, `en` |
 | `theme` | `dark` (default), `light` |
+| `open_tab` | the tab a WIM file opens in: `browse` (default), `info`, `restore`, `export` |
 | `image_folder` | the folder of the last WIM file backed up to |
 | `restore.boot_lang` | boot manager language (default `ko-kr`) |
 | `backup.snapshot` | the VSS snapshot box |

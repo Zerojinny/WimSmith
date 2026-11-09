@@ -14,7 +14,7 @@ A Windows tool that backs up volumes or folders into WIM images, and restores WI
 - **Info / Verify**: shows WIM file and image details, and checks a file for damage. Changes the name, description and edition of an image and the boot image, deletes images, and optimizes the file (makes it smaller).
 - **Browse**: shows the files inside an image and extracts the ones you need; adds, renames and deletes files in the image.
 
-Korean and English UI, with a dark and a light theme.
+Korean and English UI, with a dark and a light theme. In [Settings], `.wim` files can be set to open with WimSmith, in the tab you choose (Browse by default).
 
 ## Requirements
 
@@ -28,18 +28,20 @@ No runtime such as .NET is needed.
 | File | Description |
 |---|---|
 | `WimSmith.exe` | the program |
-| `lib\` | wimlib (`libwim-15.dll`) and its license texts |
+| `lang\` | the language files (also built into the exe; the ones here are used first, so the texts can be edited) |
 | `MANUAL.md`, `MANUAL.ko.md` | user manual (English, Korean) |
 | `README.md`, `README.ko.md` | this file |
 | `LICENSE` | the license of WimSmith |
 
+The package does not contain wimlib: `lib\` with `libwim-15.dll` and its license texts is made next to `WimSmith.exe` the first time wimlib is needed.
+
 ## Getting started
 
-1. Unpack the package into any folder, a USB drive included. `WimSmith.exe` and the `lib\` folder must stay together.
+1. Unpack the package into any folder, a USB drive included.
 2. Run `WimSmith.exe`.
 3. Settings are saved in `WimSmith.ini` in the same folder.
 
-When a file in `lib\` is missing, its newest version is downloaded the first time it is needed. To work without internet, keep the `lib\` folder and copy it along.
+When a file in `lib\` is missing, its newest version is downloaded the first time it is needed. `WimSmith.exe` and the `lib\` folder must stay together. To work without internet, keep the `lib\` folder and copy it along.
 
 See the [user manual](MANUAL.md) for details.
 

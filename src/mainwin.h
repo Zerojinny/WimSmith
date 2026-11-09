@@ -3,8 +3,10 @@
 //  The main window (the C# MainForm + the frame of BackupPanel): the
 //  tab strip and its pages, a thin progress line and the footer
 //  (state | last log line | [Show log] | after done | [Cancel] |
-//  language). The log has a window of its own (LogWindow), hidden
-//  until [Show log]. The tabs are added by their own files.
+//  [Settings] | language). The log has a window of its own (LogWindow),
+//  hidden until [Show log]. The tabs are added by their own files.
+//  [Settings]: a dialog with the theme, .wim opened with WimSmith
+//  (assoc.cpp) and the tab a .wim file opens in (setting "open_tab").
 // ============================================================
 #pragma once
 #include "ui.h"
@@ -28,7 +30,7 @@ namespace wimsmith
         HWND hwnd = nullptr;
         HWND tabs = nullptr, progress = nullptr, footer = nullptr;
         HWND lblState = nullptr, lblLast = nullptr, lnkLog = nullptr, lblAfter = nullptr;
-        HWND cboAfter = nullptr, btnCancel = nullptr, cboLang = nullptr, cboTheme = nullptr;
+        HWND cboAfter = nullptr, btnCancel = nullptr, cboLang = nullptr, btnSettings = nullptr;
         bool restart = false;                 // another language or theme was chosen
         bool maximize = false;                // the screen is smaller than the window
         LogWindow log;
@@ -52,7 +54,7 @@ namespace wimsmith
         void LayoutFooter(int w, int h);
         void ShowPage();
         void ChangeLanguage();
-        void ChangeTheme();
+        void ShowSettings();
         bool CanRestart();                    // no job, no extraction (else a message)
     };
 }
