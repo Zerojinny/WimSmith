@@ -3,6 +3,7 @@
 //  WimSmith.ini (see settings.h).
 // ============================================================
 #include "settings.h"
+#include <shlwapi.h>
 
 namespace wimsmith
 {
@@ -66,5 +67,46 @@ namespace wimsmith
         wstring text;
         for (const wstring& l : lines) text += l + L"\r\n";
         WriteBytes(SettingsFile(), ToUtf8(text));
+    }
+
+    bool RelativePaths() { return GetSetting(L"relative_paths", L"0") == L"1"; }
+
+    // dir relative to the exe folder (".\WIM" -> "WIM", "..\Backup"), or "" when
+    // that is not possible (another drive, a network path)
+    static wstring RelativeToExe(const wstring& dir)
+    {
+        wchar_t rel[MAX_PATH];
+        if (dir.size() >= MAX_PATH || !PathRelativePathToW(rel, ExeDir().c_str(), FILE_ATTRIBUTE_DIRECTORY, dir.c_str(), FILE_ATTRIBUTE_DIRECTORY))
+            return wstring();
+        wstring r = rel;
+        if (r.compare(0, 2, L".\\") == 0) r = r.substr(2);
+        return r.empty() ? wstring(L".") : r;
+    }
+
+    wstring ImageFolder()
+    {
+        wstring dir = GetSetting(L"image_folder", L"");
+        if (dir.empty() || !PathIsRelativeW(dir.c_str())) return dir;
+        wstring full = FullPath(Combine(ExeDir(), dir));
+        while (full.size() > 3 && full.back() == L'\\') full.pop_back();
+        return full;
+    }
+
+    void SetImageFolder(const wstring& dir)
+    {
+        wstring value = dir;
+        if (RelativePaths())
+        {
+            wstring rel = RelativeToExe(dir);
+            if (!rel.empty()) value = rel;
+        }
+        SetSetting(L"image_folder", value);
+    }
+
+    void SetRelativePaths(bool on)
+    {
+        wstring dir = ImageFolder();
+        SetSetting(L"relative_paths", on ? L"1" : L"0");
+        if (!dir.empty()) SetImageFolder(dir);
     }
 }

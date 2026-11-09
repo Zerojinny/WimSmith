@@ -39,6 +39,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
     std::wstring openFile, openTab;
     if (args.size() >= 3 && args[0] == L"--open") { openTab = args[1]; openFile = args[2]; }
     else if (!args.empty()) openFile = args[0];
+    // a relative path typed in the tabs is relative to the folder of WimSmith.exe
+    // (a WimSmith on a USB drive with its WIM files next to it); the file given
+    // on the command line is relative to the folder it was started from
+    if (!openFile.empty()) { std::wstring full = FullPath(openFile); if (!full.empty()) openFile = full; }
+    SetCurrentDirectoryW(ExeDir().c_str());
 
     // COM for the shell icons (SHGetFileInfo) and ShellExecute
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);

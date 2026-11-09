@@ -12,6 +12,7 @@
 #include "tab_disk.h"
 #include "tab_export.h"
 #include "tab_browse.h"
+#include <shlwapi.h>
 #include "tab_info.h"
 #include "tab_splitjoin.h"
 #include "version.h"
@@ -64,7 +65,7 @@ namespace wimsmith
 
     wstring App::DefaultWim() const
     {
-        wstring dir = GetSetting(L"image_folder", L"");
+        wstring dir = ImageFolder();
         return dir.empty() ? wstring() : Combine(dir, DefaultWimName);
     }
 
@@ -240,6 +241,15 @@ namespace wimsmith
         values[L"tools"] = ToolDir();
         values[L"root"] = root;
         job.mode = values[L"mode"];
+        // a relative path typed in a tab is relative to the exe folder (the current
+        // folder of this process, main.cpp); the helper gets it in full
+        for (const wchar_t* key : { L"wim", L"source", L"folder", L"swm" })
+        {
+            auto it = values.find(key);
+            if (it == values.end() || it->second.empty() || !PathIsRelativeW(it->second.c_str())) continue;
+            wstring full = FullPath(it->second);
+            if (!full.empty()) it->second = full;
+        }
         // backup / restore / disk need administrator rights; export, split, join and verify do not;
         // update: the browse tab sends its edits here only when the file needs them;
         // modify (the info tab): admin = 1 when the user may not write the file
