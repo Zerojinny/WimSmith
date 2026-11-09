@@ -45,6 +45,14 @@ wimlib stays a separate DLL loaded at run time (`lib\libwim-15.dll`).
 
 The former C# / .NET Framework version (up to the C++ port) is kept in `backup\cs-winforms\`, with the `build_gui.bat` that builds it.
 
+### Release
+
+A GitHub release has the zip twice: `WimSmith-<version>-x64.zip` and the same file as **`WimSmith-x64.zip`** (`WimSmith.exe`, `lang\`, `LICENSE`, READMEs, manuals; no `lib\`). The PhoenixPE plugin downloads `releases/latest/download/WimSmith-x64.zip`, so that name must not change.
+
+### PhoenixPE plugin
+
+`phoenixpe\WimSmith.script` (PEBakery script, LF, UTF-8 without BOM, like the scripts of PhoenixPE) puts WimSmith into a PhoenixPE build. Install it by copying it to `<PhoenixPE>\Projects\MyApps\Applications\` (on this PC: `F:\PE\PhoenixPE-2026.07.25-x64`). Source: the latest GitHub release or a local folder (`WimSmith.exe`, `lang\`, `lib\` when present); when there is no `lib\`, wimlib (version in the interface, `txt_WimlibVersion`) is downloaded from wimlib.net at build time and put into `lib\` with its license texts (`wimlib_COPYING*.txt`, `versions.ini`), because a PE often has no internet. It writes `WimSmith.ini` (language, theme, `open_tab`), associates `.wim` / `.esd` / `.swm` (PhoenixAPI `Associate`) and adds the right-click menu "WimSmith >" under HKLM (`SystemFileAssociations`, the same items as `assoc::RegisterMenu`).
+
 ## Files
 
 | Path | Content |
@@ -62,6 +70,7 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 | `src\version.h` | the version (1.1), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
 | `app.rc`, `app.manifest` | icon, version resource, `LICENSE` (resource type TEXT, shown on the "?" tab) and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
+| `phoenixpe\WimSmith.script` | the PhoenixPE plugin (see [PhoenixPE plugin](#phoenixpe-plugin)) |
 
 The elevated helper works in `%TEMP%\WimSmith_job\<time>` (job.ini, status.txt, wimlib_errors.txt); the folder is deleted after a successful job and kept after a failed one.
 

@@ -45,6 +45,10 @@ When a file in `lib\` is missing, its newest version is downloaded the first tim
 
 See the [user manual](MANUAL.md) for details.
 
+### PhoenixPE
+
+[`phoenixpe/WimSmith.script`](phoenixpe/WimSmith.script) adds WimSmith to a [PhoenixPE](https://github.com/PhoenixPE/PhoenixPE) build: copy it to `Projects\MyApps\Applications\` of PhoenixPE. It takes WimSmith from the latest release here or from a local folder, puts wimlib into `lib\` at build time (a PE often has no internet), and can add shortcuts, the file associations and the right-click menu.
+
 ## Caution
 
 - **Restore** formats the target volume, and **Disk** clears the whole disk. Check the target before you start. Both ask twice; the second time you must type the drive letter or the disk number.

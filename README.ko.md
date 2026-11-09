@@ -45,6 +45,10 @@
 
 자세한 사용 방법은 [사용 설명서](MANUAL.ko.md)를 보세요.
 
+### PhoenixPE
+
+[`phoenixpe/WimSmith.script`](phoenixpe/WimSmith.script)는 [PhoenixPE](https://github.com/PhoenixPE/PhoenixPE) 빌드에 WimSmith를 넣는 플러그인입니다. PhoenixPE의 `Projects\MyApps\Applications\`에 복사하세요. 이 저장소의 최신 릴리스나 로컬 폴더에서 WimSmith를 가져오고, 빌드할 때 wimlib을 `lib\`에 넣으며(PE에는 인터넷이 없는 경우가 많음), 바로 가기, 파일 연결, 오른쪽 클릭 메뉴를 추가할 수 있습니다.
+
 ## 주의
 
 - **복구**는 대상 볼륨을 포맷하고, **디스크** 작업은 디스크 전체를 지웁니다. 실행 전에 대상을 꼭 확인하세요. 두 작업 모두 두 번 확인하며, 마지막에는 드라이브 문자나 디스크 번호를 직접 입력해야 합니다.

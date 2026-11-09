@@ -1,0 +1,316 @@
+[License]
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// WimSmith plugin for PhoenixPE, distributed under the MIT License.
+//
+// WimSmith: https://github.com/Zerojinny/WimSmith (MIT License)
+// wimlib (libwim-15.dll): https://wimlib.net (LGPL v2.1 or later / GPL v3 or later), a separate DLL
+// under its own license; its license texts are copied next to it into lib\.
+//
+// Copyright (c) 2026 zerojinny
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Main]
+Title=WimSmith
+Description=Back up a volume or a folder to a WIM image and restore it, using wimlib. Source: the latest GitHub release or a local folder.
+Author=zerojinny
+Level=5
+Selected=True
+Mandatory=False
+Version=1.0.0.0
+Date=2026-11-09
+
+[Variables]
+%ProgramFolder%="WimSmith"
+%ProgramExe%="WimSmith.exe"
+%SetupFile%="WimSmith-x64.zip"
+%DownloadURL%=https://github.com/Zerojinny/WimSmith/releases/latest/download/WimSmith-x64.zip
+%Homepage%=https://github.com/Zerojinny/WimSmith
+
+[Process]
+Echo,"Processing %ScriptTitle%..."
+
+If,%cb_RunFromRam%,Equal,True,RunFromRam
+Set,%Dest%,"%TargetPrograms%\%ProgramFolder%"
+Set,%PEExe%,"%PEPrograms%\%ProgramFolder%\%ProgramExe%"
+DirMake,"%Dest%"
+
+///////////////////////////////////////////////////////////////////////////////////
+// WimSmith: from a local folder, or the latest GitHub release
+If,%cmb_Source%,Equal,"Local folder",Begin
+  If,%fb_LocalDir%,Equal,"",Halt,"WimSmith: choose the local folder that holds WimSmith.exe."
+  If,Not,ExistFile,"%fb_LocalDir%\%ProgramExe%",Halt,"WimSmith: [%fb_LocalDir%\%ProgramExe%] was not found."
+  Echo,"Copying WimSmith from [%fb_LocalDir%]..."
+  FileCopy,"%fb_LocalDir%\%ProgramExe%","%Dest%"
+  If,ExistDir,"%fb_LocalDir%\lang",DirCopy,"%fb_LocalDir%\lang","%Dest%"
+  If,ExistFile,"%fb_LocalDir%\LICENSE",FileCopy,"%fb_LocalDir%\LICENSE","%Dest%"
+  If,ExistFile,"%fb_LocalDir%\lib\libwim-15.dll",DirCopy,"%fb_LocalDir%\lib","%Dest%"
+End
+Else,Begin
+  If,%cb_AlwaysDownload%,Equal,True,DirDeleteEx,"%ProgramsCache%\%ProgramFolder%"
+  If,Not,ExistFile,"%ProgramsCache%\%ProgramFolder%\%SetupFile%",Run,%ScriptFile%,DownloadProgram
+  DirDeleteEx,"%ProjectTemp%\%ProgramFolder%"
+  Decompress,"%ProgramsCache%\%ProgramFolder%\%SetupFile%","%ProjectTemp%\%ProgramFolder%"
+  If,Not,ExistFile,"%ProjectTemp%\%ProgramFolder%\%ProgramExe%",Halt,"WimSmith: [%SetupFile%] does not contain %ProgramExe%."
+  FileCopy,"%ProjectTemp%\%ProgramFolder%\%ProgramExe%","%Dest%"
+  If,ExistDir,"%ProjectTemp%\%ProgramFolder%\lang",DirCopy,"%ProjectTemp%\%ProgramFolder%\lang","%Dest%"
+  If,ExistFile,"%ProjectTemp%\%ProgramFolder%\LICENSE",FileCopy,"%ProjectTemp%\%ProgramFolder%\LICENSE","%Dest%"
+  DirDeleteEx,"%ProjectTemp%\%ProgramFolder%"
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// wimlib: the PE often has no internet, so libwim-15.dll is put into lib\ now
+// (unless the local folder already had it), with its license texts
+If,Not,ExistFile,"%Dest%\lib\libwim-15.dll",Begin
+  Set,%WimlibZip%,"wimlib-%txt_WimlibVersion%-windows-x86_64-bin.zip"
+  If,Not,ExistFile,"%ProgramsCache%\%ProgramFolder%\%WimlibZip%",Run,%ScriptFile%,DownloadWimlib
+  DirDeleteEx,"%ProjectTemp%\wimlib"
+  Decompress,"%ProgramsCache%\%ProgramFolder%\%WimlibZip%","%ProjectTemp%\wimlib"
+  If,Not,ExistFile,"%ProjectTemp%\wimlib\libwim-15.dll",Halt,"WimSmith: [%WimlibZip%] does not contain libwim-15.dll."
+  DirMake,"%Dest%\lib"
+  FileCopy,"%ProjectTemp%\wimlib\libwim-15.dll","%Dest%\lib\libwim-15.dll"
+  FileCopy,"%ProjectTemp%\wimlib\COPYING.txt","%Dest%\lib\wimlib_COPYING.txt"
+  FileCopy,"%ProjectTemp%\wimlib\COPYING.LGPL.txt","%Dest%\lib\wimlib_COPYING.LGPL.txt"
+  FileCopy,"%ProjectTemp%\wimlib\COPYING.GPLv3.txt","%Dest%\lib\wimlib_COPYING.GPLv3.txt"
+  FileCopy,"%ProjectTemp%\wimlib\COPYING.libdivsufsort-lite.txt","%Dest%\lib\wimlib_COPYING.libdivsufsort-lite.txt"
+  FileCreateBlank,"%Dest%\lib\versions.ini"
+  TXTAddLine,"%Dest%\lib\versions.ini","wimlib = %txt_WimlibVersion%",Append
+  DirDeleteEx,"%ProjectTemp%\wimlib"
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// WimSmith.ini (next to the exe): language, theme, the tab a WIM file opens in
+Echo,"Configuring %ScriptTitle%..."
+Set,%Ini%,"%Dest%\WimSmith.ini"
+FileCreateBlank,"%Ini%"
+If,%cmb_Language%,Equal,"Korean [ko]",TXTAddLine,"%Ini%","language = ko",Append
+If,%cmb_Language%,Equal,"English [en]",TXTAddLine,"%Ini%","language = en",Append
+If,%cmb_Theme%,Equal,"Light",TXTAddLine,"%Ini%","theme = light",Append
+Else,TXTAddLine,"%Ini%","theme = dark",Append
+Set,%OpenTab%,"browse"
+If,%cmb_OpenTab%,Equal,"Info",Set,%OpenTab%,"info"
+If,%cmb_OpenTab%,Equal,"Restore",Set,%OpenTab%,"restore"
+If,%cmb_OpenTab%,Equal,"Add an image",Set,%OpenTab%,"append"
+If,%cmb_OpenTab%,Equal,"Export",Set,%OpenTab%,"export"
+If,%cmb_OpenTab%,Equal,"Split / Join",Set,%OpenTab%,"splitjoin"
+TXTAddLine,"%Ini%","open_tab = %OpenTab%",Append
+
+///////////////////////////////////////////////////////////////////////////////////
+// File associations (PhoenixAPI Associate: also set as the user's choice at startup)
+If,%cb_AssocWim%,Equal,True,Associate,.wim,"%PEExe%"
+If,%cb_AssocEsd%,Equal,True,Associate,.esd,"%PEExe%"
+If,%cb_AssocSwm%,Equal,True,Associate,.swm,"%PEExe%"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Right-click menu "WimSmith >" of .wim / .esd / .swm (WimSmith.exe --open <tab> "%1"),
+// in the language of WimSmith (English unless Korean is chosen)
+If,%cb_ContextMenu%,Equal,True,Begin
+  If,%cmb_Language%,Equal,"Korean [ko]",Begin
+    Set,%tRestore%,"복구 (WIM 적용)"
+    Set,%tAppend%,"이미지 추가 (백업)"
+    Set,%tExport%,"내보내기"
+    Set,%tSplitJoin%,"나누기 / 합치기"
+    Set,%tInfo%,"정보"
+    Set,%tBrowse%,"탐색"
+  End
+  Else,Begin
+    Set,%tRestore%,"Restore (apply a WIM)"
+    Set,%tAppend%,"Add an image (backup)"
+    Set,%tExport%,"Export"
+    Set,%tSplitJoin%,"Split / Join"
+    Set,%tInfo%,"Info"
+    Set,%tBrowse%,"Browse"
+  End
+  RegLoadHives
+  // .wim: every item
+  Run,%ScriptFile%,AddMenu,.wim
+  Run,%ScriptFile%,AddMenuItem,.wim,1_restore,restore,"%tRestore%"
+  Run,%ScriptFile%,AddMenuItem,.wim,2_append,append,"%tAppend%"
+  Run,%ScriptFile%,AddMenuItem,.wim,3_export,export,"%tExport%"
+  Run,%ScriptFile%,AddMenuItem,.wim,4_splitjoin,splitjoin,"%tSplitJoin%"
+  Run,%ScriptFile%,AddMenuItem,.wim,5_info,info,"%tInfo%"
+  Run,%ScriptFile%,AddMenuItem,.wim,6_browse,browse,"%tBrowse%"
+  // .esd: no new image, no split (solid resources)
+  Run,%ScriptFile%,AddMenu,.esd
+  Run,%ScriptFile%,AddMenuItem,.esd,1_restore,restore,"%tRestore%"
+  Run,%ScriptFile%,AddMenuItem,.esd,2_export,export,"%tExport%"
+  Run,%ScriptFile%,AddMenuItem,.esd,3_info,info,"%tInfo%"
+  Run,%ScriptFile%,AddMenuItem,.esd,4_browse,browse,"%tBrowse%"
+  // .swm: no new image; join
+  Run,%ScriptFile%,AddMenu,.swm
+  Run,%ScriptFile%,AddMenuItem,.swm,1_restore,restore,"%tRestore%"
+  Run,%ScriptFile%,AddMenuItem,.swm,2_export,export,"%tExport%"
+  Run,%ScriptFile%,AddMenuItem,.swm,3_splitjoin,splitjoin,"%tSplitJoin%"
+  Run,%ScriptFile%,AddMenuItem,.swm,4_info,info,"%tInfo%"
+  Run,%ScriptFile%,AddMenuItem,.swm,5_browse,browse,"%tBrowse%"
+  RegUnloadHives
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Shortcuts
+If,%cb_DesktopShc%,Equal,True,AddShortcut,Desktop,"",%txt_ShortcutName%,"%PEExe%","","%PEPrograms%\%ProgramFolder%"
+If,%cb_StartMenuShc%,Equal,True,AddShortcut,StartMenu,%txt_StartMenuFolder%,%txt_ShortcutName%,"%PEExe%","","%PEPrograms%\%ProgramFolder%"
+If,%cb_PinToTaskbar%,Equal,True,PinShortcut,Taskbar,Auto,"%PEExe%"
+If,%cb_PinToStartMenu%,Equal,True,PinShortcut,StartMenu,Auto,"%PEExe%"
+
+[#AddMenu#]
+// ===============================================================================================================================
+// Name...........: AddMenu
+// Description....: The "WimSmith >" submenu of an extension (whatever program opens it).
+// Syntax.........: Run,%ScriptFile%,AddMenu,<.ext>
+// Remarks........: The hives must be loaded (RegLoadHives).
+// ===============================================================================================================================
+[AddMenu]
+Set,%MenuKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\WimSmith"
+RegWrite,HKLM,REG_SZ,"%MenuKey%","MUIVerb","WimSmith"
+RegWrite,HKLM,REG_SZ,"%MenuKey%","Icon","#$q%PEExe%#$q,0"
+RegWrite,HKLM,REG_SZ,"%MenuKey%","SubCommands",""
+
+[#AddMenuItem#]
+// ===============================================================================================================================
+// Name...........: AddMenuItem
+// Description....: One item of the "WimSmith >" submenu: WimSmith.exe --open <tab> "%1".
+// Syntax.........: Run,%ScriptFile%,AddMenuItem,<.ext>,<KeyName>,<Tab>,<Text>
+// Remarks........: The key names give the order (1_..., 2_...). The hives must be loaded (RegLoadHives).
+// ===============================================================================================================================
+[AddMenuItem]
+Set,%ItemKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\WimSmith\shell\%^SIPARAM_2%"
+RegWrite,HKLM,REG_SZ,"%ItemKey%","MUIVerb","%^SIPARAM_4%"
+RegWrite,HKLM,REG_SZ,"%ItemKey%\command","","#$q%PEExe%#$q --open %^SIPARAM_3% #$q#$p1#$q"
+
+[#DownloadProgram#]
+// ===============================================================================================================================
+// Name...........: DownloadProgram
+// Description....: Download the latest WimSmith release from GitHub.
+// Syntax.........: Run,%ScriptFile%,DownloadProgram
+// ===============================================================================================================================
+[DownloadProgram]
+Echo,"Downloading %ScriptTitle%..."
+DirMake,"%ProgramsCache%\%ProgramFolder%"
+WebGet,"%DownloadURL%","%ProgramsCache%\%ProgramFolder%\%SetupFile%",NOERR
+If,Not,%^RET%,Equal,200,Halt,"Failed to download [%SetupFile%] from [%DownloadURL%]: the code returned was [%^RET%]."
+
+[#DownloadWimlib#]
+// ===============================================================================================================================
+// Name...........: DownloadWimlib
+// Description....: Download the Windows x64 binaries of wimlib (the version in the interface) from wimlib.net.
+// Syntax.........: Run,%ScriptFile%,DownloadWimlib
+// ===============================================================================================================================
+[DownloadWimlib]
+Set,%WimlibZip%,"wimlib-%txt_WimlibVersion%-windows-x86_64-bin.zip"
+Echo,"Downloading wimlib %txt_WimlibVersion%..."
+DirMake,"%ProgramsCache%\%ProgramFolder%"
+WebGet,"https://wimlib.net/downloads/%WimlibZip%","%ProgramsCache%\%ProgramFolder%\%WimlibZip%",NOERR
+If,Not,%^RET%,Equal,200,Halt,"Failed to download [%WimlibZip%] from wimlib.net: the code returned was [%^RET%]. Check the wimlib version on https://wimlib.net."
+
+[#DownloadAll#]
+// ===============================================================================================================================
+// Name...........: DownloadAll
+// Description....: Download WimSmith (GitHub) and wimlib now (the download button).
+// ===============================================================================================================================
+[DownloadAll]
+Run,%ScriptFile%,DownloadProgram
+Run,%ScriptFile%,DownloadWimlib
+
+[#ClearDownloadCache#]
+// ===============================================================================================================================
+// Name...........: ClearDownloadCache
+// Description....: Remove the downloaded WimSmith and wimlib zip files.
+// ===============================================================================================================================
+[ClearDownloadCache]
+DirDeleteEx,"%ProgramsCache%\%ProgramFolder%"
+
+[#BrowseLocalDir#]
+// ===============================================================================================================================
+// Name...........: BrowseLocalDir
+// Description....: Explore the local WimSmith folder.
+// ===============================================================================================================================
+[BrowseLocalDir]
+If,ExistDir,%fb_LocalDir%,ShellExecuteEx,Explore,%fb_LocalDir%
+Else,Message,"The specified directory does not exist.",ERROR
+
+[#SetDefaultOptions#]
+// ===============================================================================================================================
+// Name...........: SetDefaultOptions
+// Description....: Sets script options to default values.
+// ===============================================================================================================================
+[SetDefaultOptions]
+WriteInterface,Value,%ScriptFile%,Interface,cmb_Source,"GitHub (latest release)"
+WriteInterface,Value,%ScriptFile%,Interface,fb_LocalDir,""
+WriteInterface,Value,%ScriptFile%,Interface,cb_AlwaysDownload,False
+WriteInterface,Value,%ScriptFile%,Interface,txt_WimlibVersion,"1.14.5"
+WriteInterface,Value,%ScriptFile%,Interface,cb_RunFromRam,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_DesktopShc,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_StartMenuShc,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_PinToTaskbar,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_PinToStartMenu,False
+WriteInterface,Value,%ScriptFile%,Interface,txt_StartMenuFolder,"Backup & Imaging"
+WriteInterface,Value,%ScriptFile%,Interface,txt_ShortcutName,"WimSmith"
+WriteInterface,Value,%ScriptFile%,Interface,cmb_Language,"Windows default"
+WriteInterface,Value,%ScriptFile%,Interface,cmb_Theme,"Dark"
+WriteInterface,Value,%ScriptFile%,Interface,cmb_OpenTab,"Browse"
+WriteInterface,Value,%ScriptFile%,Interface,cb_AssocWim,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_AssocEsd,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_AssocSwm,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_ContextMenu,True
+
+[#ShowScriptInfo#]
+// ===============================================================================================================================
+// Name...........: ShowScriptInfo
+// ===============================================================================================================================
+[ShowScriptInfo]
+Message,"WimSmith backs up a volume or a folder to a WIM image and restores it, using wimlib (x64 only).#$x#$xSource:#$x- GitHub (latest release): downloads WimSmith-x64.zip of the latest release and caches it.#$x- Local folder: a folder with WimSmith.exe (and lang\, lib\ when present).#$x#$xwimlib (libwim-15.dll and its license texts) is put into lib\ at build time, downloaded from wimlib.net in the version given when the source has no lib\.#$x#$xWimSmith: MIT License. wimlib: LGPL v2.1 or later / GPL v3 or later, a separate DLL under its own license."
+
+[Interface]
+web_Homepage=Homepage,1,10,377,9,60,18,https://github.com/Zerojinny/WimSmith
+btn_DownloadProgram=Download,1,8,448,5,70,25,DownloadAll,0,True,"__Download WimSmith (GitHub) and wimlib now."
+btn_PurgeCache="Clear cache",1,8,523,5,75,25,ClearDownloadCache,0,True,"__Remove the downloaded zip files."
+btn_SetDefaultOptions=Defaults,1,8,603,5,60,25,SetDefaultOptions,0,True,"__Restore the default options."
+btn_ScriptInfo=?,1,8,668,5,25,25,ShowScriptInfo,0,True,"__Script Info"
+bvl_Source=Source,1,12,5,40,688,95,8,Bold
+cmb_Source="GitHub (latest release)",1,4,12,60,175,21,"GitHub (latest release)","Local folder"
+lbl_LocalDir="Local folder (WimSmith.exe, lang\, lib\):",1,1,200,44,300,16,8,Normal
+fb_LocalDir=,1,13,200,60,455,20,dir,"__A folder with WimSmith.exe, and lang\ and lib\ when present (e.g. the build folder of WimSmith)."
+btn_BrowseLocalDir=,1,8,662,60,24,20,BrowseLocalDir,0,True,"__Open the folder"
+cb_AlwaysDownload="Always download the latest release",1,3,12,90,210,18,False,"__Download WimSmith from GitHub at every build instead of using the cached zip."
+txt_WimlibVersion="wimlib version (when the source has no lib\):",1,0,200,103,80,21,1.14.5
+cb_RunFromRam="Run From RAM",1,3,520,105,100,18,False,"__Store the program files in Boot.wim (loaded into memory on boot)."
+bvl_Shortcuts=Shortcuts,1,12,5,145,155,175,8,Bold
+cb_DesktopShc=Desktop,1,3,12,165,140,18,True
+cb_StartMenuShc="Start Menu",1,3,12,184,140,18,True
+cb_PinToTaskbar="Pin to Taskbar",1,3,12,203,140,18,False
+cb_PinToStartMenu="Pin to Start Menu",1,3,12,222,140,18,False
+txt_StartMenuFolder="Start Menu folder:",1,0,12,256,140,21,"Backup & Imaging"
+txt_ShortcutName="Shortcut Name:",1,0,12,293,140,21,WimSmith
+bvl_Options=Options,1,12,170,145,523,175,8,Bold
+lbl_Language=Language:,1,1,180,168,130,16,8,Normal
+cmb_Language="Windows default",1,4,320,165,160,21,"Windows default","Korean [ko]","English [en]"
+lbl_Theme=Theme:,1,1,180,195,130,16,8,Normal
+cmb_Theme=Dark,1,4,320,192,160,21,Dark,Light
+lbl_OpenTab="Open a WIM file in:",1,1,180,222,130,16,8,Normal
+cmb_OpenTab=Browse,1,4,320,219,160,21,Browse,Info,Restore,"Add an image",Export,"Split / Join"
+lbl_Assoc="Open with WimSmith:",1,1,180,250,130,16,8,Normal
+cb_AssocWim=.wim,1,3,320,249,55,18,True
+cb_AssocEsd=.esd,1,3,380,249,55,18,True
+cb_AssocSwm=.swm,1,3,440,249,55,18,True
+cb_ContextMenu="Right-click menu #$qWimSmith >#$q for .wim / .esd / .swm",1,3,180,276,360,18,True,"__Restore, Add an image, Export, Split / Join, Info and Browse in the right-click menu of these files (Windows 11: under Show more options)."
+lbl_Note="Note: WimSmith is x64 only. The GitHub source needs a release with WimSmith-x64.zip (from v1.1 on).",1,1,5,330,688,16,8,Bold
