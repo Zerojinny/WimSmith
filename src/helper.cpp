@@ -14,7 +14,8 @@
 //    verify : checks the integrity table and all the data of a WIM;
 //    apply  : formats a volume (NTFS) and applies one image to it, or
 //             (folder = ...) applies it into an empty folder; with
-//             boot = UEFI|BIOS|ALL bcdboot then writes the boot files;
+//             drivers = <folder> DISM adds the drivers (dism = <dism.exe>),
+//             then with boot = UEFI|BIOS|ALL bcdboot writes the boot files;
 //    disk   : see disk.cpp.
 //  wimlib's own messages go to wimlib_errors.txt.
 // ============================================================
@@ -865,6 +866,44 @@ namespace wimsmith
         return rc;
     }
 
+    // a path as one argument of DISM: quoted when it has a space; no "\" before
+    // the closing quote (it would escape it), but "X:\" keeps its "\"
+    static wstring DismArg(wstring p)
+    {
+        if (p.size() > 3) while (!p.empty() && p.back() == L'\\') p.pop_back();
+        return p.find(L' ') == wstring::npos ? p : L"\"" + p + L"\"";
+    }
+
+    // drivers = <folder>: dism /Image:<root> /Add-Driver /Driver:<folder> /Recurse
+    // into the Windows just restored to root ("X:\" or a folder), with the
+    // dism.exe given (dism = <file>, else the one of Windows). Its log goes to
+    // dism.log in the work folder. 0 = added (or nothing to do)
+    static int AddDrivers(const Job& job, const wstring& root)
+    {
+        wstring drivers = Get(job, L"drivers");
+        if (drivers.empty()) return 0;
+        Progress(-1, L"drivers", true);
+        wstring dism = Get(job, L"dism");
+        if (dism.empty()) dism = Combine(SystemDir(), L"dism.exe");
+        if (!FileExists(dism)) { Status(L"DISM was not found: " + dism); return ERROR_FILE_NOT_FOUND; }
+        if (!DirExists(drivers)) { Status(L"The driver folder was not found: " + drivers); return ERROR_PATH_NOT_FOUND; }
+        if (!DirExists(Combine(root, L"Windows\\System32"))) { Status(L"No Windows in the image: " + Combine(root, L"Windows\\System32") + L" is missing."); return 3; }
+        wstring log = Combine(DirName(statusFile), L"dism.log");
+        wstring args = L"/Image:" + DismArg(root) + L" /Add-Driver /Driver:" + DismArg(drivers) + L" /Recurse /LogPath:" + DismArg(log);
+        Status(L"Adding the drivers of " + drivers + L" (DISM: " + dism + L")");
+        Status(L"dism " + args);
+        int rc = RunTool(dism, args);
+        if (rc != 0) Status(L"DISM ended with code " + Num(rc) + L" (log: " + log + L").");
+        return rc;
+    }
+
+    // the result of a restore with drivers: the failure of DISM after an applied image
+    static int DriversFailed(int rc, const wstring& where)
+    {
+        return Finish(rc, L"The image was applied to " + where + L", but the drivers were not added (DISM code " + Num(rc)
+            + L"). The work folder keeps dism.log.");
+    }
+
     // compact = 1..4: restored with the System Compression of Windows 10 (Compact OS)
     static int CompactFlags(const Job& job)
     {
@@ -905,6 +944,8 @@ namespace wimsmith
         Status(L"Applying image " + Num(index) + L" (" + Property(wim.p, index, L"NAME") + L") to " + dir);
         rc = wimlib_extract_image(wim.p, index, dir.c_str(), extractFlags);
         if (rc != 0) return Failed(rc, L"Apply image " + Num(index) + L" to " + dir);
+        int drc = AddDrivers(job, dir);
+        if (drc != 0) return DriversFailed(drc, dir);
         return Finish(0, L"OK " + dir);
     }
 
@@ -950,10 +991,14 @@ namespace wimsmith
             rc = wimlib_extract_image(wim.p, index, (l + L":\\").c_str(), extractFlags);
             if (rc != 0) return Failed(rc, L"Apply image " + Num(index) + L" to " + l + L":");
         }
+        // the drivers before the boot files; the boot files are written even when DISM failed
+        int drc = AddDrivers(job, l + L":\\");
         wstring fw = Get(job, L"boot");
-        if (fw.empty()) return Finish(0, L"OK " + l + L":");
+        if (fw.empty()) return drc != 0 ? DriversFailed(drc, l + L":") : Finish(0, L"OK " + l + L":");
         int brc = WriteBootFiles(job, letter, fw);
-        if (brc != 0) return Finish(brc, L"The image was applied to " + l + L":, but the boot files were not written (code " + Num(brc) + L").");
+        if (brc != 0) return Finish(brc, L"The image was applied to " + l + L":, but the boot files were not written (code " + Num(brc) + L")."
+            + (drc != 0 ? L" The drivers were not added either (DISM code " + Num(drc) + L")." : L""));
+        if (drc != 0) return DriversFailed(drc, l + L": (the boot files were written)");
         return Finish(0, L"OK " + l + L": + boot files (" + fw + L")");
     }
 

@@ -301,10 +301,11 @@ namespace wimsmith
 
     // [Settings]: the theme (saved as theme = dark | light; the window is made
     // again, like for a language), .wim / .esd / .swm opened with WimSmith,
-    // the tab they open in, and image_folder relative to the exe folder
+    // the tab they open in, restore.wim relative to the exe folder, and the
+    // DISM of the restore tab (the one of Windows, or dism.exe in a folder)
     void MainWindow::ShowSettings()
     {
-        HWND d = Dialog(L::T(L"st.title"), 600, 266);
+        HWND d = Dialog(L::T(L"st.title"), 600, 340);
         Grid grid(d);
         grid.labelWidth = 170;
         HWND cboTheme = Combo(d);
@@ -340,6 +341,23 @@ namespace wimsmith
         HWND chkRelative = Check(d, L::T(L"st.relative_paths"));
         SetChecked(chkRelative, wasRelative);
         grid.Add(L::T(L"st.row_paths"), { Box(chkRelative) });
+        HWND cboDism = Combo(d);
+        ComboAdd(cboDism, L::T(L"st.dism_system"));
+        ComboAdd(cboDism, L::T(L"st.dism_folder"));
+        ComboSelect(cboDism, DismFromFolder() ? 1 : 0);
+        grid.Add(L::T(L"st.row_dism"), { Field(cboDism, 300) });
+        HWND txtDism = Edit(d);
+        SetText(txtDism, DismFolder());
+        HWND btnDism = Button(d, L::T(L"qbt.btn_browse"));
+        grid.Add(L"", { Field(txtDism, 300), Btn(btnDism, 100) });
+        auto dismState = [=] { bool folder = ComboIndex(cboDism) == 1; Enable(txtDism, folder); Enable(btnDism, folder); };
+        dismState();
+        OnChange(cboDism, dismState);
+        OnClick(btnDism, [=]
+        {
+            wstring folder;
+            if (PickFolder(L::T(L"st.select_dism"), FullPath(Trim(GetText(txtDism))), folder)) SetText(txtDism, folder);
+        });
         HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
         Primary(ok, false);
         SetLayout(d, [=, &grid](int cw, int ch)
@@ -350,7 +368,8 @@ namespace wimsmith
             Move(cancel, cw - S(14) - S(86), by, S(86), S(28));
         });
         Relayout(d);
-        int theme = 0, openTab = 0;
+        int theme = 0, openTab = 0, dism = 0;
+        wstring dismDir;
         OnClick(ok, [&, d]
         {
             theme = ComboIndex(cboTheme);
@@ -358,6 +377,8 @@ namespace wimsmith
             for (int n = 0; n < extCount; n++) want[n] = Checked(chkExt[n]);
             wantMenu = Checked(chkMenu);
             wantRelative = Checked(chkRelative);
+            dism = ComboIndex(cboDism);
+            dismDir = Trim(GetText(txtDism));
             EndModal(d, 1);
         });
         OnClick(cancel, [d] { EndModal(d, 2); });
@@ -366,6 +387,8 @@ namespace wimsmith
 
         if (openTab >= 0) SetSetting(L"open_tab", OpenTabs[openTab][0]);
         if (wantRelative != wasRelative) SetRelativePaths(wantRelative);
+        SetSettings({ { L"dism", dism == 1 ? L"folder" : L"system" }, { L"dism.folder", dismDir } });
+        if (dism == 1 && !FileExists(DismExe())) Info(L::F(L"st.dism_missing", DismExe().empty() ? wstring(L"-") : DismExe()), MB_ICONWARNING);
         // each extension: set (again, when Windows does not open it with WimSmith) or taken back
         wstring done, removed, notDefault, failed;
         auto add = [](wstring& list, const wstring& ext) { list += (list.empty() ? L"" : L", ") + ext; };

@@ -23,4 +23,11 @@ namespace wimsmith
     void SetRelativePaths(bool on);       // also writes restore.wim again in the new form
     wstring RestoreWim();                 // the last WIM file of the restore tab, full path ("" = none)
     void SetRestoreWim(const wstring& file);
+
+    // DISM for the drivers of the restore tab (Settings): dism = system (the
+    // dism.exe of Windows, System32) or folder (dism.exe in dism.folder, e.g.
+    // the DISM folder of the ADK; a relative folder is read against the exe folder)
+    bool DismFromFolder();
+    wstring DismFolder();                 // as saved
+    wstring DismExe();                    // the full path of the dism.exe to use
 }

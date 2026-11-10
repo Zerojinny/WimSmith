@@ -3,8 +3,10 @@
 //  The restore tab: formats a volume (NTFS) and applies one image of a
 //  WIM file to it, after two confirmations, or applies it into an empty
 //  folder; then (UEFI / BIOS) bcdboot writes the boot files to the
-//  chosen system partition. Not offered: the Windows drive, the drive
-//  of WimSmith and the drive of the WIM file.
+//  chosen system partition. Before the boot files, DISM can add the
+//  drivers of a folder to the restored Windows (the DISM of Windows or
+//  the one in the folder of the settings). Not offered: the Windows
+//  drive, the drive of WimSmith and the drive of the WIM file.
 // ============================================================
 #pragma once
 #include "app.h"
@@ -26,6 +28,7 @@ namespace wimsmith
         HWND txtWim, btnWim, btnRead, cboImage, cboTarget, btnTgtFolder, btnTgtRefresh, txtLabel;
         HWND chkUefi, chkBios, chkNoBoot, chkCheck, lblBootLang, cboBootLang, cboSysPart, btnPartRefresh, btnApply;
         HWND cboCompact;                      // Compact OS: 0 = off, 1..4 = XPRESS4K / 8K / 16K / LZX
+        HWND chkDrivers, txtDrivers, btnDrivers;   // drivers added with DISM after the restore
         int Compact() const;
 
     private:
@@ -54,5 +57,9 @@ namespace wimsmith
         void SetBusy(bool busy);
         void StartApply();
         void StartApplyToFolder(const wstring& wim, const wl::WimImage& img, const wstring& imgText, const wstring& folder);
+        void UpdateDrivers();
+        // drivers checked: the folder and dism.exe are checked, the job keys
+        // drivers / dism set and a line added to the question; false = refused
+        bool DriversJob(Job& job, wstring& question, wstring& folder);
     };
 }

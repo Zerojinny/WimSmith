@@ -73,6 +73,7 @@ The tabs are at the top. The footer at the bottom has:
 | Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
 | Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
 | Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*. On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
+| DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`) |
 | Restore: path | the restore tab remembers its last WIM file; with this on, it is saved relative to `WimSmith.exe` (e.g. `WIM\pc.wim` or `..\Backup\pc.wim`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
 
 When another program was chosen for one of these extensions in Windows before, Windows keeps it, and WimSmith says so: right-click such a file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, its boxes are shown cleared: check them again.
@@ -98,6 +99,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 | UEFI/BIOS/None | which boot files to write afterwards, and the boot manager language (default `ko-kr`) |
 | System partition | where the boot files go |
 | Compression | **Off**, or **Compact OS** XPRESS 4K / 8K / 16K / LZX: the restored files are compressed by Windows (see below). The last choice is kept |
+| Drivers | **Add with DISM**: after the restore, DISM adds the drivers of a folder to the restored Windows (see below). The folder is kept, the box is not |
 | Integrity | check the WIM file against its integrity table first (`--check`); a damaged file stops the job before anything is formatted. Off by default |
 
 ### To a volume
@@ -122,6 +124,14 @@ The files are written with the *System Compression* of Windows 10 (`wimapply --c
 - Files that Windows needs to start are left uncompressed by wimlib.
 - The size check before the restore is skipped: the compressed image may fit a volume smaller than its size.
 - Files written later by Windows are not compressed; files changed later are written uncompressed again.
+
+### Drivers (DISM)
+
+With **Add with DISM** checked, DISM adds the drivers of the chosen folder (`.inf` files, subfolders included) to the restored Windows right after the image is applied, before the boot files are written (`dism /Image:<target> /Add-Driver /Driver:<folder> /Recurse`). Use it for storage, network or chipset drivers that the restored Windows needs on this PC.
+
+- It works for a volume and for a folder target; the image must contain Windows.
+- Which DISM is used is chosen in [Settings]: the DISM of Windows (`System32\dism.exe`, also in Windows PE) or `dism.exe` in a folder, e.g. the `DISM` folder of the Windows ADK (`...\Deployment Tools\amd64\DISM`). A DISM older than the restored Windows may fail: then use the one of the ADK. A relative folder is read against the folder of `WimSmith.exe`.
+- When DISM fails, the image stays applied and the boot files are still written; the job ends with the DISM error, and DISM's log is kept as `dism.log` in the job folder.
 
 ### To a folder
 
@@ -356,6 +366,8 @@ Next to `WimSmith.exe`. Values changed in the window are saved here; it can also
 | `backup.update_of` | the *Fast* box of the backup tab (default on) |
 | `backup.exclude_on`, `backup.exclude` | the *Exclude these paths* box and the list (paths separated by `\|`) |
 | `restore.compact` | the compression of the restore tab: 0 = off, 1-4 = XPRESS 4K / 8K / 16K / LZX |
+| `restore.drivers` | the driver folder of the restore tab |
+| `dism`, `dism.folder` | the DISM for drivers: `system` or `folder`, and that folder |
 | `disk.*` | the last choices of the disk tab (style, layout, sizes, labels, …) |
 
 Verify and integrity table are not saved; they are off at every start.
@@ -376,6 +388,7 @@ A `lang\` folder next to `WimSmith.exe` with `ko.ini` / `en.ini` is read before 
 | Problem | Cause and fix |
 |---|---|
 | "libwim-15.dll cannot be used" | wimlib is missing from `lib\` and could not be downloaded. Put `libwim-15.dll` of the wimlib Windows release (x64) into `lib\` |
+| The drivers were not added | DISM ended with an error (its code is in the log; `dism.log` is in the job folder). A DISM older than the restored Windows: choose the DISM of the Windows ADK in [Settings] |
 | Administrator request cancelled | backup, restore and disk jobs need administrator rights; start again and answer Yes |
 | The running Windows cannot be backed up | turn on *Back up from a VSS snapshot*, or back up from Windows PE |
 | A volume is missing from the restore targets | the drives of the running Windows, of WimSmith and of the WIM file are not listed; move the WIM file or choose another target |

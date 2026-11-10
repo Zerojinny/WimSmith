@@ -243,7 +243,7 @@ namespace wimsmith
         job.mode = values[L"mode"];
         // a relative path typed in a tab is relative to the exe folder (the current
         // folder of this process, main.cpp); the helper gets it in full
-        for (const wchar_t* key : { L"wim", L"source", L"folder", L"swm" })
+        for (const wchar_t* key : { L"wim", L"source", L"folder", L"swm", L"drivers", L"dism" })
         {
             auto it = values.find(key);
             if (it == values.end() || it->second.empty() || !PathIsRelativeW(it->second.c_str())) continue;
@@ -258,7 +258,7 @@ namespace wimsmith
         // the elevated helper does not see the network drives (and SUBST drives)
         // of this session: their paths go to it as \\server\share\...
         if (elevate)
-            for (const wchar_t* key : { L"wim", L"source", L"folder", L"tools", L"root" })
+            for (const wchar_t* key : { L"wim", L"source", L"folder", L"drivers", L"dism", L"tools", L"root" })
             {
                 auto it = values.find(key);
                 if (it == values.end()) continue;
@@ -347,6 +347,7 @@ namespace wimsmith
         else if (ph == L"apply") phaseText = L::F(L"bk.phase_apply", shown, Gb(a), Gb(b));
         else if (ph == L"format") phaseText = L::T(L"bk.phase_format");
         else if (ph == L"boot") phaseText = L::T(L"bk.phase_boot");
+        else if (ph == L"drivers") phaseText = L::T(L"rs.phase_drivers");
         else if (ph == L"snapshot") phaseText = L::T(L"bk.phase_snapshot");
         else if (ph == L"disk") phaseText = L::T(L"dk.phase");
         else if (ph == L"structure") phaseText = L::T(L"bk.phase_structure");

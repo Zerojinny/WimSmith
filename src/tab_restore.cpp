@@ -68,6 +68,12 @@ namespace wimsmith
         ComboSelect(cboCompact, win10 && compact >= 0 && compact <= 4 ? (int)compact : 0);
         if (!win10) Tooltip(cboCompact, L::T(L"rs.compact_needs_10"));
         grid.Add(L::T(L"rs.row_compact"), { Field(cboCompact, 320) });
+        // drivers: dism /Add-Driver /Recurse into the restored Windows (the folder is kept, the box is not)
+        chkDrivers = Check(page, L::T(L"rs.drivers"));
+        txtDrivers = Edit(page);
+        SetText(txtDrivers, GetSetting(L"restore.drivers", L""));
+        btnDrivers = Button(page, L::T(L"qbt.btn_browse"));
+        grid.Add(L::T(L"rs.row_drivers"), { Box(chkDrivers), Field(txtDrivers, 300), Btn(btnDrivers, 100) });
         // wimlib --check: the WIM file is checked against its integrity table first (off by default)
         chkCheck = Check(page, L::T(L"rs.check"));
         grid.Add(L::T(L"bk.row_check"), { Box(chkCheck) });
@@ -91,6 +97,13 @@ namespace wimsmith
         for (HWND box : { chkUefi, chkBios, chkNoBoot }) OnChange(box, [this, box] { BootBoxChanged(box); });
         OnClick(btnPartRefresh, [this] { LoadPartitions(); });
         OnClick(btnApply, [this] { StartApply(); });
+        OnChange(chkDrivers, [this] { UpdateDrivers(); });
+        OnClick(btnDrivers, [this]
+        {
+            wstring folder;
+            if (PickFolder(L::T(L"rs.select_drivers"), FullPath(Trim(GetText(txtDrivers))), folder)) SetText(txtDrivers, folder);
+        });
+        UpdateDrivers();
         OnChange(cboCompact, [this] { SetSetting(L"restore.compact", Num(std::max(0, ComboIndex(cboCompact)))); });
         // a valid boot manager language is kept for the next start (after the
         // combo box has taken the chosen text)
@@ -399,10 +412,42 @@ namespace wimsmith
 
     void RestoreTab::SetBusy(bool busy)
     {
-        for (HWND c : { btnApply, cboTarget, cboImage, txtWim, btnPartRefresh, chkCheck }) Enable(c, !busy);
+        for (HWND c : { btnApply, cboTarget, cboImage, txtWim, btnPartRefresh, chkCheck, chkDrivers }) Enable(c, !busy);
         Enable(cboCompact, !busy && Windows10OrLater());
+        UpdateDrivers();
         if (busy) for (HWND c : { chkUefi, chkBios, chkNoBoot, cboSysPart, cboBootLang }) Enable(c, false);
         else UpdateBoot();
+    }
+
+    void RestoreTab::UpdateDrivers()
+    {
+        bool on = Checked(chkDrivers) && !app.Busy();
+        Enable(txtDrivers, on);
+        Enable(btnDrivers, on);
+    }
+
+    bool RestoreTab::DriversJob(Job& job, wstring& question, wstring& folder)
+    {
+        folder.clear();
+        if (!Checked(chkDrivers)) return true;
+        wstring given = Trim(GetText(txtDrivers));
+        folder = FullPath(given);
+        if (folder.empty() || !DirExists(folder))
+        {
+            Info(L::F(L"rs.err_drivers_folder", given.empty() ? wstring(L"-") : given), MB_ICONWARNING);
+            return false;
+        }
+        wstring dism = DismExe();
+        if (dism.empty() || !FileExists(dism))
+        {
+            Info(L::F(L"rs.err_dism", dism.empty() ? wstring(L"-") : dism), MB_ICONWARNING);
+            return false;
+        }
+        SetSetting(L"restore.drivers", given);
+        job[L"drivers"] = folder;
+        job[L"dism"] = dism;
+        question += L"\r\n\r\n" + L::F(L"rs.confirm_drivers", folder, dism);
+        return true;
     }
 
     int RestoreTab::Compact() const
@@ -460,10 +505,12 @@ namespace wimsmith
             windows += L"\r\n" + L::F(L"bk.confirm_make_active", sys.Disk, sys.Number);
         if (Checked(chkCheck)) windows += L"\r\n\r\n" + L::T(L"rs.confirm_check");
         if (Compact()) windows += L"\r\n\r\n" + L::F(L"rs.confirm_compact", CompactNames[Compact()]);
+        Job job;
+        wstring drivers;
+        if (!DriversJob(job, windows, drivers)) return;
         if (!YesNo(L::F(L"bk.confirm_apply", tgt.Letter, tgt.Text, imgText, wim, windows), MB_ICONWARNING)) return;
         if (!app.ConfirmTyped(L::F(L"bk.confirm_type", tgt.Letter), letter)) return;
 
-        Job job;
         job[L"mode"] = L"apply";
         job[L"wim"] = wim;
         job[L"index"] = Num(img.Index);
@@ -484,11 +531,12 @@ namespace wimsmith
         app.job.wim = wim;
         app.job.image = img.Index;
         app.job.target = letter;
-        app.onSuccess = [this](const wstring& elapsed)
+        app.onSuccess = [this, drivers](const wstring& elapsed)
         {
             const App::JobInfo& j = app.job;
             wstring msg = L::F(j.ToFolder() ? L"bk.apply_done_folder" : !j.boot.empty() ? L"bk.apply_done_boot" : L"bk.apply_done",
-                j.image, j.target, FirmwareText(j.boot)) + L"\r\n\r\n" + elapsed;
+                j.image, j.target, FirmwareText(j.boot))
+                + (drivers.empty() ? wstring() : L"\r\n\r\n" + L::F(L"rs.drivers_done", drivers)) + L"\r\n\r\n" + elapsed;
             FillTargets();
             return msg;
         };
@@ -512,9 +560,11 @@ namespace wimsmith
         wstring question = L::F(L"bk.confirm_apply_folder", folder, imgText, wim);
         if (Checked(chkCheck)) question += L"\r\n\r\n" + L::T(L"rs.confirm_check_folder");
         if (Compact()) question += L"\r\n\r\n" + L::F(L"rs.confirm_compact", CompactNames[Compact()]);
+        Job job;
+        wstring drivers;
+        if (!DriversJob(job, question, drivers)) return;
         if (!YesNo(question, MB_ICONQUESTION)) return;
 
-        Job job;
         job[L"mode"] = L"apply";
         job[L"wim"] = wim;
         job[L"index"] = Num(img.Index);
@@ -525,10 +575,11 @@ namespace wimsmith
         app.job.wim = wim;
         app.job.image = img.Index;
         app.job.target = folder;
-        app.onSuccess = [this](const wstring& elapsed)
+        app.onSuccess = [this, drivers](const wstring& elapsed)
         {
             const App::JobInfo& j = app.job;
-            wstring msg = L::F(L"bk.apply_done_folder", j.image, j.target, FirmwareText(j.boot)) + L"\r\n\r\n" + elapsed;
+            wstring msg = L::F(L"bk.apply_done_folder", j.image, j.target, FirmwareText(j.boot))
+                + (drivers.empty() ? wstring() : L"\r\n\r\n" + L::F(L"rs.drivers_done", drivers)) + L"\r\n\r\n" + elapsed;
             FillTargets();
             return msg;
         };

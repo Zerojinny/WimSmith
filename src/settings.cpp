@@ -107,4 +107,16 @@ namespace wimsmith
         SetSetting(L"relative_paths", on ? L"1" : L"0");
         if (!file.empty()) SetRestoreWim(file);
     }
+
+    bool DismFromFolder() { return EqualsI(GetSetting(L"dism", L"system"), L"folder"); }
+    wstring DismFolder() { return GetSetting(L"dism.folder", L""); }
+
+    wstring DismExe()
+    {
+        if (!DismFromFolder()) return Combine(SystemDir(), L"dism.exe");
+        wstring dir = DismFolder();
+        if (dir.empty()) return wstring();
+        if (PathIsRelativeW(dir.c_str())) dir = FullPath(Combine(ExeDir(), dir));
+        return Combine(dir, L"dism.exe");
+    }
 }
