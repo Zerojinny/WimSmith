@@ -160,6 +160,7 @@ namespace wimsmith
         });
         OnDestroy(hwnd, [] { PostQuitMessage(0); });
         UpdateMenuLanguage();
+        if (assoc::UpdateIcons()) assoc::Changed();
     }
 
     HWND MainWindow::AddPage(const wstring& title)

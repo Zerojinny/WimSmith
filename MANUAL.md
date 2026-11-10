@@ -70,7 +70,7 @@ The tabs are at the top. The footer at the bottom has:
 | Setting | Description |
 |---|---|
 | Theme | Dark / Light; the window is rebuilt in the new colors |
-| Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
+| Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. These files get their own icons (a page with the layers and the extension: WIM teal, ESD violet, SWM orange). Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
 | Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
 | Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*. On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
 | DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`) |

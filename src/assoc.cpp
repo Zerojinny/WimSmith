@@ -26,6 +26,13 @@ namespace wimsmith
 
         static wstring Command() { return L"\"" + Self() + L"\" \"%1\""; }
 
+        // the icon of the file type: icon resource 2 / 3 / 4 of the exe (app.rc)
+        static wstring IconOf(const wstring& ext)
+        {
+            int id = EqualsI(ext, L".esd") ? 3 : EqualsI(ext, L".swm") ? 4 : 2;
+            return L"\"" + Self() + L"\",-" + std::to_wstring(id);
+        }
+
         // a REG_SZ of HKCU ("" = missing)
         static wstring Read(const wstring& key, const wchar_t* name)
         {
@@ -58,7 +65,7 @@ namespace wimsmith
             wstring prog = ProgKey(ext), key = ExtKey(ext), id = ProgId(ext);
             wstring before = Read(key, nullptr);
             LSTATUS r = Write(prog, nullptr, typeName);
-            if (r == ERROR_SUCCESS) r = Write(prog + L"\\DefaultIcon", nullptr, L"\"" + Self() + L"\",0");
+            if (r == ERROR_SUCCESS) r = Write(prog + L"\\DefaultIcon", nullptr, IconOf(ext));
             if (r == ERROR_SUCCESS) r = Write(prog + L"\\shell\\open\\command", nullptr, Command());
             // the default of the extension before WimSmith (given back by Unregister)
             if (r == ERROR_SUCCESS && !before.empty() && !EqualsI(before, id)) r = Write(prog, Previous, before);
@@ -78,6 +85,17 @@ namespace wimsmith
             }
             RegDeleteKeyValueW(HKEY_CURRENT_USER, (key + L"\\OpenWithProgids").c_str(), id.c_str());
             RegDeleteTreeW(HKEY_CURRENT_USER, prog.c_str());
+        }
+
+        bool UpdateIcons()
+        {
+            bool changed = false;
+            for (const wchar_t* ext : Extensions)
+            {
+                wstring key = ProgKey(ext) + L"\\DefaultIcon";
+                if (Registered(ext) && !EqualsI(Read(key, nullptr), IconOf(ext)) && Write(key, nullptr, IconOf(ext)) == ERROR_SUCCESS) changed = true;
+            }
+            return changed;
         }
 
         void Changed() { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr); }

@@ -24,6 +24,9 @@ namespace wimsmith
         wstring Register(const wstring& ext, const wstring& typeName);   // "" = done, else the error
         void Unregister(const wstring& ext);   // the previous default of the extension comes back
         void Changed();                        // tells Explorer (once after the changes)
+        // the icon of each registered extension (icon resource 2 / 3 / 4 of this exe)
+        // set again when it differs (an older version); true = changed
+        bool UpdateIcons();
 
         // the right-click menu "WimSmith >" of an extension, whatever program
         // opens it (HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\

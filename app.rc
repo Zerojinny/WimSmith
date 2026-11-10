@@ -5,6 +5,11 @@
 #include "src/version.h"
 
 1 ICON "WimSmith.ico"
+// the icons of .wim / .esd / .swm files (backup\icon\make_file_icons.ps1),
+// the DefaultIcon of the file associations: "<exe>",-2 / -3 / -4 (assoc.cpp)
+2 ICON "icons/wim.ico"
+3 ICON "icons/esd.ico"
+4 ICON "icons/swm.ico"
 
 // the text of the license, shown on the "?" tab (tab_about.cpp)
 LICENSE TEXT "LICENSE"

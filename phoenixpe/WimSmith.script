@@ -36,7 +36,7 @@ Author=zerojinny
 Level=5
 Selected=True
 Mandatory=False
-Version=1.0.0.0
+Version=1.1.0.0
 Date=2026-11-09
 
 [Variables]
@@ -145,6 +145,24 @@ If,%OpensFiles%,Equal,True,Begin
   If,%cb_AssocSwm%,Equal,True,Associate,.swm,"%PEExe%"
 End
 
+// The file icons (icon resources 2 / 3 / 4 of WimSmith.exe) came with WimSmith 1.2,
+// whose lang\en.ini has rs.drivers; Associate gives the icon of the exe, so
+// DefaultIcon is set again here
+Set,%FileIcons%,False
+If,%OpensFiles%,Equal,True,Begin
+  If,ExistFile,"%Dest%\lang\en.ini",Begin
+    IniRead,"%Dest%\lang\en.ini","ui","rs.drivers",%Probe%,"Default="
+    If,Not,"%Probe%",Equal,"",Set,%FileIcons%,True
+  End
+End
+If,%FileIcons%,Equal,True,Begin
+  RegLoadHives
+  If,%cb_AssocWim%,Equal,True,Run,%ScriptFile%,SetFileIcon,wim,2
+  If,%cb_AssocEsd%,Equal,True,Run,%ScriptFile%,SetFileIcon,esd,3
+  If,%cb_AssocSwm%,Equal,True,Run,%ScriptFile%,SetFileIcon,swm,4
+  RegUnloadHives
+End
+
 ///////////////////////////////////////////////////////////////////////////////////
 // Right-click menu "WimSmith >" of .wim / .esd / .swm (WimSmith.exe --open <tab> "%1"),
 // in the language of WimSmith: the texts come from its lang\<code>.ini (the same
@@ -205,6 +223,16 @@ Set,%MenuKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\Wi
 RegWrite,HKLM,REG_SZ,"%MenuKey%","MUIVerb","WimSmith"
 RegWrite,HKLM,REG_SZ,"%MenuKey%","Icon","#$q%PEExe%#$q,0"
 RegWrite,HKLM,REG_SZ,"%MenuKey%","SubCommands",""
+
+[#SetFileIcon#]
+// ===============================================================================================================================
+// Name...........: SetFileIcon
+// Description....: The icon of a file type associated by PhoenixAPI Associate (class <ext>file): icon resource <Id> of WimSmith.exe.
+// Syntax.........: Run,%ScriptFile%,SetFileIcon,<ext without dot>,<Id>
+// Remarks........: The hives must be loaded (RegLoadHives).
+// ===============================================================================================================================
+[SetFileIcon]
+RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Classes\%^SIPARAM_1%file\DefaultIcon","","#$q%PEExe%#$q,-%^SIPARAM_2%"
 
 [#AddMenuItem#]
 // ===============================================================================================================================
