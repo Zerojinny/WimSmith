@@ -115,6 +115,11 @@ namespace wimsmith
         wstring wim = FullPath(file);
         if (!FileExists(wim)) { Log(L::F(L"st.open_missing", file)); return; }
         wstring tab = tabGiven.empty() ? GetSetting(L"open_tab", L"browse") : tabGiven;
+        if (EqualsI(tab, L"ramboot"))
+        {
+            OneTimeBoot(wim);
+            return;
+        }
         if (EqualsI(tab, L"append"))
         {
             win.SelectPage(backup->page);
@@ -254,7 +259,7 @@ namespace wimsmith
         // update: the browse tab sends its edits here only when the file needs them;
         // modify (the info tab): admin = 1 when the user may not write the file
         bool elevate = job.mode == L"capture" || job.mode == L"apply" || job.mode == L"disk" || job.mode == L"update"
-            || values[L"admin"] == L"1";
+            || job.mode == L"ramboot" || values[L"admin"] == L"1";
         // the elevated helper does not see the network drives (and SUBST drives)
         // of this session: their paths go to it as \\server\share\...
         if (elevate)
@@ -462,26 +467,32 @@ namespace wimsmith
 
     // ---------- after a successful job: nothing / shut down / restart ----------
 
-    static const int AfterSeconds = 60;
-
     void App::AfterDone(const wstring& msg)
     {
         int action = ComboIndex(win.cboAfter);
         if (action != 1 && action != 2) { Info(msg); return; }
         wstring what = L::T(action == 1 ? L"bk.after_shutdown" : L"bk.after_restart");
-        Log(L::F(L"bk.log_after", what, AfterSeconds));
-        if (!Countdown(msg, action == 1 ? L"bk.after_countdown_shutdown" : L"bk.after_countdown_restart"))
+        int seconds = AfterSeconds();   // [Settings], 10 s by default
+        Log(L::F(L"bk.log_after", what, seconds));
+        if (!Countdown(msg, action == 1 ? L"bk.after_countdown_shutdown" : L"bk.after_countdown_restart", seconds))
         {
             Log(L::F(L"bk.log_after_cancelled", what));
             return;
         }
+        Shutdown(action == 2);
+    }
+
+    void App::Shutdown(bool restart)
+    {
+        wstring what = L::T(restart ? L"bk.after_restart" : L"bk.after_shutdown");
         // no /f: programs with unsaved work may still ask before Windows goes down
-        wstring args = wstring(action == 1 ? L"/s" : L"/r") + L" /t 0 /d p:0:0";
+        wstring args = wstring(restart ? L"/r" : L"/s") + L" /t 0 /d p:0:0";
         try
         {
             std::string out, err;
-            RunProcess(Combine(SystemDir(), L"shutdown.exe"), args, out, err);
+            int rc = RunProcess(Combine(SystemDir(), L"shutdown.exe"), args, out, err);
             Log(L"shutdown " + args);
+            if (rc != 0) throw HelperError{ Trim(FromCodePage(out + err, CP_OEMCP)) + L" (" + Num(rc) + L")" };
         }
         catch (const HelperError& e)
         {
@@ -490,8 +501,88 @@ namespace wimsmith
         }
     }
 
+    // ---------- the next start (once) from a WIM file in a RAM disk ----------
+
+    // the image to start: a list when the file has more than one (the boot image first chosen)
+    static int ChooseBootImage(const wstring& wim, const wl::WimFileInfo& f)
+    {
+        HWND d = Dialog(L::T(L"rb.title"), 520, 160);
+        HWND l = Label(d, L::F(L"rb.choose", wim));
+        HWND cbo = Combo(d);
+        int sel = 0;
+        for (size_t n = 0; n < f.Images.size(); n++)
+        {
+            const wl::WimImage& im = f.Images[n];
+            wstring text = Num(im.Index) + L": " + im.Name;
+            if (!im.InstallationType.empty()) text += L" (" + im.InstallationType + L")";
+            if (im.Index == f.BootIndex) { text += L"  [" + L::T(L"rb.boot_image") + L"]"; sel = (int)n; }
+            ComboAdd(cbo, text);
+        }
+        ComboSelect(cbo, sel);
+        HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
+        Primary(ok, false);
+        SetLayout(d, [=](int cw, int ch)
+        {
+            Move(l, S(14), S(12), cw - S(28), S(40));
+            Move(cbo, S(14), S(56), cw - S(28), S(24));
+            int by = ch - S(14) - S(28);
+            Move(ok, cw - S(14) - S(86) * 2 - S(8), by, S(86), S(28));
+            Move(cancel, cw - S(14) - S(86), by, S(86), S(28));
+        });
+        Relayout(d);
+        int chosen = 0;
+        OnClick(ok, [&, d] { int i = ComboIndex(cbo); if (i >= 0) chosen = f.Images[i].Index; EndModal(d, 1); });
+        OnClick(cancel, [d] { EndModal(d, 0); });
+        OnKeys(d, [&, d] { int i = ComboIndex(cbo); if (i >= 0) chosen = f.Images[i].Index; EndModal(d, 1); }, [d] { EndModal(d, 0); });
+        SetFocus(cbo);
+        return RunModal(d) == 1 ? chosen : 0;
+    }
+
+    void App::OneTimeBoot(const wstring& wim)
+    {
+        if (Busy()) { Info(L::T(L"rb.busy"), MB_ICONWARNING); return; }
+        if (!EqualsI(FileExt(wim), L".wim")) { Info(L::F(L"rb.not_wim", wim), MB_ICONWARNING); return; }
+        if (!LoadWimlib()) return;
+        wl::WimFileInfo f;
+        int rc = wl::ReadInfo(wim, f);
+        if (rc != 0) { Info(L::F(L"bk.read_failed", wim, wl::ErrorText(rc)), MB_ICONWARNING); return; }
+        if (f.TotalParts > 1) { Info(L::F(L"rb.split", wim), MB_ICONWARNING); return; }
+        if (f.Images.empty()) { Info(L::F(L"rb.no_image", wim), MB_ICONWARNING); return; }
+        int index = f.Images.size() == 1 ? f.Images[0].Index : ChooseBootImage(wim, f);
+        if (index <= 0) return;
+        const wl::WimImage* im = nullptr;
+        for (const wl::WimImage& i : f.Images) if (i.Index == index) im = &i;
+        if (!im) return;
+        // only Windows PE starts from a RAM disk; another image may still be one
+        if (!EqualsI(im->InstallationType, L"WindowsPE")
+            && !YesNo(L::F(L"rb.not_pe", index, im->Name, im->InstallationType.empty() ? wstring(L"-") : im->InstallationType), MB_ICONWARNING))
+            return;
+        bool setBoot = f.BootIndex != index;
+        long long size = f.FileBytes > 0 ? f.FileBytes : FileSize(wim);
+        wstring text = L::F(L"rb.confirm", wim, index, im->Name, Gb(size));
+        if (setBoot) text += L"\r\n\r\n" + (f.BootIndex > 0 ? L::F(L"rb.confirm_set_boot", f.BootIndex, index) : L::F(L"rb.confirm_set_boot_none", index));
+        if (!FileExists(Combine(DirName(wim), L"boot.sdi"))) text += L"\r\n\r\n" + L::F(L"rb.confirm_sdi", Combine(DirName(wim), L"boot.sdi"));
+        if (!YesNo(text, MB_ICONQUESTION)) return;
+
+        job = JobInfo();
+        job.mode = L"ramboot";
+        job.wim = wim;
+        job.image = index;
+        onFailure = nullptr;
+        onSuccess = [this, wim, setBoot](const wstring&) -> wstring
+        {
+            if (setBoot) WimWritten(wim, false);
+            Log(L::F(L"rb.done_log", wim));
+            if (YesNo(L::F(L"rb.done", wim), MB_ICONQUESTION)) Shutdown(true);
+            return wstring();   // no "when done"
+        };
+        Log(L::F(L"rb.log_start", wim, index));
+        StartHelper({ { L"mode", L"ramboot" }, { L"wim", wim }, { L"index", Num(index) },
+            { L"set_boot", setBoot ? L"1" : L"0" }, { L"name", im->Name } });
+    }
+
     // the done message with a countdown; true = go on (time up or [Now]), false = cancelled
-    bool App::Countdown(const wstring& msg, const wstring& countdownKey)
+    bool App::Countdown(const wstring& msg, const wstring& countdownKey, int seconds)
     {
         HWND d = Dialog(L::T(L"bk.after_title"), 520, 260);
         SetWindowLongPtrW(d, GWL_EXSTYLE, GetWindowLongPtrW(d, GWL_EXSTYLE) | WS_EX_APPWINDOW);
@@ -504,7 +595,7 @@ namespace wimsmith
         Move(c, S(14), S(170), S(492), S(40));
         Move(now, S(300), S(220), S(100), S(28));
         Move(cancel, S(406), S(220), S(100), S(28));
-        ULONGLONG end = GetTickCount64() + AfterSeconds * 1000ULL;
+        ULONGLONG end = GetTickCount64() + seconds * 1000ULL;
         auto show = [=]
         {
             ULONGLONG t = GetTickCount64();

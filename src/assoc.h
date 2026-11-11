@@ -35,6 +35,7 @@ namespace wimsmith
         struct MenuItem { wstring id, text; };
         bool MenuRegistered();                 // the menu of .wim runs this exe
         wstring MenuText(const wstring& ext);  // the text of its first item (its language)
+        int MenuItemCount(const wstring& ext); // its items (0 = none)
         wstring RegisterMenu(const wstring& ext, const std::vector<MenuItem>& items);   // "" = done
         void UnregisterMenu(const wstring& ext);
     }

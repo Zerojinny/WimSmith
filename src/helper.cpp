@@ -16,6 +16,8 @@
 //             (folder = ...) applies it into an empty folder; with
 //             drivers = <folder> DISM adds the drivers (dism = <dism.exe>),
 //             then with boot = UEFI|BIOS|ALL bcdboot writes the boot files;
+//    ramboot: the next start (once) from an image of a WIM file in a RAM
+//             disk (BCD entry + bcdedit /bootsequence; RamBoot);
 //    disk   : see disk.cpp.
 //  wimlib's own messages go to wimlib_errors.txt.
 // ============================================================
@@ -1115,6 +1117,140 @@ namespace wimsmith
         return Finish(0, L"OK " + wimFile);
     }
 
+    // ---------- ramboot: the next start (once) from a WIM file in a RAM disk ----------
+
+    // fixed ids of the two BCD objects of WimSmith: made again for each file, so
+    // there is never more than one of each (not in the boot menu, only in the
+    // boot sequence of the next start)
+    static const wchar_t* const RamLoaderId = L"{7a3c1e52-4f0b-4d5e-9a61-3b2d8c0f9e11}";
+    static const wchar_t* const RamOptionsId = L"{7a3c1e52-4f0b-4d5e-9a61-3b2d8c0f9e12}";
+
+    static bool FirmwareUefi()
+    {
+        typedef BOOL(WINAPI* GetFirmwareTypeFn)(DWORD*);
+        GetFirmwareTypeFn fn = (GetFirmwareTypeFn)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetFirmwareType");
+        DWORD type = 0;
+        if (fn && fn(&type)) return type == 2;   // FirmwareTypeUefi
+        // older Windows: BIOS has no firmware variables at all
+        GetFirmwareEnvironmentVariableW(L"", L"{00000000-0000-0000-0000-000000000000}", nullptr, 0);
+        return GetLastError() != ERROR_INVALID_FUNCTION;
+    }
+
+    // a value of bcdedit as one argument: quoted (the path may have spaces)
+    static wstring BcdArg(const wstring& v) { return L"\"" + v + L"\""; }
+
+    static int Bcdedit(const wstring& args, bool quiet = false)
+    {
+        wstring exe = Combine(SystemDir(), L"bcdedit.exe");
+        if (quiet)
+        {
+            std::string out, err;
+            return RunProcess(exe, args, out, err);
+        }
+        Status(L"bcdedit " + args);
+        int rc = RunTool(exe, args);
+        if (rc != 0) Status(L"bcdedit ended with code " + Num(rc) + L".");
+        return rc;
+    }
+
+    static void DeleteRamEntries()
+    {
+        Bcdedit(L"/delete " + wstring(RamLoaderId) + L" /f", true);
+        Bcdedit(L"/delete " + wstring(RamOptionsId) + L" /f", true);
+    }
+
+    // wim, index (the image), set_boot = 1 (make it the boot image of the file
+    // first: a RAM disk starts the boot image), name (for the BCD description)
+    static int RamBoot(const Job& job)
+    {
+        wstring wimFile = FullPath(Get(job, L"wim"));
+        int index = (int)ParseLong(Get(job, L"index"), 0);
+        if (!FileExists(wimFile)) return Finish(2, NotFound(wimFile));
+        wstring root = Root(wimFile);
+        if (root.size() != 3) return Finish(87, wimFile + L" is not on a drive with a letter: the boot manager cannot read it.");
+        UINT type = DriveTypeOf(root[0]);
+        if (type != DRIVE_FIXED && type != DRIVE_REMOVABLE)
+            return Finish(87, root + L" is not a local disk: the boot manager cannot read " + wimFile + L".");
+        wstring fs = DriveFileSystem(root[0]);
+        if (EqualsI(fs, L"ReFS")) return Finish(87, root + L" is ReFS: the boot manager cannot read it. Put the WIM file on an NTFS or FAT32 drive.");
+        bool uefi = FirmwareUefi();
+        wstring winload = uefi ? L"\\Windows\\System32\\Boot\\winload.efi" : L"\\Windows\\System32\\Boot\\winload.exe";
+        Status(wstring(L"Firmware: ") + (uefi ? L"UEFI" : L"BIOS"));
+
+        {
+            Wim wim;
+            bool setBoot = Get(job, L"set_boot") == L"1";
+            Status(L"Opening " + wimFile);
+            int rc = wimlib_open_wim_with_progress(wimFile.c_str(), (setBoot ? OpenWriteAccess : 0) | CheckOpen(job), &wim.p, OnProgress, nullptr);
+            if (rc != 0) { wim.p = nullptr; return Failed(rc, L"Open " + wimFile); }
+            WimInfo info;
+            if (!info.Read(wim.p)) return Finish(1, L"The header of " + wimFile + L" was not read.");
+            if (info.TotalParts() > 1) return Finish(87, wimFile + L" is a part of a split WIM: a RAM disk needs the whole file (join the parts first).");
+            if (index < 1 || index > info.ImageCount())
+                return Finish(87, L"Image " + Num(index) + L" is not in " + wimFile + L" (" + Num(info.ImageCount()) + L" images).");
+            // the loader of the image (Windows PE has it)
+            rc = wimlib_iterate_dir_tree(wim.p, index, winload.c_str(), 0, [](const void*, void*) { return 0; }, nullptr);
+            if (rc != 0) return Finish(2, L"Image " + Num(index) + L" has no " + winload + L": it cannot start from a RAM disk (" + ErrorText(rc) + L").");
+            if (setBoot && info.BootIndex() != index)
+            {
+                Status(L"Boot image of " + wimFile + L": " + Num(info.BootIndex()) + L" -> " + Num(index));
+                unsigned char b[256] = {};
+                memcpy(b + 20, &index, sizeof index);
+                rc = wimlib_set_wim_info(wim.p, b, ChangeBootIndex);
+                if (rc != 0) return Failed(rc, L"Set the boot image");
+                Progress(-1, L"update", true);
+                rc = wimlib_overwrite(wim.p, 0, 0);
+                if (rc != 0) return Failed(rc, L"Write " + wimFile);
+            }
+            else if (info.BootIndex() != index)
+                return Finish(87, L"Image " + Num(index) + L" is not the boot image of " + wimFile + L" (" + Num(info.BootIndex()) + L").");
+        }
+
+        // boot.sdi (the empty RAM disk) on the drive of the WIM file, next to it
+        Progress(-1, L"boot", true);
+        wstring sdi = Combine(DirName(wimFile), L"boot.sdi");
+        if (!FileExists(sdi))
+        {
+            wstring from;
+            for (const wchar_t* sub : { L"Boot\\DVD\\EFI\\boot.sdi", L"Boot\\DVD\\PCAT\\boot.sdi", L"Boot\\PXE\\boot.sdi" })
+                if (from.empty() && FileExists(Combine(WindowsDir(), sub))) from = Combine(WindowsDir(), sub);
+            if (from.empty()) return Finish(2, L"boot.sdi was not found in " + Combine(WindowsDir(), L"Boot") + L"; put boot.sdi (e.g. from Windows PE media, \\Boot\\boot.sdi) next to " + wimFile + L".");
+            Status(L"Copying " + from + L" -> " + sdi);
+            if (!CopyFileW(from.c_str(), sdi.c_str(), TRUE)) return Finish((int)GetLastError(), L"boot.sdi was not copied: " + ErrorMessage(GetLastError()));
+        }
+        wstring drive = root.substr(0, 2);                 // "D:"
+        wstring wimPath = wimFile.substr(2), sdiPath = sdi.substr(2);   // "\folder\file.wim"
+        wstring name;
+        for (wchar_t c : Get(job, L"name")) if (c != L'"') name += c;
+        if (name.empty()) name = FileName(wimFile);
+
+        DeleteRamEntries();
+        wstring ram = L"ramdisk=[" + drive + L"]" + wimPath + L"," + RamOptionsId;
+        wstring loader = RamLoaderId, options = RamOptionsId;
+        const wstring steps[] = {
+            L"/create " + options + L" /d " + BcdArg(L"WimSmith RAM disk") + L" /device",
+            L"/set " + options + L" ramdisksdidevice " + BcdArg(L"partition=" + drive),
+            L"/set " + options + L" ramdisksdipath " + BcdArg(sdiPath),
+            L"/create " + loader + L" /d " + BcdArg(L"WimSmith: " + name) + L" /application osloader",
+            L"/set " + loader + L" device " + BcdArg(ram),
+            L"/set " + loader + L" osdevice " + BcdArg(ram),
+            L"/set " + loader + L" path " + winload,
+            L"/set " + loader + L" systemroot \\Windows",
+            L"/set " + loader + L" detecthal yes",
+            L"/set " + loader + L" winpe yes",
+            L"/bootsequence " + loader };
+        for (const wstring& s : steps)
+        {
+            int rc = Bcdedit(s);
+            if (rc != 0)
+            {
+                DeleteRamEntries();
+                return Finish(rc, L"The boot entry was not made (bcdedit " + s + L").");
+            }
+        }
+        return Finish(0, L"OK: the next start (once) is from " + wimFile + L", image " + Num(index));
+    }
+
     // ---------- entry ----------
 
     int RunHelper(const std::vector<wstring>& args)
@@ -1142,6 +1278,7 @@ namespace wimsmith
             if (mode == L"apply") return Apply(job);
             if (mode == L"update") return Update(job);
             if (mode == L"modify") return Modify(job);
+            if (mode == L"ramboot") return RamBoot(job);
             return Finish(87, L"Unknown mode: " + mode);
         }
         catch (const HelperError& e) { return Finish(1, e.msg); }

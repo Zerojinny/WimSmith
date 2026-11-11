@@ -280,11 +280,18 @@ namespace wimsmith
     // the right-click menu of each extension, in the language shown: what
     // each kind of file can do (.esd: no new image, no split (solid);
     // .swm: no new image, join)
-    static wstring RegisterMenus()
+    // .wim also: start once from it (ramboot, App::OneTimeBoot)
+    static std::vector<assoc::MenuItem> WimMenu()
     {
         auto item = [](const wchar_t* id, const wchar_t* key) { return assoc::MenuItem{ id, L::T(key) }; };
-        std::vector<assoc::MenuItem> wim = { item(L"restore", L"bk.tab_apply"), item(L"append", L"st.menu_append"),
-            item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab") };
+        return { item(L"restore", L"bk.tab_apply"), item(L"append", L"st.menu_append"),
+            item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab"),
+            item(L"ramboot", L"rb.menu") };
+    }
+
+    static wstring RegisterMenus()
+    {
+        std::vector<assoc::MenuItem> wim = WimMenu();
         std::vector<assoc::MenuItem> esd = { wim[0], wim[2], wim[4], wim[5] };
         std::vector<assoc::MenuItem> swm = { wim[0], wim[2], wim[3], wim[4], wim[5] };
         wstring err = assoc::RegisterMenu(L".wim", wim);
@@ -294,19 +301,22 @@ namespace wimsmith
         return err;
     }
 
-    // the menu made in another language: in this one (at every start, only when it differs)
+    // the menu made in another language, or by a version with other items: made
+    // again (at every start, only when it differs)
     void MainWindow::UpdateMenuLanguage()
     {
-        if (assoc::MenuRegistered() && assoc::MenuText(L".wim") != L::T(L"bk.tab_apply")) RegisterMenus();
+        if (assoc::MenuRegistered() && (assoc::MenuText(L".wim") != L::T(L"bk.tab_apply")
+            || assoc::MenuItemCount(L".wim") != (int)WimMenu().size())) RegisterMenus();
     }
 
     // [Settings]: the theme (saved as theme = dark | light; the window is made
     // again, like for a language), .wim / .esd / .swm opened with WimSmith,
     // the tab they open in, restore.wim relative to the exe folder, and the
-    // DISM of the restore tab (the one of Windows, or dism.exe in a folder)
+    // DISM of the restore tab (the one of Windows, or dism.exe in a folder) and
+    // the countdown before shut down / restart when done (after_seconds)
     void MainWindow::ShowSettings()
     {
-        HWND d = Dialog(L::T(L"st.title"), 600, 340);
+        HWND d = Dialog(L::T(L"st.title"), 600, 376);
         Grid grid(d);
         grid.labelWidth = 170;
         HWND cboTheme = Combo(d);
@@ -346,11 +356,15 @@ namespace wimsmith
         ComboAdd(cboDism, L::T(L"st.dism_system"));
         ComboAdd(cboDism, L::T(L"st.dism_folder"));
         ComboSelect(cboDism, DismFromFolder() ? 1 : 0);
-        grid.Add(L::T(L"st.row_dism"), { Field(cboDism, 300) });
+        HWND btnImport = Button(d, L::T(L"st.dism_import"));
+        grid.Add(L::T(L"st.row_dism"), { Field(cboDism, 300), Btn(btnImport, 100) });
         HWND txtDism = Edit(d);
         SetText(txtDism, DismFolder());
         HWND btnDism = Button(d, L::T(L"qbt.btn_browse"));
         grid.Add(L"", { Field(txtDism, 300), Btn(btnDism, 100) });
+        HWND numAfter = Number(d, 1, AfterSecondsMax, AfterSeconds());
+        HWND lblSeconds = Label(d, L::T(L"st.after_seconds"));
+        grid.Add(L::T(L"st.row_after"), { Field(numAfter, 70), Txt(lblSeconds, 8, 4) });
         auto dismState = [=] { bool folder = ComboIndex(cboDism) == 1; Enable(txtDism, folder); Enable(btnDism, folder); };
         dismState();
         OnChange(cboDism, dismState);
@@ -358,6 +372,28 @@ namespace wimsmith
         {
             wstring folder;
             if (PickFolder(L::T(L"st.select_dism"), FullPath(Trim(GetText(txtDism))), folder)) SetText(txtDism, folder);
+        });
+        // [Import]: the DISM of this Windows copied to <exe>\dism, then chosen as the folder
+        OnClick(btnImport, [=]
+        {
+            wstring dir = Combine(ExeDir(), DismImportFolder);
+            if (!YesNo(L::F(DirHasEntries(dir) ? L"st.dism_import_replace" : L"st.dism_import_confirm", SystemDir(), dir), MB_ICONQUESTION)) return;
+            HCURSOR old = SetCursor(LoadCursorW(nullptr, IDC_WAIT));
+            try
+            {
+                int count = ImportSystemDism(dir);
+                SetCursor(old);
+                ComboSelect(cboDism, 1);
+                SetText(txtDism, DismImportFolder);
+                dismState();
+                Log(L::F(L"st.dism_imported", (long long)count, dir));
+                Info(L::F(L"st.dism_imported", (long long)count, dir));
+            }
+            catch (const HelperError& e)
+            {
+                SetCursor(old);
+                Info(L::F(L"st.dism_import_failed", e.msg), MB_ICONERROR);
+            }
         });
         HWND ok = Button(d, L"OK"), cancel = Button(d, L::T(L"bk.btn_cancel"));
         Primary(ok, false);
@@ -369,7 +405,7 @@ namespace wimsmith
             Move(cancel, cw - S(14) - S(86), by, S(86), S(28));
         });
         Relayout(d);
-        int theme = 0, openTab = 0, dism = 0;
+        int theme = 0, openTab = 0, dism = 0, afterSeconds = AfterSecondsDefault;
         wstring dismDir;
         OnClick(ok, [&, d]
         {
@@ -380,6 +416,7 @@ namespace wimsmith
             wantRelative = Checked(chkRelative);
             dism = ComboIndex(cboDism);
             dismDir = Trim(GetText(txtDism));
+            afterSeconds = NumberValue(numAfter);
             EndModal(d, 1);
         });
         OnClick(cancel, [d] { EndModal(d, 2); });
@@ -388,7 +425,8 @@ namespace wimsmith
 
         if (openTab >= 0) SetSetting(L"open_tab", OpenTabs[openTab][0]);
         if (wantRelative != wasRelative) SetRelativePaths(wantRelative);
-        SetSettings({ { L"dism", dism == 1 ? L"folder" : L"system" }, { L"dism.folder", dismDir } });
+        SetSettings({ { L"dism", dism == 1 ? L"folder" : L"system" }, { L"dism.folder", dismDir },
+            { L"after_seconds", std::to_wstring(afterSeconds) } });
         if (dism == 1 && !FileExists(DismExe())) Info(L::F(L"st.dism_missing", DismExe().empty() ? wstring(L"-") : DismExe()), MB_ICONWARNING);
         // each extension: set (again, when Windows does not open it with WimSmith) or taken back
         wstring done, removed, notDefault, failed;

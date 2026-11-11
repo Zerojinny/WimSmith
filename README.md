@@ -14,7 +14,7 @@ A Windows tool that backs up volumes or folders into WIM images, and restores WI
 - **Info / Verify**: shows WIM file and image details, and checks a file for damage. Changes the name, description and edition of an image and the boot image, deletes images, and optimizes the file (makes it smaller).
 - **Browse**: shows the files inside an image and extracts the ones you need; adds, renames and deletes files in the image.
 
-Korean and English UI, with a dark and a light theme. In [Settings], `.wim`, `.esd` and `.swm` files can be set to open with WimSmith, in the tab you choose (Browse by default), and their right-click menu can get a **WimSmith ▸** submenu (Restore, Add an image, Export, Split / Join, Info, Browse).
+Korean and English UI, with a dark and a light theme. In [Settings], `.wim`, `.esd` and `.swm` files can be set to open with WimSmith, in the tab you choose (Browse by default), and their right-click menu can get a **WimSmith ▸** submenu (Restore, Add an image, Export, Split / Join, Info, Browse, and for a Windows PE `.wim`: boot once from it in a RAM disk).
 
 ## Requirements
 

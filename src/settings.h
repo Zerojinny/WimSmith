@@ -30,4 +30,15 @@ namespace wimsmith
     bool DismFromFolder();
     wstring DismFolder();                 // as saved
     wstring DismExe();                    // the full path of the dism.exe to use
+    // copies the DISM of the running Windows (System32\dism.exe, System32\Dism\,
+    // dismapi / wimgapi with their .mui files) into dir, laid out like the DISM
+    // folder of the ADK, so a Windows PE with an older DISM can use it; returns
+    // the number of files; throws HelperError
+    const wchar_t* const DismImportFolder = L"dism";   // relative to the exe folder
+    int ImportSystemDism(const wstring& dir);
+
+    // after_seconds (Settings): the countdown before "shut down / restart when
+    // done", 1..60 s, default 10
+    const int AfterSecondsDefault = 10, AfterSecondsMax = 60;
+    int AfterSeconds();
 }

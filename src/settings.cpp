@@ -111,6 +111,13 @@ namespace wimsmith
     bool DismFromFolder() { return EqualsI(GetSetting(L"dism", L"system"), L"folder"); }
     wstring DismFolder() { return GetSetting(L"dism.folder", L""); }
 
+    int AfterSeconds()
+    {
+        long long v;
+        if (!TryParseLong(GetSetting(L"after_seconds", L""), v)) return AfterSecondsDefault;
+        return (int)std::max<long long>(1, std::min<long long>(AfterSecondsMax, v));
+    }
+
     wstring DismExe()
     {
         if (!DismFromFolder()) return Combine(SystemDir(), L"dism.exe");
@@ -118,5 +125,61 @@ namespace wimsmith
         if (dir.empty()) return wstring();
         if (PathIsRelativeW(dir.c_str())) dir = FullPath(Combine(ExeDir(), dir));
         return Combine(dir, L"dism.exe");
+    }
+
+    static void CopyOne(const wstring& from, const wstring& to, int& count)
+    {
+        if (!CopyFileW(from.c_str(), to.c_str(), FALSE))
+            throw HelperError{ from + L": " + ErrorMessage(GetLastError()) };
+        count++;
+    }
+
+    // all files of a folder and its subfolders
+    static void CopyTree(const wstring& from, const wstring& to, int& count)
+    {
+        CreateDirs(to);
+        WIN32_FIND_DATAW fd;
+        HANDLE h = FindFirstFileW(Combine(from, L"*").c_str(), &fd);
+        if (h == INVALID_HANDLE_VALUE) return;
+        do
+        {
+            wstring name = fd.cFileName;
+            if (name == L"." || name == L"..") continue;
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) CopyTree(Combine(from, name), Combine(to, name), count);
+            else CopyOne(Combine(from, name), Combine(to, name), count);
+        } while (FindNextFileW(h, &fd));
+        FindClose(h);
+    }
+
+    int ImportSystemDism(const wstring& dir)
+    {
+        wstring sys = SystemDir(), dismDir = Combine(sys, L"Dism");
+        if (!FileExists(Combine(sys, L"dism.exe")) || !DirExists(dismDir))
+            throw HelperError{ Combine(sys, L"dism.exe") + L", " + dismDir + L": " + ErrorMessage(ERROR_FILE_NOT_FOUND) };
+        int count = 0;
+        // System32\Dism\* (DismCore, providers, DismHost, <lang>\*.mui) flat into
+        // the folder, like the DISM folder of the ADK
+        CopyTree(dismDir, dir, count);
+        // dism.exe and the DLLs it loads from System32, with their .mui files
+        const wchar_t* files[] = { L"dism.exe", L"dismapi.dll", L"wimgapi.dll" };
+        for (const wchar_t* f : files)
+            if (FileExists(Combine(sys, f))) CopyOne(Combine(sys, f), Combine(dir, f), count);
+        WIN32_FIND_DATAW fd;
+        HANDLE h = FindFirstFileW(Combine(dismDir, L"*").c_str(), &fd);
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            do
+            {
+                wstring lang = fd.cFileName;
+                if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || lang == L"." || lang == L"..") continue;
+                for (const wchar_t* f : files)
+                {
+                    wstring mui = Combine(Combine(sys, lang), wstring(f) + L".mui");
+                    if (FileExists(mui)) CopyOne(mui, Combine(Combine(dir, lang), wstring(f) + L".mui"), count);
+                }
+            } while (FindNextFileW(h, &fd));
+            FindClose(h);
+        }
+        return count;
     }
 }

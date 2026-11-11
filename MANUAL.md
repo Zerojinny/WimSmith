@@ -60,7 +60,7 @@ The tabs are at the top. The footer at the bottom has:
 | State | phase, progress and elapsed time of the running job |
 | Last log line | click it to open the log window |
 | Show log | opens the log window (copy, clear) |
-| When done | *Do nothing / Shut down / Restart* when the job ends; shut down and restart can be cancelled during a 60-second countdown |
+| When done | *Do nothing / Shut down / Restart* when the job ends; shut down and restart can be cancelled during a countdown (10 seconds; up to 60 in [Settings]) |
 | Cancel | stops the running job at wimlib's next progress step |
 | Settings | opens the settings (below) |
 | Language | 한국어 / English |
@@ -72,8 +72,9 @@ The tabs are at the top. The footer at the bottom has:
 | Theme | Dark / Light; the window is rebuilt in the new colors |
 | Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. These files get their own icons (a page with the layers and the extension: WIM teal, ESD violet, SWM orange). Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
 | Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
-| Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*. On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
-| DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`) |
+| Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*, *Boot once from this WIM* (.wim only, see [Boot once from a WIM](#boot-once-from-a-wim)). On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
+| DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`). **[Import]** copies the DISM of the running Windows (`System32\dism.exe`, `System32\Dism\`, `dismapi.dll`, `wimgapi.dll` and their language files) into the `dism` folder next to `WimSmith.exe` and chooses that folder: run it once on a newer Windows, and a Windows PE with an older DISM uses this one |
+| When done: wait | the seconds of the countdown before *Shut down* / *Restart* when done: 1 to 60, 10 by default |
 | Restore: path | the restore tab remembers its last WIM file; with this on, it is saved relative to `WimSmith.exe` (e.g. `WIM\pc.wim` or `..\Backup\pc.wim`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
 
 When another program was chosen for one of these extensions in Windows before, Windows keeps it, and WimSmith says so: right-click such a file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, its boxes are shown cleared: check them again.
@@ -345,6 +346,17 @@ On the **Backup** tab choose the system drive as the source and turn on *Back up
 
 On the **Split / Join** tab split it into 4000 MB parts and copy all `.swm` parts to the USB drive. On the restore tab choose the first part and restore as usual.
 
+### Boot once from a WIM
+
+Right-click a `.wim` file of Windows PE (for example `boot.wim` of a PE build or of Windows setup media) > **WimSmith ▸ Boot once from this WIM (RAM disk)**. The next start of the PC, and only that one, loads the image into memory and starts it; the start after it is the usual one again. Administrator rights are needed.
+
+- With several images, choose one. A RAM disk starts the *boot image* of the file: when another one is chosen (or none is marked), WimSmith marks the chosen one as the boot image (the file is written again, in place).
+- An image that is not Windows PE is asked about first: an installed Windows does not start from a RAM disk.
+- `boot.sdi` (the empty RAM disk) is needed next to the WIM file; when it is not there, the one of Windows (`Windows\Boot\DVD\EFI\boot.sdi`) is copied there.
+- The boot manager reads the file at the next start: it must be on a local NTFS or FAT32 drive that is not encrypted with BitLocker, and stay there. The PC needs more memory than the WIM file's size.
+- Two entries named *WimSmith* are added to the boot manager (BCD), not to its menu, only to the boot sequence of the next start (`bcdedit /bootsequence`); they are replaced the next time. UEFI and BIOS are both supported (`winload.efi` / `winload.exe` of the image).
+- When it is done, WimSmith asks whether to restart now.
+
 ---
 
 ## 11. Settings file and logs
@@ -361,6 +373,7 @@ Next to `WimSmith.exe`. Values changed in the window are saved here; it can also
 | `image_folder` | the folder of the last WIM file backed up to |
 | `restore.wim` | the last WIM file of the restore tab (relative to `WimSmith.exe` with *Restore: path* on) |
 | `relative_paths` | `1`: *Restore: path* in [Settings] is on |
+| `after_seconds` | the countdown before shut down / restart when done, 1 - 60 (default 10) |
 | `restore.boot_lang` | boot manager language (default `ko-kr`) |
 | `backup.snapshot` | the VSS snapshot box |
 | `backup.update_of` | the *Fast* box of the backup tab (default on) |

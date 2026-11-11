@@ -122,6 +122,16 @@ namespace wimsmith
             return r == ERROR_SUCCESS ? Read(shell + L"\\" + name, L"MUIVerb") : L"";
         }
 
+        int MenuItemCount(const wstring& ext)
+        {
+            HKEY k;
+            if (RegOpenKeyExW(HKEY_CURRENT_USER, (MenuKey(ext) + L"\\shell").c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return 0;
+            DWORD n = 0;
+            RegQueryInfoKeyW(k, nullptr, nullptr, nullptr, &n, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+            RegCloseKey(k);
+            return (int)n;
+        }
+
         wstring RegisterMenu(const wstring& ext, const std::vector<MenuItem>& items)
         {
             wstring key = MenuKey(ext);

@@ -188,6 +188,9 @@ If,%OpensFiles%-%cb_ContextMenu%,Equal,True-True,Begin
   Run,%ScriptFile%,AddMenuItem,.wim,4_splitjoin,splitjoin,"%tSplitJoin%"
   Run,%ScriptFile%,AddMenuItem,.wim,5_info,info,"%tInfo%"
   Run,%ScriptFile%,AddMenuItem,.wim,6_browse,browse,"%tBrowse%"
+  // boot once from the WIM (RAM disk): WimSmith 1.2 or later, whose lang file has rb.menu
+  IniRead,"%LangIni%","ui","rb.menu",%tRamBoot%,"Default="
+  If,Not,"%tRamBoot%",Equal,"",Run,%ScriptFile%,AddMenuItem,.wim,7_ramboot,ramboot,"%tRamBoot%"
   // .esd: no new image, no split (solid resources)
   Run,%ScriptFile%,AddMenu,.esd
   Run,%ScriptFile%,AddMenuItem,.esd,1_restore,restore,"%tRestore%"
