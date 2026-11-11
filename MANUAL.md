@@ -74,6 +74,7 @@ The tabs are at the top. The footer at the bottom has:
 | Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe` |
 | Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*, *Boot once from this WIM* (.wim only, see [Boot once from a WIM](#boot-once-from-a-wim)). On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
 | DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`). **[Import]** copies the DISM of the running Windows (`System32\dism.exe`, `System32\Dism\`, `dismapi.dll`, `wimgapi.dll` and their language files) into the `dism` folder next to `WimSmith.exe` and chooses that folder: run it once on a newer Windows, and a Windows PE with an older DISM uses this one |
+| Boot once from a WIM | *Delete the copied boot.sdi when Windows has started again*: the `boot.sdi` that [Boot once from a WIM](#boot-once-from-a-wim) copied next to the WIM file is deleted at the first logon after the PC has restarted. Off by default |
 | When done: wait | the seconds of the countdown before *Shut down* / *Restart* when done: 1 to 60, 10 by default |
 | Restore: path | the restore tab remembers its last WIM file; with this on, it is saved relative to `WimSmith.exe` (e.g. `WIM\pc.wim` or `..\Backup\pc.wim`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
 
@@ -348,11 +349,11 @@ On the **Split / Join** tab split it into 4000 MB parts and copy all `.swm` part
 
 ### Boot once from a WIM
 
-Right-click a `.wim` file of Windows PE (for example `boot.wim` of a PE build or of Windows setup media) > **WimSmith ▸ Boot once from this WIM (RAM disk)**. The next start of the PC, and only that one, loads the image into memory and starts it; the start after it is the usual one again. Administrator rights are needed.
+Right-click a `.wim` file of Windows PE (for example `boot.wim` of a PE build or of Windows setup media) > **WimSmith ▸ Boot once from this WIM (RAM disk)**. The next start of the PC, and only that one, loads the image into memory and starts it; the start after it is the usual one again. Administrator rights are needed. The WimSmith window does not open: only the boxes below, a small window while the entry is made, and the result.
 
 - With several images, choose one. A RAM disk starts the *boot image* of the file: when another one is chosen (or none is marked), WimSmith marks the chosen one as the boot image (the file is written again, in place).
 - An image that is not Windows PE is asked about first: an installed Windows does not start from a RAM disk.
-- `boot.sdi` (the empty RAM disk) is needed next to the WIM file; when it is not there, the one of Windows (`Windows\Boot\DVD\EFI\boot.sdi`) is copied there.
+- `boot.sdi` (the empty RAM disk) is needed next to the WIM file; when it is not there, the one of Windows (`Windows\Boot\DVD\EFI\boot.sdi`) is copied there. With *Delete the copied boot.sdi* in [Settings], it is deleted again at the first logon after the PC has restarted (a logoff / logon without a restart keeps it). WimSmith.exe has to stay in its folder until then.
 - The boot manager reads the file at the next start: it must be on a local NTFS or FAT32 drive that is not encrypted with BitLocker, and stay there. The PC needs more memory than the WIM file's size.
 - Two entries named *WimSmith* are added to the boot manager (BCD), not to its menu, only to the boot sequence of the next start (`bcdedit /bootsequence`); they are replaced the next time. UEFI and BIOS are both supported (`winload.efi` / `winload.exe` of the image).
 - When it is done, WimSmith asks whether to restart now.

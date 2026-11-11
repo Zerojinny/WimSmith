@@ -55,10 +55,7 @@ namespace wimsmith
         // of the setting "open_tab"; tabs: browse (default) | info | restore |
         // append (the backup tab, a new image of the file) | export | splitjoin
         void OpenFile(const wstring& file, const wstring& tab = L"");
-        // the next start (once) from an image of a WIM file in a RAM disk (Windows
-        // PE): the right-click menu, --open ramboot <file>; helper mode ramboot
-        void OneTimeBoot(const wstring& wim);
-        void Shutdown(bool restart);          // shutdown.exe /s or /r now
+        void Shutdown(bool restart);          // shutdown.exe /s or /r now (RunShutdown)
         bool Busy() const { return helper != nullptr; }
 
         // ---- shared ----

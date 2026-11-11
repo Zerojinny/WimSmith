@@ -8,6 +8,7 @@
 #include "helper.h"
 #include "lang.h"
 #include "mainwin.h"
+#include "ramboot.h"
 #include "settings.h"
 #include <shellapi.h>
 #include <objbase.h>
@@ -34,6 +35,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         LocalFree(argv);
     }
     if (!args.empty() && args[0] == L"--wim-helper") return RunHelper(args);
+    // at logon (Run value made by the boot-once menu): boot.sdi deleted after a restart
+    if (args.size() >= 3 && args[0] == L"--ramboot-cleanup") return RunSdiCleanup(args[1], args[2]);
     // "WimSmith.exe <file>": a WIM file opened from Explorer (assoc.cpp);
     // "WimSmith.exe --open <tab> <file>": from the right-click menu
     std::wstring openFile, openTab;
@@ -60,6 +63,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
             std::wstring text;
             for (const std::wstring& p : L::Problems) text += p + L"\r\n";
             MessageBoxW(nullptr, text.c_str(), L"WimSmith", MB_OK | MB_ICONWARNING);
+        }
+        // "Boot once from this WIM" of the right-click menu: no main window, only its dialogs
+        if (EqualsI(openTab, L"ramboot") && !openFile.empty())
+        {
+            int rc = RunOneTimeBoot(openFile);
+            CoUninitialize();
+            return rc;
         }
         // the tabs live as long as the window: one App per language
         App* app = new App();

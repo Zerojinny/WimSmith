@@ -1747,11 +1747,15 @@ namespace ui
         return a && IsWindowEnabled(a) ? a : Main;
     }
 
-    void Info(const wstring& text, UINT icon) { MessageBoxW(ActiveOwner(), text.c_str(), L"WimSmith", MB_OK | icon); }
+    // without a window (the boot-once of the right-click menu): to the front
+    static UINT Front(HWND owner) { return owner ? 0 : MB_SETFOREGROUND | MB_TOPMOST; }
+
+    void Info(const wstring& text, UINT icon) { HWND o = ActiveOwner(); MessageBoxW(o, text.c_str(), L"WimSmith", MB_OK | icon | Front(o)); }
 
     bool YesNo(const wstring& text, UINT icon)
     {
-        return MessageBoxW(ActiveOwner(), text.c_str(), L"WimSmith", MB_YESNO | icon) == IDYES;
+        HWND o = ActiveOwner();
+        return MessageBoxW(o, text.c_str(), L"WimSmith", MB_YESNO | icon | Front(o)) == IDYES;
     }
 
     void OnKeys(HWND top, Fn ok, Fn cancel) { keyHandlers[top] = std::make_pair(ok, cancel); }
@@ -1762,7 +1766,8 @@ namespace ui
     {
         HWND d = TopWindow(title, w, h, Main, WS_POPUP | WS_CAPTION | WS_SYSMENU);
         RECT o, me;
-        GetWindowRect(Main, &o);
+        // no main window: in the middle of the screen
+        if (!Main || !GetWindowRect(Main, &o)) SystemParametersInfoW(SPI_GETWORKAREA, 0, &o, 0);
         GetWindowRect(d, &me);
         SetWindowPos(d, nullptr, o.left + ((o.right - o.left) - (me.right - me.left)) / 2,
             o.top + ((o.bottom - o.top) - (me.bottom - me.top)) / 2, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
