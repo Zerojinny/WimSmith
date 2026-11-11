@@ -16,3 +16,5 @@ lib/
 # old place of the wimlib DLL (moved into lib\ at start)
 pe_tools/
 libwim-15.dll
+# the DISM of Windows copied by [Import] in Settings (Microsoft files)
+/dism/
