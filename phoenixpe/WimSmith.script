@@ -36,7 +36,7 @@ Author=zerojinny
 Level=5
 Selected=True
 Mandatory=False
-Version=1.1.0.0
+Version=1.2.0.0
 Date=2026-11-09
 
 [Variables]
