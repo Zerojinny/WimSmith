@@ -111,6 +111,8 @@ namespace wimsmith
     bool DismFromFolder() { return EqualsI(GetSetting(L"dism", L"system"), L"folder"); }
     wstring DismFolder() { return GetSetting(L"dism.folder", L""); }
 
+    bool OpenInAllTabs() { return GetSetting(L"open_all_tabs", L"1") != L"0"; }
+
     int AfterSeconds()
     {
         long long v;

@@ -6,7 +6,6 @@
 #include "helper.h"
 #include "lang.h"
 #include "libs.h"
-#include "ramboot.h"
 #include "settings.h"
 #include "tab_about.h"
 #include "tab_backup.h"
@@ -116,35 +115,31 @@ namespace wimsmith
         wstring wim = FullPath(file);
         if (!FileExists(wim)) { Log(L::F(L"st.open_missing", file)); return; }
         wstring tab = tabGiven.empty() ? GetSetting(L"open_tab", L"browse") : tabGiven;
-        if (EqualsI(tab, L"append"))
+        wstring ext = FileExt(wim);
+        bool isWim = EqualsI(ext, L".wim"), isSwm = EqualsI(ext, L".swm");
+        // with open_all_tabs = 1 (default) the file goes into every tab that
+        // takes it (quietly: the tab chosen shows the problems), the tab
+        // chosen last, so that it is the one shown
+        auto fill = [&](const wchar_t* id, bool show)
         {
-            win.SelectPage(backup->page);
-            backup->SetTarget(wim);
-            return;
-        }
-        if (EqualsI(tab, L"splitjoin"))
-        {
-            win.SelectPage(splitJoin->page);
-            splitJoin->SetFile(wim);
-            return;
-        }
-        if (EqualsI(tab, L"info"))
-        {
-            SetText(infoTab->txtWim, wim);
-            win.SelectPage(infoTab->page);
-            infoTab->ReadInfo(true);
-        }
-        else if (EqualsI(tab, L"restore"))
-        {
-            win.SelectPage(restore->page);
-            restore->SetWim(wim, 1);
-        }
-        else if (EqualsI(tab, L"export"))
-        {
-            win.SelectPage(exportTab->page);
-            exportTab->SetSource(wim, 0);
-        }
-        else Browse(wim, 0);
+            if (EqualsI(id, L"append")) { if (isWim) backup->SetTarget(wim); }
+            else if (EqualsI(id, L"splitjoin")) { if (isWim || isSwm) splitJoin->SetFile(wim); }
+            else if (EqualsI(id, L"info")) { SetText(infoTab->txtWim, wim); infoTab->ReadInfo(show); }
+            else if (EqualsI(id, L"restore")) restore->SetWim(wim, 1);
+            else if (EqualsI(id, L"export")) exportTab->SetSource(wim, 0);
+            else browse->ShowWim(wim, 0);
+        };
+        const wchar_t* tabs[] = { L"append", L"splitjoin", L"info", L"restore", L"export", L"browse" };
+        const wchar_t* chosen = L"browse";
+        for (const wchar_t* t : tabs) if (EqualsI(tab, t)) chosen = t;
+        if (OpenInAllTabs()) for (const wchar_t* t : tabs) if (t != chosen) fill(t, false);
+        fill(chosen, true);
+        if (EqualsI(chosen, L"append")) win.SelectPage(backup->page);
+        else if (EqualsI(chosen, L"splitjoin")) win.SelectPage(splitJoin->page);
+        else if (EqualsI(chosen, L"info")) win.SelectPage(infoTab->page);
+        else if (EqualsI(chosen, L"restore")) win.SelectPage(restore->page);
+        else if (EqualsI(chosen, L"export")) win.SelectPage(exportTab->page);
+        else win.SelectPage(browse->page);
     }
 
     void App::Browse(const wstring& wim, int image)
@@ -476,6 +471,20 @@ namespace wimsmith
             return;
         }
         Shutdown(action == 2);
+    }
+
+    // shutdown.exe /s or /r now; "" = started, else the error
+    static wstring RunShutdown(bool restart)
+    {
+        wstring args = wstring(restart ? L"/r" : L"/s") + L" /t 0 /d p:0:0";
+        try
+        {
+            std::string out, err;
+            int rc = RunProcess(Combine(SystemDir(), L"shutdown.exe"), args, out, err);
+            if (rc != 0) return Trim(FromCodePage(out + err, CP_OEMCP)) + L" (" + Num(rc) + L")";
+            return wstring();
+        }
+        catch (const HelperError& e) { return e.msg; }
     }
 
     void App::Shutdown(bool restart)

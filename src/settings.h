@@ -41,4 +41,6 @@ namespace wimsmith
     // done", 1..60 s, default 10
     const int AfterSecondsDefault = 10, AfterSecondsMax = 60;
     int AfterSeconds();
+    // a WIM file opened from Explorer goes into the other tabs too (open_all_tabs, default 1)
+    bool OpenInAllTabs();
 }

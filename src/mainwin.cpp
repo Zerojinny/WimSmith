@@ -5,7 +5,6 @@
 #include "mainwin.h"
 #include "assoc.h"
 #include "lang.h"
-#include "ramboot.h"
 #include "settings.h"
 #include "version.h"
 #include <algorithm>
@@ -281,13 +280,11 @@ namespace wimsmith
     // the right-click menu of each extension, in the language shown: what
     // each kind of file can do (.esd: no new image, no split (solid);
     // .swm: no new image, join)
-    // .wim also: start once from it (ramboot: RunOneTimeBoot, without the main window)
     static std::vector<assoc::MenuItem> WimMenu()
     {
         auto item = [](const wchar_t* id, const wchar_t* key) { return assoc::MenuItem{ id, L::T(key) }; };
         return { item(L"restore", L"bk.tab_apply"), item(L"append", L"st.menu_append"),
-            item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab"),
-            item(L"ramboot", L"rb.menu") };
+            item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab") };
     }
 
     static wstring RegisterMenus()
@@ -314,11 +311,10 @@ namespace wimsmith
     // again, like for a language), .wim / .esd / .swm opened with WimSmith,
     // the tab they open in, restore.wim relative to the exe folder, and the
     // DISM of the restore tab (the one of Windows, or dism.exe in a folder) and
-    // the countdown before shut down / restart when done (after_seconds), and
-    // whether boot once from a WIM deletes its boot.sdi later (ramboot.delete_sdi)
+    // the countdown before shut down / restart when done (after_seconds)
     void MainWindow::ShowSettings()
     {
-        HWND d = Dialog(L::T(L"st.title"), 600, 410);
+        HWND d = Dialog(L::T(L"st.title"), 680, 410);
         Grid grid(d);
         grid.labelWidth = 170;
         HWND cboTheme = Combo(d);
@@ -346,6 +342,10 @@ namespace wimsmith
         }
         ComboSelect(cboTab, tabIndex);
         grid.Add(L::T(L"st.row_open_tab"), { Field(cboTab, 220) });
+        bool wantAllTabs = OpenInAllTabs();
+        HWND chkAllTabs = Check(d, L::T(L"st.open_all_tabs"));
+        SetChecked(chkAllTabs, wantAllTabs);
+        grid.Add(L"", { Box(chkAllTabs) });
         bool wasMenu = assoc::MenuRegistered(), wantMenu = wasMenu;
         HWND chkMenu = Check(d, L::T(L"st.menu"));
         SetChecked(chkMenu, wasMenu);
@@ -364,10 +364,6 @@ namespace wimsmith
         SetText(txtDism, DismFolder());
         HWND btnDism = Button(d, L::T(L"qbt.btn_browse"));
         grid.Add(L"", { Field(txtDism, 300), Btn(btnDism, 100) });
-        bool wantDeleteSdi = DeleteSdiAfterBoot();
-        HWND chkDeleteSdi = Check(d, L::T(L"st.ramboot_delete_sdi"));
-        SetChecked(chkDeleteSdi, wantDeleteSdi);
-        grid.Add(L::T(L"st.row_ramboot"), { Box(chkDeleteSdi) });
         HWND numAfter = Number(d, 1, AfterSecondsMax, AfterSeconds());
         HWND lblSeconds = Label(d, L::T(L"st.after_seconds"));
         grid.Add(L::T(L"st.row_after"), { Field(numAfter, 70), Txt(lblSeconds, 8, 4) });
@@ -420,7 +416,7 @@ namespace wimsmith
             for (int n = 0; n < extCount; n++) want[n] = Checked(chkExt[n]);
             wantMenu = Checked(chkMenu);
             wantRelative = Checked(chkRelative);
-            wantDeleteSdi = Checked(chkDeleteSdi);
+            wantAllTabs = Checked(chkAllTabs);
             dism = ComboIndex(cboDism);
             dismDir = Trim(GetText(txtDism));
             afterSeconds = NumberValue(numAfter);
@@ -433,7 +429,8 @@ namespace wimsmith
         if (openTab >= 0) SetSetting(L"open_tab", OpenTabs[openTab][0]);
         if (wantRelative != wasRelative) SetRelativePaths(wantRelative);
         SetSettings({ { L"dism", dism == 1 ? L"folder" : L"system" }, { L"dism.folder", dismDir },
-            { L"after_seconds", std::to_wstring(afterSeconds) }, { L"ramboot.delete_sdi", wantDeleteSdi ? L"1" : L"0" } });
+            { L"after_seconds", std::to_wstring(afterSeconds) },
+            { L"open_all_tabs", wantAllTabs ? L"1" : L"0" } });
         if (dism == 1 && !FileExists(DismExe())) Info(L::F(L"st.dism_missing", DismExe().empty() ? wstring(L"-") : DismExe()), MB_ICONWARNING);
         // each extension: set (again, when Windows does not open it with WimSmith) or taken back
         wstring done, removed, notDefault, failed;

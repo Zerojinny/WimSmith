@@ -53,9 +53,11 @@ namespace wimsmith
         // a WIM file given to the exe (opened from Explorer): in the tab
         // given (the right-click menu: --open <tab> <file>), else in the tab
         // of the setting "open_tab"; tabs: browse (default) | info | restore |
-        // append (the backup tab, a new image of the file) | export | splitjoin
+        // append (the backup tab, a new image of the file) | export | splitjoin;
+        // with open_all_tabs = 1 the other tabs get the file too (append / split
+        // only for a .wim, join for a .swm)
         void OpenFile(const wstring& file, const wstring& tab = L"");
-        void Shutdown(bool restart);          // shutdown.exe /s or /r now (RunShutdown)
+        void Shutdown(bool restart);          // shutdown.exe /s or /r now
         bool Busy() const { return helper != nullptr; }
 
         // ---- shared ----
