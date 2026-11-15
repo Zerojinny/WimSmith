@@ -5,6 +5,7 @@
 // ============================================================
 #include "makewim.h"
 #include "app.h"
+#include "gather.h"
 #include "helper.h"
 #include "lang.h"
 #include "libs.h"
@@ -20,76 +21,12 @@ namespace wimsmith
 
     static const int CompTypes[] = { wl::CompressionLzx, wl::CompressionXpress, wl::CompressionLzms };
 
-    // ---------- one window for all the selected folders ----------
-
-    // one window per mode: the folders of one menu click go to the window of that item
-    static wstring MutexName(const wstring& mode) { return L"Local\\WimSmith.MakeWim." + mode; }
-    static wstring ReceiverClass(const wstring& mode) { return L"WimSmith.MakeWim.Receiver." + mode; }
-    static const ULONG_PTR CopyId = 0x57494D31;   // "WIM1"
-    static HANDLE mutex;
-    static HWND receiver;
-    // the window takes more folders; false: not now (it asks or runs)
-    static std::function<bool(const std::vector<wstring>&)> onFolders;
-
     bool MakeWimMode(const wstring& s) { return s == L"one" || s == L"each" || s == L"open"; }
 
-    static bool SendFolders(const std::vector<wstring>& folders, const wstring& mode)
-    {
-        HWND w = FindWindowExW(HWND_MESSAGE, nullptr, ReceiverClass(mode).c_str(), nullptr);
-        if (!w) return false;
-        wstring text;
-        for (const wstring& f : folders) text += f + L"\n";
-        COPYDATASTRUCT cd = { CopyId, (DWORD)((text.size() + 1) * sizeof(wchar_t)), (void*)text.c_str() };
-        DWORD_PTR r = 0;
-        return SendMessageTimeoutW(w, WM_COPYDATA, 0, (LPARAM)&cd, SMTO_ABORTIFHUNG, 5000, &r) && r == TRUE;
-    }
-
+    // one window per mode: the folders of one menu click go to the window of that item (gather.h)
     bool MakeWimForward(const std::vector<wstring>& folders, const wstring& mode)
     {
-        // the first process makes the mutex; the others wait for its window
-        // (it may still be starting, or asking) for about 10 s
-        for (int n = 0; n < 200; n++)
-        {
-            HANDLE m = CreateMutexW(nullptr, FALSE, MutexName(mode).c_str());
-            if (m && GetLastError() != ERROR_ALREADY_EXISTS) { mutex = m; return false; }
-            if (m) CloseHandle(m);
-            if (SendFolders(folders, mode)) return true;
-            Sleep(50);
-        }
-        return false;
-    }
-
-    static LRESULT CALLBACK ReceiverProc(HWND h, UINT msg, WPARAM w, LPARAM l)
-    {
-        if (msg == WM_COPYDATA)
-        {
-            const COPYDATASTRUCT* cd = (const COPYDATASTRUCT*)l;
-            if (!cd || cd->dwData != CopyId || cd->cbData < sizeof(wchar_t) || !onFolders) return FALSE;
-            wstring text((const wchar_t*)cd->lpData, cd->cbData / sizeof(wchar_t) - 1);
-            std::vector<wstring> list;
-            for (const wstring& s : Split(text, L'\n')) if (!s.empty()) list.push_back(s);
-            return onFolders(list) ? TRUE : FALSE;
-        }
-        return DefWindowProcW(h, msg, w, l);
-    }
-
-    static void StartReceiver(const wstring& mode)
-    {
-        wstring cls = ReceiverClass(mode);
-        WNDCLASSW wc = {};
-        wc.lpfnWndProc = ReceiverProc;
-        wc.hInstance = Inst;
-        wc.lpszClassName = cls.c_str();
-        RegisterClassW(&wc);
-        receiver = CreateWindowExW(0, cls.c_str(), L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, Inst, nullptr);
-    }
-
-    // no more folders: a later click in the menu opens a new window
-    static void StopReceiver()
-    {
-        onFolders = nullptr;
-        if (receiver) { DestroyWindow(receiver); receiver = nullptr; }
-        if (mutex) { CloseHandle(mutex); mutex = nullptr; }
+        return gather::Forward(L"MakeWim." + mode, folders);
     }
 
     // ---------- paths ----------
@@ -452,7 +389,7 @@ namespace wimsmith
             try { process = StartElevated(job, workDir, d); }
             catch (const HelperError& e) { Info(L::F(L"mw.failed", wstring(L"-"), e.msg, workDir), MB_ICONERROR); return; }
             if (!process) return;   // UAC cancelled
-            StopReceiver();
+            gather::Stop();
             written = unique;
             running = true;
             started = GetTickCount64();
@@ -499,15 +436,14 @@ namespace wimsmith
         OnKeys(d, nullptr, [&] { if (!running) EndModal(d, 0); });
 
         // the folders of the other processes (the other selected folders)
-        onFolders = [&](const std::vector<wstring>& more)
+        gather::Receive(L"MakeWim." + mode, [&](const std::vector<wstring>& more)
         {
             if (running || asking) return false;
             addFolders(more);
             updateTarget();
             lastFolder = GetTickCount64();
             return true;
-        };
-        StartReceiver(mode);
+        });
         if (mode == L"each") { SetChecked(rbOne, false); SetChecked(rbEach, true); setMode(true); }
         updateTarget();
         if (autoStart)
@@ -518,7 +454,7 @@ namespace wimsmith
         Relayout(d);
         SetFocus(btnStart);
         RunModal(d);
-        StopReceiver();
+        gather::Stop();
         if (process)
         {
             // only when the window was closed in another way: the job still ends

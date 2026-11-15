@@ -5,6 +5,7 @@
 //  (The former C# / .NET version is kept in backup\cs-winforms.)
 // ============================================================
 #include "app.h"
+#include "extractwim.h"
 #include "helper.h"
 #include "lang.h"
 #include "mainwin.h"
@@ -52,11 +53,24 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         }
         if (MakeWimForward(makeWimFolders, makeWimMode)) return 0;
     }
+    // "WimSmith.exe --extract <one|each> <file>...": Extract / Extract each of
+    // the right-click menu of WIM files, gathered the same way (extractwim.cpp)
+    bool extract = args.size() >= 2 && args[0] == L"--extract" && ExtractMode(args[1]);
+    std::vector<std::wstring> extractFiles;
+    if (extract)
+    {
+        for (size_t n = 2; n < args.size(); n++)
+        {
+            std::wstring full = FullPath(args[n]);
+            extractFiles.push_back(full.empty() ? args[n] : full);
+        }
+        if (ExtractForward(extractFiles, args[1])) return 0;
+    }
     // "WimSmith.exe <file>": a WIM file opened from Explorer (assoc.cpp);
     // "WimSmith.exe --open <tab> <file>": from the right-click menu
     std::wstring openFile, openTab;
-    if (!makeWim && args.size() >= 3 && args[0] == L"--open") { openTab = args[1]; openFile = args[2]; }
-    else if (!makeWim && !args.empty()) openFile = args[0];
+    if (!makeWim && !extract && args.size() >= 3 && args[0] == L"--open") { openTab = args[1]; openFile = args[2]; }
+    else if (!makeWim && !extract && !args.empty()) openFile = args[0];
     // a relative path typed in the tabs is relative to the folder of WimSmith.exe
     // (a WimSmith on a USB drive with its WIM files next to it); the file given
     // on the command line is relative to the folder it was started from
@@ -80,6 +94,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
             MessageBoxW(nullptr, text.c_str(), L"WimSmith", MB_OK | MB_ICONWARNING);
         }
         // "Make a WIM file" of the folder menu: no main window, only its own
+        if (extract)
+        {
+            int rc = RunExtract(extractFiles, args[1]);
+            CoUninitialize();
+            return rc;
+        }
         if (makeWim)
         {
             int rc = RunMakeWim(makeWimFolders, makeWimMode);

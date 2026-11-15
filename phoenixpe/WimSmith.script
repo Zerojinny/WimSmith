@@ -179,28 +179,37 @@ If,%OpensFiles%-%cb_ContextMenu%,Equal,True-True,Begin
   IniRead,"%LangIni%","ui","sj.tab",%tSplitJoin%,"Default=Split / Join"
   IniRead,"%LangIni%","ui","in.tab",%tInfo%,"Default=Info"
   IniRead,"%LangIni%","ui","br.tab",%tBrowse%,"Default=Browse"
+  // Extract / Extract each: WimSmith 1.3 or later, whose lang file has xw.menu_one
+  IniRead,"%LangIni%","ui","xw.menu_one",%tExtract%,"Default="
+  IniRead,"%LangIni%","ui","xw.menu_each",%tExtractEach%,"Default="
   RegLoadHives
   // .wim: every item
   Run,%ScriptFile%,AddMenu,.wim
-  Run,%ScriptFile%,AddMenuItem,.wim,1_restore,restore,"%tRestore%"
-  Run,%ScriptFile%,AddMenuItem,.wim,2_append,append,"%tAppend%"
-  Run,%ScriptFile%,AddMenuItem,.wim,3_export,export,"%tExport%"
-  Run,%ScriptFile%,AddMenuItem,.wim,4_splitjoin,splitjoin,"%tSplitJoin%"
-  Run,%ScriptFile%,AddMenuItem,.wim,5_info,info,"%tInfo%"
-  Run,%ScriptFile%,AddMenuItem,.wim,6_browse,browse,"%tBrowse%"
+  If,Not,"%tExtract%",Equal,"",Run,%ScriptFile%,AddExtractItem,.wim,1_extract,one,"%tExtract%"
+  If,Not,"%tExtractEach%",Equal,"",Run,%ScriptFile%,AddExtractItem,.wim,2_extract_each,each,"%tExtractEach%"
+  Run,%ScriptFile%,AddMenuItem,.wim,3_restore,restore,"%tRestore%"
+  Run,%ScriptFile%,AddMenuItem,.wim,4_append,append,"%tAppend%"
+  Run,%ScriptFile%,AddMenuItem,.wim,5_export,export,"%tExport%"
+  Run,%ScriptFile%,AddMenuItem,.wim,6_splitjoin,splitjoin,"%tSplitJoin%"
+  Run,%ScriptFile%,AddMenuItem,.wim,7_info,info,"%tInfo%"
+  Run,%ScriptFile%,AddMenuItem,.wim,8_browse,browse,"%tBrowse%"
   // .esd: no new image, no split (solid resources)
   Run,%ScriptFile%,AddMenu,.esd
-  Run,%ScriptFile%,AddMenuItem,.esd,1_restore,restore,"%tRestore%"
-  Run,%ScriptFile%,AddMenuItem,.esd,2_export,export,"%tExport%"
-  Run,%ScriptFile%,AddMenuItem,.esd,3_info,info,"%tInfo%"
-  Run,%ScriptFile%,AddMenuItem,.esd,4_browse,browse,"%tBrowse%"
+  If,Not,"%tExtract%",Equal,"",Run,%ScriptFile%,AddExtractItem,.esd,1_extract,one,"%tExtract%"
+  If,Not,"%tExtractEach%",Equal,"",Run,%ScriptFile%,AddExtractItem,.esd,2_extract_each,each,"%tExtractEach%"
+  Run,%ScriptFile%,AddMenuItem,.esd,3_restore,restore,"%tRestore%"
+  Run,%ScriptFile%,AddMenuItem,.esd,4_export,export,"%tExport%"
+  Run,%ScriptFile%,AddMenuItem,.esd,5_info,info,"%tInfo%"
+  Run,%ScriptFile%,AddMenuItem,.esd,6_browse,browse,"%tBrowse%"
   // .swm: no new image; join
   Run,%ScriptFile%,AddMenu,.swm
-  Run,%ScriptFile%,AddMenuItem,.swm,1_restore,restore,"%tRestore%"
-  Run,%ScriptFile%,AddMenuItem,.swm,2_export,export,"%tExport%"
-  Run,%ScriptFile%,AddMenuItem,.swm,3_splitjoin,splitjoin,"%tSplitJoin%"
-  Run,%ScriptFile%,AddMenuItem,.swm,4_info,info,"%tInfo%"
-  Run,%ScriptFile%,AddMenuItem,.swm,5_browse,browse,"%tBrowse%"
+  If,Not,"%tExtract%",Equal,"",Run,%ScriptFile%,AddExtractItem,.swm,1_extract,one,"%tExtract%"
+  If,Not,"%tExtractEach%",Equal,"",Run,%ScriptFile%,AddExtractItem,.swm,2_extract_each,each,"%tExtractEach%"
+  Run,%ScriptFile%,AddMenuItem,.swm,3_restore,restore,"%tRestore%"
+  Run,%ScriptFile%,AddMenuItem,.swm,4_export,export,"%tExport%"
+  Run,%ScriptFile%,AddMenuItem,.swm,5_splitjoin,splitjoin,"%tSplitJoin%"
+  Run,%ScriptFile%,AddMenuItem,.swm,6_info,info,"%tInfo%"
+  Run,%ScriptFile%,AddMenuItem,.swm,7_browse,browse,"%tBrowse%"
   // folders: "WimSmith >" make one WIM file / one each / open the window
   // (WimSmith 1.3 or later, whose lang file has mw.menu_one)
   IniRead,"%LangIni%","ui","mw.menu_one",%tMakeOne%,"Default="
@@ -234,6 +243,7 @@ Set,%MenuKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\Wi
 RegWrite,HKLM,REG_SZ,"%MenuKey%","MUIVerb","WimSmith"
 RegWrite,HKLM,REG_SZ,"%MenuKey%","Icon","#$q%PEExe%#$q,0"
 RegWrite,HKLM,REG_SZ,"%MenuKey%","SubCommands",""
+RegWrite,HKLM,REG_SZ,"%MenuKey%","MultiSelectModel","Player"
 
 [#AddFolderMenu#]
 // ===============================================================================================================================
@@ -283,6 +293,19 @@ RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Classes\%^SIPARAM_1%file\DefaultIcon",
 Set,%ItemKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\WimSmith\shell\%^SIPARAM_2%"
 RegWrite,HKLM,REG_SZ,"%ItemKey%","MUIVerb","%^SIPARAM_4%"
 RegWrite,HKLM,REG_SZ,"%ItemKey%\command","","#$q%PEExe%#$q --open %^SIPARAM_3% #$q#$p1#$q"
+
+[#AddExtractItem#]
+// ===============================================================================================================================
+// Name...........: AddExtractItem
+// Description....: Extract / Extract each of the "WimSmith >" submenu: WimSmith.exe --extract <mode> "%1" (any number of files).
+// Syntax.........: Run,%ScriptFile%,AddExtractItem,<.ext>,<KeyName>,<Mode>,<Text>
+// Remarks........: Mode: one | each. The hives must be loaded (RegLoadHives).
+// ===============================================================================================================================
+[AddExtractItem]
+Set,%ItemKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\WimSmith\shell\%^SIPARAM_2%"
+RegWrite,HKLM,REG_SZ,"%ItemKey%","MUIVerb","%^SIPARAM_4%"
+RegWrite,HKLM,REG_SZ,"%ItemKey%","MultiSelectModel","Player"
+RegWrite,HKLM,REG_SZ,"%ItemKey%\command","","#$q%PEExe%#$q --extract %^SIPARAM_3% #$q#$p1#$q"
 
 [#DownloadProgram#]
 // ===============================================================================================================================

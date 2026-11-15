@@ -139,12 +139,16 @@ namespace wimsmith
             LSTATUS r = Write(key, L"MUIVerb", L"WimSmith");
             if (r == ERROR_SUCCESS) r = Write(key, L"Icon", L"\"" + Self() + L"\",0");
             if (r == ERROR_SUCCESS) r = Write(key, L"SubCommands", L"");   // its items are under shell\ below it
+            // the menu for any number of selected files (Extract each, ...)
+            if (r == ERROR_SUCCESS) r = Write(key, L"MultiSelectModel", L"Player");
             // the key names give the order: 1_..., 2_..., ...
             for (size_t n = 0; n < items.size() && r == ERROR_SUCCESS; n++)
             {
                 wstring item = key + L"\\shell\\" + std::to_wstring(n + 1) + L"_" + items[n].id;
                 r = Write(item, L"MUIVerb", items[n].text);
-                if (r == ERROR_SUCCESS) r = Write(item + L"\\command", nullptr, MenuCommand(items[n].id));
+                if (r == ERROR_SUCCESS && !items[n].args.empty()) r = Write(item, L"MultiSelectModel", L"Player");
+                wstring command = items[n].args.empty() ? MenuCommand(items[n].id) : L"\"" + Self() + L"\" " + items[n].args + L" \"%1\"";
+                if (r == ERROR_SUCCESS) r = Write(item + L"\\command", nullptr, command);
             }
             return r == ERROR_SUCCESS ? L"" : ErrorMessage((DWORD)r);
         }

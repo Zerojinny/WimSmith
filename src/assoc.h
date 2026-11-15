@@ -30,9 +30,12 @@ namespace wimsmith
 
         // the right-click menu "WimSmith >" of an extension, whatever program
         // opens it (HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\
-        // WimSmith, a submenu); each item runs WimSmith.exe --open <id> "%1".
+        // WimSmith, a submenu); each item runs WimSmith.exe --open <id> "%1"
+        // (or WimSmith.exe <args> "%1").
         // Windows 11 shows it under "Show more options".
-        struct MenuItem { wstring id, text; };
+        // args: the command line instead of "--open <id>" (then for any
+        // number of selected files: MultiSelectModel = Player)
+        struct MenuItem { wstring id, text, args; };
         bool MenuRegistered();                 // the menu of .wim runs this exe
         wstring MenuText(const wstring& ext);  // the text of its first item (its language)
         int MenuItemCount(const wstring& ext); // its items (0 = none)

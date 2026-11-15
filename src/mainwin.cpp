@@ -282,22 +282,26 @@ namespace wimsmith
     // .swm: no new image, join)
     static std::vector<assoc::MenuItem> WimMenu()
     {
-        auto item = [](const wchar_t* id, const wchar_t* key) { return assoc::MenuItem{ id, L::T(key) }; };
-        return { item(L"restore", L"bk.tab_apply"), item(L"append", L"st.menu_append"),
+        auto item = [](const wchar_t* id, const wchar_t* key) { return assoc::MenuItem{ id, L::T(key), L"" }; };
+        // Extract / Extract each: into new folders next to the files, without the window (extractwim.cpp)
+        return { assoc::MenuItem{ L"extract", L::T(L"xw.menu_one"), L"--extract one" },
+            assoc::MenuItem{ L"extract_each", L::T(L"xw.menu_each"), L"--extract each" },
+            item(L"restore", L"bk.tab_apply"), item(L"append", L"st.menu_append"),
             item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab") };
     }
 
     // the right-click menu of folders: one WIM file, a WIM file each, the window (makewim.cpp)
     static std::vector<assoc::MenuItem> FolderMenu()
     {
-        return { { L"one", L::T(L"mw.menu_one") }, { L"each", L::T(L"mw.menu_each") }, { L"open", L::T(L"mw.menu_open") } };
+        return { { L"one", L::T(L"mw.menu_one"), L"" }, { L"each", L::T(L"mw.menu_each"), L"" }, { L"open", L::T(L"mw.menu_open"), L"" } };
     }
 
     static wstring RegisterMenus()
     {
         std::vector<assoc::MenuItem> wim = WimMenu();
-        std::vector<assoc::MenuItem> esd = { wim[0], wim[2], wim[4], wim[5] };
-        std::vector<assoc::MenuItem> swm = { wim[0], wim[2], wim[3], wim[4], wim[5] };
+        // wim: extract, extract_each, restore, append, export, splitjoin, info, browse
+        std::vector<assoc::MenuItem> esd = { wim[0], wim[1], wim[2], wim[4], wim[6], wim[7] };
+        std::vector<assoc::MenuItem> swm = { wim[0], wim[1], wim[2], wim[4], wim[5], wim[6], wim[7] };
         wstring err = assoc::RegisterMenu(L".wim", wim);
         if (err.empty()) err = assoc::RegisterMenu(L".esd", esd);
         if (err.empty()) err = assoc::RegisterMenu(L".swm", swm);
@@ -309,7 +313,7 @@ namespace wimsmith
     // again (at every start, only when it differs)
     void MainWindow::UpdateMenuLanguage()
     {
-        if (assoc::MenuRegistered() && (assoc::MenuText(L".wim") != L::T(L"bk.tab_apply")
+        if (assoc::MenuRegistered() && (assoc::MenuText(L".wim") != L::T(L"xw.menu_one")
             || assoc::MenuItemCount(L".wim") != (int)WimMenu().size())) RegisterMenus();
         // the folder menu: its text in this language, and this exe
         int folderItems = 0;
