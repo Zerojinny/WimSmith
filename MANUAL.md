@@ -73,6 +73,7 @@ The tabs are at the top. The footer at the bottom has:
 | Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. These files get their own icons (a page with the layers and the extension: WIM teal, ESD violet, SWM orange). Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
 | Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe`. With *Put the opened file into the other tabs too* (on by default) the other tabs get the file as well: restore, export, info and browse always; the backup tab (as its target, with *Add a new image*) and split only for a `.wim`; join for a `.swm` |
 | Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*. On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
+| Right-click menu of folders | adds a **WimSmith ▸** submenu to the right-click menu of folders in Explorer: *Make a WIM file*, *Make a WIM file of each*, *Open with WimSmith* (see [Make a WIM from folders](#make-a-wim-from-folders)). On Windows 11 it is under *Show more options* |
 | DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`). **[Import]** copies the DISM of the running Windows (`System32\dism.exe`, `System32\Dism\`, `dismapi.dll`, `wimgapi.dll` and their language files) into the `dism` folder next to `WimSmith.exe` and chooses that folder: run it once on a newer Windows, and a Windows PE with an older DISM uses this one |
 | When done: wait | the seconds of the countdown before *Shut down* / *Restart* when done: 1 to 60, 10 by default |
 | Restore: path | the restore tab remembers its last WIM file; with this on, it is saved relative to `WimSmith.exe` (e.g. `WIM\pc.wim` or `..\Backup\pc.wim`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
@@ -345,6 +346,22 @@ On the **Backup** tab choose the system drive as the source and turn on *Back up
 ### A large WIM on a FAT32 USB drive
 
 On the **Split / Join** tab split it into 4000 MB parts and copy all `.swm` parts to the USB drive. On the restore tab choose the first part and restore as usual.
+
+### Make a WIM from folders
+
+With *Right-click menu of folders* on in [Settings], select one or more folders in Explorer and right-click > **WimSmith ▸**:
+
+- **Make a WIM file**: all the selected folders go into one WIM file, an image per folder, and the job starts by itself (only Windows asks for administrator rights).
+- **Make a WIM file of each**: each folder becomes its own WIM file next to it, and the job starts by itself.
+- **Open with WimSmith**: only the window opens, with the selected folders: choose the file, the way and the options, then [Start].
+
+A small window opens in each case, without the main window (Explorer starts WimSmith once per folder; they all end up in the same window, and the first two start once no more folders come in). It shows the progress, and [Cancel] stops the job. The first two use the defaults below (LZX, no verification); when a folder cannot be saved (e.g. the WIM file would be inside it), the window stays open to change it. In the window, [Add...] and [Remove] change the list.
+
+- **One WIM file (an image per folder)**: all folders go into one file, each as its own image named after the folder. The file is `<folder>.wim` next to a single folder, or `<parent folder name>.wim` in the parent folder for several folders of one parent; type or browse another one.
+- **A WIM file per folder**: each folder becomes `<folder name>.wim` in the folder shown (by default, the folder that holds the selected folders).
+- When a WIM file exists already, the folders are added to it as new images (with its own compression); a name used already gets " (2)".
+- Compression, threads, *From a VSS snapshot*, *Verify afterwards* and *Integrity table* work as on the backup tab. The WIM file must not be inside one of the folders.
+- [Start] asks once for administrator rights.
 
 ---
 

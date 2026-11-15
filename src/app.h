@@ -78,6 +78,8 @@ namespace wimsmith
         static wstring Gb(long long bytes);
         static wstring Group(long long n);    // 1,234,567
         static std::vector<Volume> Volumes(bool readyOnly);
+        // a progress line of status.txt ("P <percent> <phase> ...") as text; pct = -1: not known
+        static wstring PhaseText(const wstring& line, int& pct);
         // the second confirmation: the drive letter (or disk number) has to be typed
         bool ConfirmTyped(const wstring& text, const wstring& expected, const wstring& titleKey = L"bk.confirm_type_title");
 

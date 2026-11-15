@@ -327,17 +327,21 @@ namespace wimsmith
     }
 
     // "P <percent> <phase> <numbers>" of the helper -> progress line and text
-    void App::OnProgressLine(const wstring& line)
+    // "P <percent> <phase> <numbers>" of status.txt: the text of the phase
+    // ("" = a line that is not one, or a phase without a text of its own)
+    wstring App::PhaseText(const wstring& line, int& pct)
     {
+        pct = -1;
         std::vector<wstring> p = Split(line, L' ');
-        if (p.size() < 3) return;
+        if (p.size() < 3) return wstring();
         long long pctL;
-        if (!TryParseLong(p[1], pctL)) return;
-        int pct = (int)pctL;
+        if (!TryParseLong(p[1], pctL)) return wstring();
+        pct = (int)pctL;
         auto num = [&p](size_t i) { return i < p.size() ? ParseLong(p[i], 0) : 0; };
         long long a = num(3), b = num(4), c = num(5), d = num(6);
         int shown = std::max(0, pct);
         const wstring& ph = p[2];
+        wstring phaseText;
         if (ph == L"scan") phaseText = L::F(L"bk.phase_scan", Group(a), Group(b), Gb(c));
         else if (ph == L"write") phaseText = L::F(L"bk.phase_write", shown, Gb(a), Gb(b));
         else if (ph == L"apply") phaseText = L::F(L"bk.phase_apply", shown, Gb(a), Gb(b));
@@ -358,6 +362,14 @@ namespace wimsmith
         else if (ph == L"calcintegrity") phaseText = L::F(L"bk.phase_integrity", shown, Gb(a), Gb(b));
         else if (ph == L"vimage") phaseText = L::F(L"vf.phase_image", a, b);
         else if (ph == L"verify") phaseText = b > 0 ? L::F(L"vf.phase_verify", shown, Gb(a), Gb(b)) : L::T(L"vf.phase_open");
+        return phaseText;
+    }
+
+    void App::OnProgressLine(const wstring& line)
+    {
+        int pct;
+        wstring text = PhaseText(line, pct);
+        if (!text.empty()) phaseText = text;
         if (pct >= 0)
         {
             ProgressMarquee(win.progress, false);

@@ -38,5 +38,13 @@ namespace wimsmith
         int MenuItemCount(const wstring& ext); // its items (0 = none)
         wstring RegisterMenu(const wstring& ext, const std::vector<MenuItem>& items);   // "" = done
         void UnregisterMenu(const wstring& ext);
+
+        // the right-click menu "WimSmith >" of folders (HKCU\Software\Classes\
+        // Directory\shell\WimSmith): each item runs WimSmith.exe --make-wim
+        // <id> "%1" for each selected folder (makewim.cpp)
+        bool FolderMenuRegistered();           // it runs this exe
+        wstring FolderMenuText(int& items);    // the text of its first item (its language), the items
+        wstring RegisterFolderMenu(const std::vector<MenuItem>& items);   // "" = done
+        void UnregisterFolderMenu();
     }
 }

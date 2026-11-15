@@ -287,6 +287,12 @@ namespace wimsmith
             item(L"export", L"ex.tab"), item(L"splitjoin", L"sj.tab"), item(L"info", L"in.tab"), item(L"browse", L"br.tab") };
     }
 
+    // the right-click menu of folders: one WIM file, a WIM file each, the window (makewim.cpp)
+    static std::vector<assoc::MenuItem> FolderMenu()
+    {
+        return { { L"one", L::T(L"mw.menu_one") }, { L"each", L::T(L"mw.menu_each") }, { L"open", L::T(L"mw.menu_open") } };
+    }
+
     static wstring RegisterMenus()
     {
         std::vector<assoc::MenuItem> wim = WimMenu();
@@ -305,6 +311,13 @@ namespace wimsmith
     {
         if (assoc::MenuRegistered() && (assoc::MenuText(L".wim") != L::T(L"bk.tab_apply")
             || assoc::MenuItemCount(L".wim") != (int)WimMenu().size())) RegisterMenus();
+        // the folder menu: its text in this language, and this exe
+        int folderItems = 0;
+        if (assoc::FolderMenuRegistered() && (assoc::FolderMenuText(folderItems) != L::T(L"mw.menu_one") || folderItems != (int)FolderMenu().size()))
+        {
+            assoc::RegisterFolderMenu(FolderMenu());
+            assoc::Changed();
+        }
     }
 
     // [Settings]: the theme (saved as theme = dark | light; the window is made
@@ -314,7 +327,7 @@ namespace wimsmith
     // the countdown before shut down / restart when done (after_seconds)
     void MainWindow::ShowSettings()
     {
-        HWND d = Dialog(L::T(L"st.title"), 680, 410);
+        HWND d = Dialog(L::T(L"st.title"), 680, 444);
         Grid grid(d);
         grid.labelWidth = 170;
         HWND cboTheme = Combo(d);
@@ -350,6 +363,10 @@ namespace wimsmith
         HWND chkMenu = Check(d, L::T(L"st.menu"));
         SetChecked(chkMenu, wasMenu);
         grid.Add(L::T(L"st.row_menu"), { Box(chkMenu) });
+        bool wasFolderMenu = assoc::FolderMenuRegistered(), wantFolderMenu = wasFolderMenu;
+        HWND chkFolderMenu = Check(d, L::T(L"st.menu_folders"));
+        SetChecked(chkFolderMenu, wasFolderMenu);
+        grid.Add(L"", { Box(chkFolderMenu) });
         bool wasRelative = RelativePaths(), wantRelative = wasRelative;
         HWND chkRelative = Check(d, L::T(L"st.relative_paths"));
         SetChecked(chkRelative, wasRelative);
@@ -415,6 +432,7 @@ namespace wimsmith
             openTab = ComboIndex(cboTab);
             for (int n = 0; n < extCount; n++) want[n] = Checked(chkExt[n]);
             wantMenu = Checked(chkMenu);
+            wantFolderMenu = Checked(chkFolderMenu);
             wantRelative = Checked(chkRelative);
             wantAllTabs = Checked(chkAllTabs);
             dism = ComboIndex(cboDism);
@@ -469,6 +487,20 @@ namespace wimsmith
             for (const wchar_t* ext : assoc::Extensions) assoc::UnregisterMenu(ext);
             assoc::Changed();
             Log(L::T(L"st.menu_removed"));
+        }
+        // the menu of folders: "WimSmith >" (makewim.cpp)
+        if (wantFolderMenu)
+        {
+            wstring err = assoc::RegisterFolderMenu(FolderMenu());
+            assoc::Changed();
+            if (!err.empty()) Info(L::F(L"st.menu_failed", err), MB_ICONWARNING);
+            else if (!wasFolderMenu) Log(L::T(L"st.menu_folders_done"));
+        }
+        else if (wasFolderMenu)
+        {
+            assoc::UnregisterFolderMenu();
+            assoc::Changed();
+            Log(L::T(L"st.menu_folders_removed"));
         }
         if (theme >= 0 && (theme == 0) != DarkMode && CanRestart())
         {

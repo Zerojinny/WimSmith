@@ -5,7 +5,8 @@
 //    capture: saves a volume or folder (threads = compressor threads,
 //             0 = automatic) as a new WIM file (written to <file>.tmp
 //             first) or as a new image of an existing one; with
-//             snapshot = 1 it reads from a VSS snapshot;
+//             snapshot = 1 it reads from a VSS snapshot; with
+//             source_count = n the folders s<k> into the files w<k>;
 //    export : copies one image (or all) of a WIM / ESD file into a new
 //             WIM file (<file>.tmp first) or into an existing one;
 //    split  : writes a WIM as parts (<name>.swm, <name>2.swm, ...) of at
@@ -479,23 +480,53 @@ namespace wimsmith
         return file;
     }
 
-    static int Capture(const Job& job)
+    // what a capture job saves: source / wim / name, or with source_count = n
+    // the folders s1..sn, each into the WIM file w<k> as an image named n<k>
+    // (the "Make a WIM" window of the folder menu, makewim.cpp)
+    struct CaptureItem { wstring source, wim, name; };
+
+    static std::vector<CaptureItem> CaptureItems(const Job& job)
     {
-        wstring source = Get(job, L"source"), wimFile = Get(job, L"wim");
-        wstring name = Get(job, L"name"), desc = Get(job, L"description");
+        std::vector<CaptureItem> v;
+        long long count = ParseLong(Get(job, L"source_count"), 0);
+        if (count <= 0) v.push_back({ Get(job, L"source"), Get(job, L"wim"), Get(job, L"name") });
+        for (long long n = 1; n <= count; n++)
+            v.push_back({ Get(job, L"s" + Num(n)), Get(job, L"w" + Num(n)), Get(job, L"n" + Num(n)) });
+        return v;
+    }
+
+    // a name not used by another image of the file: "name", "name (2)", ...
+    static wstring UniqueName(WIMStruct* wim, const wstring& name)
+    {
+        if (name.empty()) return name;
+        int count = ImageCount(wim);
+        auto used = [&](const wstring& s)
+        {
+            for (int i = 1; i <= count; i++) if (EqualsI(Property(wim, i, L"NAME"), s)) return true;
+            return false;
+        };
+        wstring r = name;
+        for (int n = 2; used(r); n++) r = name + L" (" + Num(n) + L")";
+        return r;
+    }
+
+    // the items of one WIM file: a new file (written to <file>.tmp first), or
+    // new images of the existing one (append = 1); image = the last one added.
+    // Not 0: EXIT was written.
+    static int CaptureFile(const Job& job, const wstring& wimFile, const std::vector<CaptureItem>& items,
+        bool single, int& done, int total, int& image)
+    {
         int ctype = (int)ParseLong(Get(job, L"compression"), CompressionLzx);
         unsigned threads = Threads(job);   // 0 = wimlib's default (one per logical processor)
         bool append = Get(job, L"append") == L"1" && FileExists(wimFile);
         bool snapshot = Get(job, L"snapshot") == L"1";
-        wstring why = CaptureProblem(source, wimFile, snapshot);
-        if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + source + L" -> " + wimFile + L")");
         CreateDirs(DirName(FullPath(wimFile)));
 
         // a new file is written next to the old one first: a failed or
         // cancelled backup leaves the old file as it was
         wstring tmp = append ? wstring() : wimFile + L".tmp";
         wstring step;
-        int rc, image = 0;
+        int rc = 0;
         {
             Wim wim;
             if (append)
@@ -511,25 +542,42 @@ namespace wimsmith
                 wimlib_register_progress_function(wim.p, OnProgress, nullptr);
             }
 
-            step = L"Capture " + source;
             // exclusions of the user: a capture configuration file (the defaults of
             // wimlib's Windows configuration are in it too); none: wimlib's own
             wstring config = CaptureConfig(job);
             int addFlags = (config.empty() ? AddWinConfig : 0) | AddVerbose;
-            if (snapshot)
+            if (snapshot) addFlags |= AddSnapshot;
+            for (size_t i = 0; i < items.size() && rc == 0; i++)
             {
-                // wimlib creates the VSS snapshot, reads from it and deletes it again
-                addFlags |= AddSnapshot;
-                step = L"Capture " + source + L" (VSS snapshot)";
-                Status(L"Creating a VSS snapshot of " + Root(source));
-                Progress(-1, L"snapshot", true);
+                const wstring& source = items[i].source;
+                done++;
+                if (total > 1)
+                {
+                    Status(L"Source " + Num(done) + L" / " + Num(total) + L": " + source + L" -> " + wimFile);
+                    Progress(-1, L"source " + Num(done) + L" " + Num(total), true);
+                }
+                step = L"Capture " + source;
+                if (snapshot)
+                {
+                    // wimlib creates the VSS snapshot, reads from it and deletes it again
+                    step = L"Capture " + source + L" (VSS snapshot)";
+                    Status(L"Creating a VSS snapshot of " + Root(source));
+                    Progress(-1, L"snapshot", true);
+                }
+                else Progress(-1, L"scan 0 0 0", true);
+                Status(L"Scanning " + source + (config.empty() ? wstring(L" (Windows capture configuration)") : L" (exclusions: " + config + L")"));
+                wstring name = UniqueName(wim.p, items[i].name);
+                if (name != items[i].name) Status(L"Image name " + items[i].name + L" is used already: " + name);
+                rc = wimlib_add_image(wim.p, source.c_str(), name.empty() ? nullptr : name.c_str(), config.empty() ? nullptr : config.c_str(), addFlags);
+                if (rc != 0) break;
+                image = ImageCount(wim.p);
+                // one source: the description of the job; several: the folder
+                wstring desc = single ? Get(job, L"description") : source;
+                if (!desc.empty()) wimlib_set_image_property(wim.p, image, L"DESCRIPTION", desc.c_str());
             }
-            else Progress(-1, L"scan 0 0 0", true);
-            Status(L"Scanning " + source + (config.empty() ? wstring(L" (Windows capture configuration)") : L" (exclusions: " + config + L")"));
-            rc = wimlib_add_image(wim.p, source.c_str(), name.empty() ? nullptr : name.c_str(), config.empty() ? nullptr : config.c_str(), addFlags);
             // update_of = 1: the files unchanged since the last image (same size
             // and times) take its data, without being read again
-            if (rc == 0 && append && Get(job, L"update_of") == L"1")
+            if (rc == 0 && single && append && Get(job, L"update_of") == L"1")
             {
                 int added = ImageCount(wim.p), base = added - 1;
                 if (base >= 1)
@@ -544,8 +592,6 @@ namespace wimsmith
             if (writeFlags) Status(L"With an integrity table (--check)");
             if (rc == 0)
             {
-                image = ImageCount(wim.p);
-                if (!desc.empty()) wimlib_set_image_property(wim.p, image, L"DESCRIPTION", desc.c_str());
                 if (append)
                 {
                     step = L"Write image " + Num(image) + L" to " + wimFile;
@@ -571,14 +617,50 @@ namespace wimsmith
             DeleteFileOrThrow(wimFile);
             MoveFileOrThrow(tmp, wimFile);
         }
-        if (Get(job, L"verify") != L"1") return Finish(0, L"OK image " + Num(image));
-        // the backup is written: a cancelled verification does not undo it
-        wstring vstep;
-        rc = VerifyCore(wimFile, vstep);
-        if (rc == ErrAborted) return Finish(0, L"OK image " + Num(image) + L" (verification cancelled)");
-        if (rc == ErrPartsMissing) return Finish(2, L"The backup was written, but its verification failed: " + vstep);
-        if (rc != 0) return Failed(rc, L"The backup was written, but its verification failed: " + vstep);
-        return Finish(0, L"OK image " + Num(image) + L", verified");
+        return 0;
+    }
+
+    static int Capture(const Job& job)
+    {
+        std::vector<CaptureItem> items = CaptureItems(job);
+        bool snapshot = Get(job, L"snapshot") == L"1";
+        for (const CaptureItem& it : items)
+        {
+            wstring why = CaptureProblem(it.source, it.wim, snapshot);
+            // several sources: no WIM file inside any of them
+            for (const CaptureItem& other : items)
+                if (why.empty() && !other.source.empty() && Inside(FullPath(it.wim), FullPath(other.source))) why = L"bk.err_wim_in_source";
+            if (!why.empty()) return Finish(87, L"Refused: " + why + L" (" + it.source + L" -> " + it.wim + L")");
+        }
+        // one write per WIM file, in the order of their first source
+        std::vector<wstring> files;
+        for (const CaptureItem& it : items)
+        {
+            wstring full = FullPath(it.wim);
+            bool known = false;
+            for (const wstring& f : files) if (EqualsI(f, full)) known = true;
+            if (!known) files.push_back(full);
+        }
+        bool single = items.size() == 1, verify = Get(job, L"verify") == L"1";
+        int done = 0, image = 0;
+        for (const wstring& wimFile : files)
+        {
+            std::vector<CaptureItem> group;
+            for (const CaptureItem& it : items) if (EqualsI(FullPath(it.wim), wimFile)) group.push_back(it);
+            int rc = CaptureFile(job, wimFile, group, single, done, (int)items.size(), image);
+            if (rc != 0) return rc;
+            if (!verify) continue;
+            // the backup is written: a cancelled verification does not undo it
+            wstring vstep;
+            rc = VerifyCore(wimFile, vstep);
+            if (rc == ErrAborted)
+                return single ? Finish(0, L"OK image " + Num(image) + L" (verification cancelled)")
+                    : Finish(ErrAborted, L"Cancelled: the verification of " + wimFile);
+            if (rc == ErrPartsMissing) return Finish(2, L"The backup was written, but its verification failed: " + vstep);
+            if (rc != 0) return Failed(rc, L"The backup was written, but its verification failed: " + vstep);
+        }
+        wstring what = single ? L"OK image " + Num(image) : L"OK " + Num(done) + L" images in " + Num((long long)files.size()) + (files.size() == 1 ? L" WIM file" : L" WIM files");
+        return Finish(0, what + (verify ? L", verified" : L""));
     }
 
     // ---------- verify ----------

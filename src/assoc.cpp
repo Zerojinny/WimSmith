@@ -150,5 +150,53 @@ namespace wimsmith
         }
 
         void UnregisterMenu(const wstring& ext) { RegDeleteTreeW(HKEY_CURRENT_USER, MenuKey(ext).c_str()); }
+
+        // ---------- the right-click menu of folders ----------
+
+        static const wchar_t* const FolderMenuKey = L"Software\\Classes\\Directory\\shell\\WimSmith";
+
+        bool FolderMenuRegistered()
+        {
+            return EqualsI(Read(FolderMenuKey, L"Icon"), L"\"" + Self() + L"\",0");
+        }
+
+        // the text of the first item (its language) and the number of items
+        wstring FolderMenuText(int& items)
+        {
+            wstring shell = wstring(FolderMenuKey) + L"\\shell";
+            items = 0;
+            HKEY k;
+            if (RegOpenKeyExW(HKEY_CURRENT_USER, shell.c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return L"";
+            DWORD n = 0;
+            RegQueryInfoKeyW(k, nullptr, nullptr, nullptr, &n, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+            items = (int)n;
+            wchar_t name[256];
+            DWORD len = 256;
+            LSTATUS r = RegEnumKeyExW(k, 0, name, &len, nullptr, nullptr, nullptr, nullptr);
+            RegCloseKey(k);
+            return r == ERROR_SUCCESS ? Read(shell + L"\\" + name, L"MUIVerb") : L"";
+        }
+
+        wstring RegisterFolderMenu(const std::vector<MenuItem>& items)
+        {
+            wstring key = FolderMenuKey;
+            RegDeleteTreeW(HKEY_CURRENT_USER, key.c_str());
+            LSTATUS r = Write(key, L"MUIVerb", L"WimSmith");
+            if (r == ERROR_SUCCESS) r = Write(key, L"Icon", L"\"" + Self() + L"\",0");
+            if (r == ERROR_SUCCESS) r = Write(key, L"SubCommands", L"");
+            // any number of selected folders (not only 15); Explorer still starts
+            // one process per folder, makewim.cpp gathers them into one window
+            if (r == ERROR_SUCCESS) r = Write(key, L"MultiSelectModel", L"Player");
+            for (size_t n = 0; n < items.size() && r == ERROR_SUCCESS; n++)
+            {
+                wstring item = key + L"\\shell\\" + std::to_wstring(n + 1) + L"_" + items[n].id;
+                r = Write(item, L"MUIVerb", items[n].text);
+                if (r == ERROR_SUCCESS) r = Write(item, L"MultiSelectModel", L"Player");
+                if (r == ERROR_SUCCESS) r = Write(item + L"\\command", nullptr, L"\"" + Self() + L"\" --make-wim " + items[n].id + L" \"%1\"");
+            }
+            return r == ERROR_SUCCESS ? L"" : ErrorMessage((DWORD)r);
+        }
+
+        void UnregisterFolderMenu() { RegDeleteTreeW(HKEY_CURRENT_USER, FolderMenuKey); }
     }
 }

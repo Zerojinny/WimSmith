@@ -201,6 +201,17 @@ If,%OpensFiles%-%cb_ContextMenu%,Equal,True-True,Begin
   Run,%ScriptFile%,AddMenuItem,.swm,3_splitjoin,splitjoin,"%tSplitJoin%"
   Run,%ScriptFile%,AddMenuItem,.swm,4_info,info,"%tInfo%"
   Run,%ScriptFile%,AddMenuItem,.swm,5_browse,browse,"%tBrowse%"
+  // folders: "WimSmith >" make one WIM file / one each / open the window
+  // (WimSmith 1.3 or later, whose lang file has mw.menu_one)
+  IniRead,"%LangIni%","ui","mw.menu_one",%tMakeOne%,"Default="
+  IniRead,"%LangIni%","ui","mw.menu_each",%tMakeEach%,"Default="
+  IniRead,"%LangIni%","ui","mw.menu_open",%tMakeOpen%,"Default="
+  If,Not,"%tMakeOne%",Equal,"",Begin
+    Run,%ScriptFile%,AddFolderMenu
+    Run,%ScriptFile%,AddFolderMenuItem,1_one,one,"%tMakeOne%"
+    Run,%ScriptFile%,AddFolderMenuItem,2_each,each,"%tMakeEach%"
+    Run,%ScriptFile%,AddFolderMenuItem,3_open,open,"%tMakeOpen%"
+  End
   RegUnloadHives
 End
 
@@ -223,6 +234,33 @@ Set,%MenuKey%,"Tmp_Software\Classes\SystemFileAssociations\%^SIPARAM_1%\shell\Wi
 RegWrite,HKLM,REG_SZ,"%MenuKey%","MUIVerb","WimSmith"
 RegWrite,HKLM,REG_SZ,"%MenuKey%","Icon","#$q%PEExe%#$q,0"
 RegWrite,HKLM,REG_SZ,"%MenuKey%","SubCommands",""
+
+[#AddFolderMenu#]
+// ===============================================================================================================================
+// Name...........: AddFolderMenu
+// Description....: The "WimSmith >" submenu of folders (any number of selected folders).
+// Syntax.........: Run,%ScriptFile%,AddFolderMenu
+// Remarks........: The same keys as assoc::RegisterFolderMenu. The hives must be loaded (RegLoadHives).
+// ===============================================================================================================================
+[AddFolderMenu]
+Set,%MenuKey%,"Tmp_Software\Classes\Directory\shell\WimSmith"
+RegWrite,HKLM,REG_SZ,"%MenuKey%","MUIVerb","WimSmith"
+RegWrite,HKLM,REG_SZ,"%MenuKey%","Icon","#$q%PEExe%#$q,0"
+RegWrite,HKLM,REG_SZ,"%MenuKey%","SubCommands",""
+RegWrite,HKLM,REG_SZ,"%MenuKey%","MultiSelectModel","Player"
+
+[#AddFolderMenuItem#]
+// ===============================================================================================================================
+// Name...........: AddFolderMenuItem
+// Description....: One item of the "WimSmith >" submenu of folders: WimSmith.exe --make-wim <mode> "%1".
+// Syntax.........: Run,%ScriptFile%,AddFolderMenuItem,<KeyName>,<Mode>,<Text>
+// Remarks........: Mode: one | each | open. The hives must be loaded (RegLoadHives).
+// ===============================================================================================================================
+[AddFolderMenuItem]
+Set,%ItemKey%,"Tmp_Software\Classes\Directory\shell\WimSmith\shell\%^SIPARAM_1%"
+RegWrite,HKLM,REG_SZ,"%ItemKey%","MUIVerb","%^SIPARAM_3%"
+RegWrite,HKLM,REG_SZ,"%ItemKey%","MultiSelectModel","Player"
+RegWrite,HKLM,REG_SZ,"%ItemKey%\command","","#$q%PEExe%#$q --make-wim %^SIPARAM_2% #$q#$p1#$q"
 
 [#SetFileIcon#]
 // ===============================================================================================================================

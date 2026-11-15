@@ -8,6 +8,7 @@
 #include "helper.h"
 #include "lang.h"
 #include "mainwin.h"
+#include "makewim.h"
 #include "settings.h"
 #include <shellapi.h>
 #include <objbase.h>
@@ -34,11 +35,28 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
         LocalFree(argv);
     }
     if (!args.empty() && args[0] == L"--wim-helper") return RunHelper(args);
+    // "WimSmith.exe --make-wim <one|each|open> <folder>...": the right-click menu of folders,
+    // one process per selected folder; the first one opens the window, the
+    // others give it their folder and end (makewim.cpp)
+    bool makeWim = !args.empty() && args[0] == L"--make-wim";
+    std::vector<std::wstring> makeWimFolders;
+    std::wstring makeWimMode = L"open";
+    if (makeWim)
+    {
+        size_t first = 1;
+        if (args.size() > 1 && MakeWimMode(args[1])) { makeWimMode = args[1]; first = 2; }
+        for (size_t n = first; n < args.size(); n++)
+        {
+            std::wstring full = FullPath(args[n]);
+            makeWimFolders.push_back(full.empty() ? args[n] : full);
+        }
+        if (MakeWimForward(makeWimFolders, makeWimMode)) return 0;
+    }
     // "WimSmith.exe <file>": a WIM file opened from Explorer (assoc.cpp);
     // "WimSmith.exe --open <tab> <file>": from the right-click menu
     std::wstring openFile, openTab;
-    if (args.size() >= 3 && args[0] == L"--open") { openTab = args[1]; openFile = args[2]; }
-    else if (!args.empty()) openFile = args[0];
+    if (!makeWim && args.size() >= 3 && args[0] == L"--open") { openTab = args[1]; openFile = args[2]; }
+    else if (!makeWim && !args.empty()) openFile = args[0];
     // a relative path typed in the tabs is relative to the folder of WimSmith.exe
     // (a WimSmith on a USB drive with its WIM files next to it); the file given
     // on the command line is relative to the folder it was started from
@@ -60,6 +78,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
             std::wstring text;
             for (const std::wstring& p : L::Problems) text += p + L"\r\n";
             MessageBoxW(nullptr, text.c_str(), L"WimSmith", MB_OK | MB_ICONWARNING);
+        }
+        // "Make a WIM file" of the folder menu: no main window, only its own
+        if (makeWim)
+        {
+            int rc = RunMakeWim(makeWimFolders, makeWimMode);
+            CoUninitialize();
+            return rc;
         }
         // the tabs live as long as the window: one App per language
         App* app = new App();
