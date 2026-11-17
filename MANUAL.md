@@ -98,7 +98,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 |---|---|
 | WIM file | `.wim`, `.esd` or `.swm` (split WIM); [Read images] lists its images |
 | Image | the image to restore |
-| Restore to | a volume from the list, or an empty folder through [Folder...] |
+| Restore to | a volume from the list, or an empty folder through [Folde… |
 | New volume label | the label given when formatting |
 | UEFI/BIOS/None | which boot files to write afterwards, and the boot manager language (default `ko-kr`) |
 | System partition | where the boot files go |
@@ -139,7 +139,7 @@ With **Add with DISM** checked, DISM adds the drivers of the chosen folder (`.in
 
 ### To a folder
 
-Choose an empty folder with [Folder...]: nothing is formatted and the image is extracted into that folder, without boot files. A drive root, a folder overlapping the running Windows or WimSmith, and a folder that is not empty cannot be chosen.
+Choose an empty folder with [Folde…: nothing is formatted and the image is extracted into that folder, without boot files. A drive root, a folder overlapping the running Windows or WimSmith, and a folder that is not empty cannot be chosen.
 
 ### If a restore is cancelled
 
@@ -187,12 +187,12 @@ Saves a volume or folder as an image in a WIM file. The **job preview** below th
 
 | Item | Description |
 |---|---|
-| Source | a volume from the list, or a folder through [Folder...] |
+| Source | a volume from the list, or a folder through [Folde… |
 | WIM file | the `.wim` file to write |
 | Image name / description | name and description inside the WIM; the name must be unique in the file |
 | Compression | **LZX** (default: fair size, fast restore), **XPRESS** (fastest, larger file), **LZMS solid** (smallest file, slow); threads 0 = automatic |
 | Existing file | **Replace the file**: a new file is written and replaces the old one at the end (the old one stays until then). **Add a new image**: the image is appended to the existing file (with that file's compression). **Fast**: see below |
-| Exclude | *Exclude these paths* and [List...]: leave out more paths (see below) |
+| Exclude | *Exclude these paths* and [Lis…: leave out more paths (see below) |
 | Snapshot | *Back up from a VSS snapshot* |
 | Verify | read the new file once more and verify it after the backup |
 | Integrity | add an integrity table to the WIM file (wimlib `--check`); when adding to an existing file, that file is checked against its integrity table first. Off by default |
@@ -212,7 +212,7 @@ The comparison is by size and times only, as wimlib does it. A program that chan
 
 ### Exclusions
 
-wimlib always leaves out `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` and `\Windows\CSC`. With **Exclude these paths** checked, the paths of the list are left out too. [List...] edits the list, one path per line:
+wimlib always leaves out `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` and `\Windows\CSC`. With **Exclude these paths** checked, the paths of the list are left out too. [Lis… edits the list, one path per line:
 
 - paths start at the root of the source: `\Users\*\Downloads\*` (for a volume that is `X:\Users\...`; for a folder source, inside that folder)
 - `*` and `?` are wildcards, also in the middle of a path
@@ -280,10 +280,10 @@ Shows the WIM file's image count, compression, size, boot image, GUID and flags 
 
 | Command | What it does |
 |---|---|
-| Image info... | the name, description and edition (`FLAGS`, e.g. Professional) of the selected image, and whether it is the boot image |
+| Image inf… the name, description and edition (`FLAGS`, e.g. Professional) of the selected image, and whether it is the boot image |
 | Mark as the boot image / Remove the boot image mark | the image Windows Setup or WinPE starts from a boot WIM (`boot.wim`) |
-| Delete this image... | deletes the selected image; the images after it are numbered again. The only image of a file cannot be deleted |
-| Optimize the file... | writes the file again without the data no image uses any more: data left by files deleted on the browse tab, by deleted images and by cancelled jobs. The file becomes smaller |
+| Delete this imag… deletes the selected image; the images after it are numbered again. The only image of a file cannot be deleted |
+| Optimize the fil… writes the file again without the data no image uses any more: data left by files deleted on the browse tab, by deleted images and by cancelled jobs. The file becomes smaller |
 
 - Image info and the boot mark are written at once (only the header and the image list change).
 - Deleting and optimizing write the whole file again next to the old one and then replace it: this takes about as long as an export, needs as much free space on its drive as the file's size, and can be cancelled (the old file stays).
@@ -301,7 +301,8 @@ Shows the WIM file's image count, compression, size, boot image, GUID and flags 
 Shows the files inside an image, read with wimlib (a split WIM too: choose any part). Administrator rights are not needed. Viewing and extracting do not change the WIM file; only the edit commands below do.
 
 - Folder tree on the left, file list on the right; [Up] goes to the parent folder.
-- [Extract selected...]: extracts the selected files / folders to a folder of your choice; asks before overwriting.
+- Typing selects as in Explorer: a letter selects the next file or folder whose name starts with it (typing it again goes on to the next one, around the end), and several letters typed quickly select the first name starting with them (`ce` → `cello.txt`).
+- [Extract selecte…: extracts the selected files / folders to a folder of your choice; asks before overwriting.
 - [Open file]: extracts the file to a temporary folder and opens it with its program. In Windows PE without Explorer, text files open in Notepad, and for other files without a program the extracted location is shown.
 - Programs (.exe and the like) are not started: their location is shown in Explorer, or as a path without Explorer.
 - [Cancel] stops listing, extracting or editing; a cancelled extraction leaves nothing in the target folder.
@@ -312,10 +313,10 @@ The [Edit ▾] button, the **right-click menu** of the list or the folder tree, 
 
 | Command | Key | What it does |
 |---|---|---|
-| New folder... | | an empty folder in the current folder (in the tree: in that folder) |
-| Add files... | | files of the PC into the current folder; files of the same name are replaced after a question |
-| Add a folder... | | a whole folder of the PC; a folder of the same name is merged after a question |
-| Rename... | F2 | the one selected file or folder |
+| New folde… | an empty folder in the current folder (in the tree: in that folder) |
+| Add file… | files of the PC into the current folder; files of the same name are replaced after a question |
+| Add a folde… | a whole folder of the PC; a folder of the same name is merged after a question |
+| Renam… F2 | the one selected file or folder |
 | Delete | Del | the selected files and folders (folders with their content), after a question |
 | Refresh | F5 | reads the list again |
 
@@ -366,7 +367,7 @@ With *Right-click menu of folders* on in [Settings], select one or more folders 
 - **Make a WIM file of each**: each folder becomes its own WIM file next to it, and the job starts by itself.
 - **Open with WimSmith**: only the window opens, with the selected folders: choose the file, the way and the options, then [Start].
 
-A small window opens in each case, without the main window (Explorer starts WimSmith once per folder; they all end up in the same window, and the first two start once no more folders come in). It shows the progress, and [Cancel] stops the job. The first two use the defaults below (LZX, no verification); when a folder cannot be saved (e.g. the WIM file would be inside it), the window stays open to change it. In the window, [Add...] and [Remove] change the list.
+A small window opens in each case, without the main window (Explorer starts WimSmith once per folder; they all end up in the same window, and the first two start once no more folders come in). It shows the progress, and [Cancel] stops the job. The first two use the defaults below (LZX, no verification); when a folder cannot be saved (e.g. the WIM file would be inside it), the window stays open to change it. In the window, [Ad… and [Remove] change the list.
 
 - **One WIM file (an image per folder)**: all folders go into one file, each as its own image named after the folder. The file is `<folder>.wim` next to a single folder, or `<parent folder name>.wim` in the parent folder for several folders of one parent; type or browse another one.
 - **A WIM file per folder**: each folder becomes `<folder name>.wim` in the folder shown (by default, the folder that holds the selected folders).

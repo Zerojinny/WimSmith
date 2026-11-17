@@ -220,6 +220,32 @@ namespace wimsmith
                 r = 0;
                 return true;
             }
+            case LVN_ODFINDITEMW:
+            {
+                // typing in the list (as in Explorer): the list asks for the
+                // next row whose name starts with the typed text, from iStart
+                // on and around the end; typing the same letter again goes on
+                // to the next such row (the list itself asks from the row after)
+                NMLVFINDITEMW* f = (NMLVFINDITEMW*)n;
+                r = -1;
+                int count = (int)rows.size();
+                if (!(f->lvfi.flags & (LVFI_STRING | LVFI_PARTIAL | LVFI_SUBSTRING)) || !f->lvfi.psz || !*f->lvfi.psz || count == 0) return true;
+                int len = (int)wcslen(f->lvfi.psz);
+                // typing sends LVFI_SUBSTRING (0x4): a match at the start, like LVFI_PARTIAL
+                bool partial = (f->lvfi.flags & (LVFI_PARTIAL | LVFI_SUBSTRING)) != 0, wrap = (f->lvfi.flags & LVFI_WRAP) != 0;
+                int start = f->iStart >= 0 && f->iStart < count ? f->iStart : 0;
+                for (int k = 0; k < count; k++)
+                {
+                    int i = start + k;
+                    if (i >= count) { if (!wrap) break; i -= count; }
+                    const wstring& name = rows[i].Name;
+                    bool hit = partial
+                        ? (int)name.size() >= len && CompareStringOrdinal(name.c_str(), len, f->lvfi.psz, len, TRUE) == CSTR_EQUAL
+                        : CompareStringOrdinal(name.c_str(), -1, f->lvfi.psz, -1, TRUE) == CSTR_EQUAL;
+                    if (hit) { r = i; break; }
+                }
+                return true;
+            }
             case LVN_COLUMNCLICK:
             {
                 NMLISTVIEW* c = (NMLISTVIEW*)n;
