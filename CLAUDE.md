@@ -54,7 +54,9 @@ wimlib은 실행 중에 불러오는 별도 DLL(`lib\libwim-15.dll`)로 둡니�
 
 ### 릴리스
 
-GitHub 릴리스에는 zip이 두 번 들어갑니다: `WimSmith-<버전>-x64.zip`과 같은 파일인 **`WimSmith-x64.zip`**(`WimSmith.exe`, `lang\`, `LICENSE`, README, 사용 설명서. `lib\`은 없음). PhoenixPE 플러그인이 `releases/latest/download/WimSmith-x64.zip`을 받으므로 이 이름은 바꾸면 안 됩니다.
+GitHub 릴리스에는 zip이 두 번 들어갑니다: `WimSmith-<버전>-x64.zip`과 같은 파일인 **`WimSmith-x64.zip`**(`WimSmith.exe`, `lang\`, `LICENSE`, README, 사용 설명서. `lib\`은 없음). PhoenixPE 플러그인이 `releases/latest/download/WimSmith-x64.zip`을 받으므로 이 이름은 바꾸면 안 됩니다. 함께 올리는 파일: `phoenixpe\WimSmith.script`.
+
+릴리스 노트는 한국어가 먼저이고 영어는 같은 본문 아래에 둡니다. 첫 줄은 `[English](#user-content-english)`, 영어 절 앞에는 `<a id="english"></a>`(릴리스 페이지는 제목에 앵커를 붙이지 않음), 그 아래 `## English`와 `###` 제목들입니다.
 
 ### PhoenixPE 플러그인
 

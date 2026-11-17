@@ -54,7 +54,9 @@ The former C# / .NET Framework version (up to the C++ port) is kept in `backup\c
 
 ### Release
 
-A GitHub release has the zip twice: `WimSmith-<version>-x64.zip` and the same file as **`WimSmith-x64.zip`** (`WimSmith.exe`, `lang\`, `LICENSE`, READMEs, manuals; no `lib\`). The PhoenixPE plugin downloads `releases/latest/download/WimSmith-x64.zip`, so that name must not change.
+A GitHub release has the zip twice: `WimSmith-<version>-x64.zip` and the same file as **`WimSmith-x64.zip`** (`WimSmith.exe`, `lang\`, `LICENSE`, READMEs, manuals; no `lib\`). The PhoenixPE plugin downloads `releases/latest/download/WimSmith-x64.zip`, so that name must not change. Also attached: `phoenixpe\WimSmith.script`.
+
+Release notes are in Korean first, with the English below in the same body: the first line is `[English](#user-content-english)`, the English part starts with `<a id="english"></a>` (a release page puts no anchors on headings), then `## English` and `###` headings.
 
 ### PhoenixPE plugin
 
