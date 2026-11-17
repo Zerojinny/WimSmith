@@ -110,6 +110,8 @@ namespace ui
     // the 1 px frame of a field (FieldBorder, Dim with focus) for a control
     // with WS_BORDER not made here (Edit and List have it already)
     void FieldFrame(HWND h);
+    // the name a screen reader says for a control without a label before it
+    void AccName(HWND h, const wstring& name);
     HWND Number(HWND parent, int min, int max, int value);
     HWND Check(HWND parent, const wstring& text);
     HWND Radio(HWND parent, const wstring& text, int group);
@@ -171,6 +173,9 @@ namespace ui
     // ---- messages and dialogs ----
     void Info(const wstring& text, UINT icon = MB_ICONINFORMATION);
     bool YesNo(const wstring& text, UINT icon = MB_ICONQUESTION);
+    // a confirmation whose buttons name the action ("Format D: and restore")
+    // and "Cancel" (the default); true when the action was chosen
+    bool Confirm(const wstring& text, const wstring& action, const wstring& cancel, UINT icon = MB_ICONQUESTION);
     // Enter / Esc in a window (IsDialogMessage sends IDOK / IDCANCEL)
     void OnKeys(HWND top, Fn ok, Fn cancel);
     // a window as a modal dialog over Main: returns the value given to EndModal (0 = closed)

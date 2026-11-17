@@ -53,7 +53,9 @@ When a file is missing from `lib\`, its newest version is downloaded the first t
 
 ## 2. The window
 
-The tabs are at the top. The footer at the bottom has:
+The tabs are at the top. With the keyboard: **Ctrl+Tab** / **Ctrl+Shift+Tab** (or **Ctrl+PgDn** / **Ctrl+PgUp**) go to the next / previous tab from anywhere in the window; when the tab strip has the focus (Tab), the arrow keys, Home and End switch tabs. Screen readers (Narrator, NVDA) read the tabs, the names of the fields and the state of the check boxes.
+
+The footer at the bottom has:
 
 | Item | Description |
 |---|---|
@@ -84,7 +86,7 @@ Language and theme cannot be changed while a job runs. Closing the window during
 
 The last tab, **?**, shows the version, the author, the e-mail address (click it to write a mail, or [Copy]), the web page, the license (MIT, with its full text) and the wimlib in `lib\` with its license. Without a browser or mail program (Windows PE) a clicked address is copied to the clipboard.
 
-Every start button asks for confirmation first. Formatting a volume and clearing a disk ask a second time, and you must type the drive letter or disk number.
+Every start button asks for confirmation first. Formatting a volume and clearing a disk ask a second time, and you must type the drive letter or disk number. In the confirmation of a restore the button names the action (*Format D: and restore*); *Cancel* is the default, so Enter does nothing harmful.
 
 ---
 

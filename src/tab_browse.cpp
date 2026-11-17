@@ -833,7 +833,7 @@ namespace wimsmith
         {
             wstring names;
             for (size_t i = 0; i < exist.size() && i < 10; i++) names += (i ? L"\r\n" : L"") + exist[i];
-            if (exist.size() > 10) names += L"\r\n...";
+            if (exist.size() > 10) names += L"\r\n\u2026";
             if (!YesNo(L::F(L"br.confirm_overwrite", dest, names), MB_ICONWARNING)) return;
         }
 
@@ -928,7 +928,7 @@ namespace wimsmith
     {
         wstring s;
         for (size_t i = 0; i < names.size() && i < max; i++) s += (i ? L"\r\n" : L"") + names[i];
-        if (names.size() > max) s += L"\r\n...";
+        if (names.size() > max) s += L"\r\n\u2026";
         return s;
     }
 

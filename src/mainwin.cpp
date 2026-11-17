@@ -118,13 +118,13 @@ namespace wimsmith
 
         // footer: state | last log line | [Show log] | after done | [Cancel] | [Settings] | language
         lblState = Label(footer, L"", FontUI, color::Text, SS_LEFT | SS_CENTERIMAGE);
+        // the last log line: a click opens the log; not a tab stop ([Show log] is)
         lblLast = Link(footer, L"");
         SendMessageW(lblLast, WM_SETFONT, (WPARAM)FontMono, FALSE);
-        SetWindowLongPtrW(lblLast, GWL_STYLE, GetWindowLongPtrW(lblLast, GWL_STYLE) | SS_ENDELLIPSIS | SS_CENTERIMAGE);
+        SetWindowLongPtrW(lblLast, GWL_STYLE, GetWindowLongPtrW(lblLast, GWL_STYLE) & ~WS_TABSTOP);
         SetColor(lblLast, color::Dim);
         Tooltip(lblLast, L::T(L"bk.note"));
         lnkLog = Link(footer, L::T(L"lg.btn_show"));
-        SetWindowLongPtrW(lnkLog, GWL_STYLE, GetWindowLongPtrW(lnkLog, GWL_STYLE) | SS_CENTERIMAGE);
         lblAfter = Label(footer, L::T(L"bk.after_done"), FontUI, color::Dim, SS_LEFT | SS_CENTERIMAGE);
         cboAfter = Combo(footer);
         for (const wchar_t* k : { L"bk.after_nothing", L"bk.after_shutdown", L"bk.after_restart" }) ComboAdd(cboAfter, L::T(k));
@@ -133,6 +133,7 @@ namespace wimsmith
         Enable(btnCancel, false);
         btnSettings = Button(footer, L::T(L"st.btn"));
         cboLang = Combo(footer);
+        AccName(cboLang, L::T(L"z.ui_language"));   // no label before it
         for (const auto& kv : L::Available())
         {
             langCodes.push_back(kv.first);
@@ -171,6 +172,9 @@ namespace wimsmith
         HWND host = ScrollHost(hwnd, 828, 490, page);
         pages.push_back(page);
         hosts.push_back(host);
+        // the Tab order follows the z order: tabs, the page, then the footer
+        // (made before the pages, so it is moved behind them)
+        SetWindowPos(footer, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
         TabAdd(tabs, title);
         ShowWindow(host, SW_HIDE);
         if (pages.size() == 1) TabSelect(tabs, 0);
@@ -215,7 +219,8 @@ namespace wimsmith
         int textH = TextHeight(FontUI) + S(4);
         int x = S(12), right = w - S(8);
         // from the right: language, [Settings], [Cancel], combo, label, [Show log];
-        // a narrow window (a small screen): narrower combos, no "When done" label
+        // a narrow window (a small screen): narrower combos (the "When done"
+        // label stays: without it the combo says nothing; the log line gives way)
         bool narrow = w < S(820);
         int langW = narrow ? S(84) : S(100), afterW = narrow ? S(110) : S(130);
         int setW = std::max(narrow ? S(64) : S(80), TextWidth(FontUI, GetText(btnSettings)) + S(20));
@@ -223,8 +228,7 @@ namespace wimsmith
         right -= S(4) + setW; Move(btnSettings, right, mid(S(26)), setW, S(26)); right -= S(4);
         right -= S(8) + S(80); Move(btnCancel, right, mid(S(26)), S(80), S(26));
         right -= S(8) + afterW; Move(cboAfter, right, mid(S(23)), afterW, S(23));
-        Show(lblAfter, !narrow);
-        int aw = narrow ? 0 : TextWidth(FontUI, GetText(lblAfter)) + S(2);
+        int aw = TextWidth(FontUI, GetText(lblAfter)) + S(2);
         right -= S(4) + aw; Move(lblAfter, right, mid(textH), aw, textH);
         int lw = TextWidth(FontUI, GetText(lnkLog)) + S(2);
         right -= S(14) + lw; Move(lnkLog, right, mid(textH), lw, textH);

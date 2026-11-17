@@ -7,8 +7,11 @@
 #include <uxtheme.h>
 #include <dwmapi.h>
 #include <windowsx.h>
+#include <initguid.h>   // the GUIDs of oleacc.h (PROPID_ACC_*, CLSID_AccPropServices) defined here
+#include <oleacc.h>     // MSAA: only the interfaces; oleacc.dll is loaded at run time (a WinPE may lack it)
 #include <algorithm>
 #include <map>
+#include <set>
 
 namespace ui
 {
@@ -83,7 +86,7 @@ namespace ui
             color::Button = RGB(0xE4, 0xE7, 0xEB); ButtonHover = RGB(0xD8, 0xDC, 0xE1); ButtonDown = RGB(0xB8, 0xBE, 0xC6);
             Border = RGB(0xB8, 0xBE, 0xC6); FieldBorder = RGB(0x84, 0x8C, 0x96); Line = RGB(0xD3, 0xD7, 0xDC); Footer = RGB(0xE6, 0xE8, 0xEB);
             Text = RGB(0x1E, 0x22, 0x27); Dim = RGB(0x5C, 0x63, 0x6C);
-            Accent = RGB(0x0E, 0x8A, 0x7F); AccentText = RGB(0xFF, 0xFF, 0xFF); AccentSoft = RGB(0x0A, 0x6E, 0x65);
+            Accent = RGB(0x0C, 0x7D, 0x73); AccentText = RGB(0xFF, 0xFF, 0xFF);   // white on it: 5.0:1 AccentSoft = RGB(0x0A, 0x6E, 0x65);
             Danger = RGB(0xC6, 0x35, 0x2B); DangerText = RGB(0xFF, 0xFF, 0xFF);
             Selected = RGB(0xC8, 0xEC, 0xE7); Strong = RGB(0x00, 0x00, 0x00);
         }
@@ -116,6 +119,8 @@ namespace ui
 
     // the callbacks of a window and its children (before it is destroyed:
     // a later window may get the same handle)
+    static void AccForget(HWND h);
+
     static void Forget(HWND h)
     {
         handlers.erase(h); foreColors.erase(h); backColors.erase(h); layouts.erase(h); painters.erase(h);
@@ -123,6 +128,7 @@ namespace ui
         boldRows.erase(h); listDouble.erase(h); listExtra.erase(h); keyHandlers.erase(h); scrollers.erase(h);
         for (auto it = timers.begin(); it != timers.end();) it = it->first.first == h ? timers.erase(it) : std::next(it);
         if (hovered == h) hovered = nullptr;
+        AccForget(h);
     }
 
     static void ForgetTree(HWND top)
@@ -162,6 +168,58 @@ namespace ui
         return f ? f : FontUI;
     }
 
+    // ---------- accessibility (MSAA: what a screen reader reads) ----------
+    // Dynamic Annotation (AccPropServices of oleacc, through COM, so that the
+    // exe does not need oleacc.dll to start): the role, state, name or value
+    // of a control Windows cannot know, such as the check boxes drawn here.
+    // Without the service (a WinPE without oleacc) nothing is annotated.
+
+    static std::set<HWND> annotated;
+
+    static IAccPropServices* AccProps()
+    {
+        static IAccPropServices* svc = nullptr;
+        static bool tried = false;
+        if (!tried)
+        {
+            tried = true;
+            if (FAILED(CoCreateInstance(CLSID_AccPropServices, nullptr, CLSCTX_INPROC_SERVER, __uuidof(IAccPropServices), (void**)&svc))) svc = nullptr;
+        }
+        return svc;
+    }
+
+    static void AccInt(HWND h, const MSAAPROPID& prop, int value)
+    {
+        IAccPropServices* s = AccProps();
+        if (!s) return;
+        VARIANT v = {};
+        v.vt = VT_I4;
+        v.lVal = value;
+        if (SUCCEEDED(s->SetHwndProp(h, (DWORD)OBJID_CLIENT, CHILDID_SELF, prop, v))) annotated.insert(h);
+    }
+
+    static void AccStr(HWND h, const MSAAPROPID& prop, const wstring& text)
+    {
+        IAccPropServices* s = AccProps();
+        if (s && SUCCEEDED(s->SetHwndPropStr(h, (DWORD)OBJID_CLIENT, CHILDID_SELF, prop, text.c_str()))) annotated.insert(h);
+    }
+
+    void AccName(HWND h, const wstring& name) { AccStr(h, PROPID_ACC_NAME, name); }
+
+    static void AccForget(HWND h)
+    {
+        if (!annotated.erase(h)) return;
+        MSAAPROPID props[] = { PROPID_ACC_NAME, PROPID_ACC_ROLE, PROPID_ACC_STATE, PROPID_ACC_VALUE };
+        if (IAccPropServices* s = AccProps()) s->ClearHwndProps(h, (DWORD)OBJID_CLIENT, CHILDID_SELF, props, 4);
+    }
+
+    // oleacc.dll, loaded once when a screen reader first asks (WM_GETOBJECT)
+    static HMODULE Oleacc()
+    {
+        static HMODULE m = LoadLibraryExW(L"oleacc.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        return m;
+    }
+
     // ---------- owner-drawn buttons ----------
 
     static void DrawButton(const DRAWITEMSTRUCT* d)
@@ -170,6 +228,31 @@ namespace ui
         auto k = buttonKinds.find(h);
         int kind = k == buttonKinds.end() ? 0 : k->second;
         bool enabled = !(d->itemState & ODS_DISABLED), down = (d->itemState & ODS_SELECTED) != 0, hover = hovered == h;
+        bool focus = (d->itemState & ODS_FOCUS) && !(d->itemState & ODS_NOFOCUSRECT);
+        wchar_t text[256] = { 0 };
+        GetWindowTextW(h, text, 256);
+        if (kind == 3)
+        {
+            // a link: accent text on the background of its parent; a frame
+            // around the text with keyboard focus
+            RECT r = d->rcItem;
+            FillRect(d->hDC, &r, Brush(BackOf(GetParent(h))));
+            auto fc = foreColors.find(h);
+            SetBkMode(d->hDC, TRANSPARENT);
+            SetTextColor(d->hDC, !enabled ? color::Dim : fc != foreColors.end() ? fc->second : color::AccentSoft);
+            HGDIOBJ old = SelectObject(d->hDC, FontOf(h));
+            UINT fmt = DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS;
+            DrawTextW(d->hDC, text, -1, &r, fmt);
+            if (focus)
+            {
+                RECT t = r;
+                DrawTextW(d->hDC, text, -1, &t, fmt | DT_CALCRECT);
+                RECT f = { r.left, r.top, std::min(r.right, t.right + 2), r.bottom };
+                FrameRect(d->hDC, &f, Brush(color::Dim));
+            }
+            SelectObject(d->hDC, old);
+            return;
+        }
         COLORREF fill, border, fore;
         if (!enabled) { fill = color::Panel; border = color::Line; fore = color::Dim; }
         else if (kind)
@@ -182,14 +265,20 @@ namespace ui
         else
         {
             fill = down ? color::ButtonDown : hover ? color::ButtonHover : color::Button;
-            border = (d->itemState & ODS_FOCUS) && !(d->itemState & ODS_NOFOCUSRECT) ? color::Dim : color::Border;
+            border = focus ? color::Dim : color::Border;
             fore = color::Text;
         }
         RECT r = d->rcItem;
         FillRect(d->hDC, &r, Brush(fill));
         FrameRect(d->hDC, &r, Brush(border));
-        wchar_t text[256] = { 0 };
-        GetWindowTextW(h, text, 256);
+        if (kind && enabled && focus)
+        {
+            // a primary or danger button: its border is its fill, so the focus
+            // is a ring inside it in the text color
+            RECT f = r;
+            InflateRect(&f, -S(2), -S(2));
+            FrameRect(d->hDC, &f, Brush(fore));
+        }
         SetBkMode(d->hDC, TRANSPARENT);
         SetTextColor(d->hDC, fore);
         HGDIOBJ old = SelectObject(d->hDC, FontOf(h));
@@ -398,6 +487,8 @@ namespace ui
         }
         case WM_ENABLE:
         case WM_SETTEXT:
+        case WM_SIZE:   // a combo box selects all its text when it is resized
+        case WM_WINDOWPOSCHANGED:
         {
             LRESULT r = DefSubclassProc(h, m, wp, lp);
             if (!IsWindowEnabled(h)) SendMessageW(h, CB_SETEDITSEL, 0, MAKELPARAM(0xFFFF, 0));
@@ -730,7 +821,7 @@ namespace ui
         GetCursorPos(&cur);
         ScreenToClient(h, &cur);
         bool press = en && (s->key || (s->down && PtInRect(&rc, cur)));
-        COLORREF edge = !en ? color::Line : (s->checked || press ? color::Accent : hover ? color::Dim : color::Border);
+        COLORREF edge = !en ? color::Line : (s->checked || press ? color::Accent : hover ? color::Dim : color::FieldBorder);
         COLORREF mark = !en ? color::Dim : press ? Lighter(color::Accent, 0.3f) : color::Accent;
         if (s->radio)
         {
@@ -777,13 +868,28 @@ namespace ui
             fr.bottom = rc.bottom - fr.top;
             fr.left -= 2;
             fr.right = std::min(fr.right + 2, rc.right);
-            FrameRect(dc, &fr, Brush(color::Border));
+            FrameRect(dc, &fr, Brush(color::Dim));
         }
         SelectObject(dc, of);
         BitBlt(target, 0, 0, rc.right, rc.bottom, dc, 0, 0, SRCCOPY);
         SelectObject(dc, oldBmp);
         DeleteObject(bmp);
         DeleteDC(dc);
+    }
+
+    // what a screen reader is told of a check box / radio button: its role
+    // and state (checked, unavailable, focused); the name is its text
+    static void AccCheck(HWND h, bool notify)
+    {
+        CheckState* s = StateOf(h);
+        if (!s) return;
+        AccInt(h, PROPID_ACC_ROLE, s->radio ? ROLE_SYSTEM_RADIOBUTTON : ROLE_SYSTEM_CHECKBUTTON);
+        int state = STATE_SYSTEM_FOCUSABLE;
+        if (s->checked) state |= STATE_SYSTEM_CHECKED;
+        if (!IsWindowEnabled(h)) state |= STATE_SYSTEM_UNAVAILABLE;
+        if (GetFocus() == h) state |= STATE_SYSTEM_FOCUSED;
+        AccInt(h, PROPID_ACC_STATE, state);
+        if (notify) NotifyWinEvent(EVENT_OBJECT_STATECHANGE, h, OBJID_CLIENT, CHILDID_SELF);
     }
 
     static LRESULT CALLBACK CheckProc(HWND h, UINT m, WPARAM wp, LPARAM lp)
@@ -795,6 +901,7 @@ namespace ui
             SetWindowLongPtrW(h, GWLP_USERDATA, (LONG_PTR)new CheckState());
             break;
         case WM_NCDESTROY:
+            AccForget(h);
             delete s;
             SetWindowLongPtrW(h, GWLP_USERDATA, 0);
             break;
@@ -847,15 +954,21 @@ namespace ui
         case WM_KILLFOCUS:
             if (s) s->key = false;
             InvalidateRect(h, nullptr, FALSE);
+            AccCheck(h, false);
             return 0;
         case WM_SETFOCUS:
+            InvalidateRect(h, nullptr, FALSE);
+            AccCheck(h, false);
+            return 0;
         case WM_ENABLE:
             InvalidateRect(h, nullptr, FALSE);
+            AccCheck(h, true);
             return 0;
         case WM_SETTEXT:
         {
             LRESULT r = DefWindowProcW(h, m, wp, lp);
             InvalidateRect(h, nullptr, FALSE);
+            NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, h, OBJID_CLIENT, CHILDID_SELF);
             return r;
         }
         case WM_ERASEBKGND:
@@ -888,6 +1001,7 @@ namespace ui
         if (!s || s->checked == on) return;
         s->checked = on;
         InvalidateRect(h, nullptr, FALSE);
+        AccCheck(h, true);
         if (s->radio && on) EnumChildWindows(GetParent(h), UncheckSibling, (LPARAM)h);
         if (fire) Fire(h, false);
     }
@@ -936,6 +1050,203 @@ namespace ui
         return r;
     }
 
+    // the tab strip for a screen reader: a page tab list with one page tab per
+    // name (children 1..n). The strip itself (parent, location) comes from the
+    // standard object of the window.
+    class TabsAccessible : public IAccessible
+    {
+        LONG refs = 1;
+        HWND h;
+        IAccessible* base = nullptr;
+
+        TabsState* State() const { return IsWindow(h) ? TabsOf(h) : nullptr; }
+        bool Child(const VARIANT& v, int& index) const
+        {
+            TabsState* s = State();
+            if (!s || v.vt != VT_I4 || v.lVal < 1 || v.lVal > (long)s->names.size()) return false;
+            index = v.lVal - 1;
+            return true;
+        }
+        static bool Self(const VARIANT& v) { return v.vt == VT_I4 && v.lVal == CHILDID_SELF; }
+        static void Int(VARIANT* out, long value) { out->vt = VT_I4; out->lVal = value; }
+
+    public:
+        TabsAccessible(HWND w) : h(w)
+        {
+            typedef HRESULT(WINAPI* CreateStdFn)(HWND, LONG, REFIID, void**);
+            CreateStdFn create = Oleacc() ? (CreateStdFn)GetProcAddress(Oleacc(), "CreateStdAccessibleObject") : nullptr;
+            if (create) create(h, OBJID_CLIENT, __uuidof(IAccessible), (void**)&base);
+        }
+        ~TabsAccessible() { if (base) base->Release(); }
+
+        // IUnknown
+        STDMETHODIMP QueryInterface(REFIID riid, void** out) override
+        {
+            if (riid == IID_IUnknown || riid == IID_IDispatch || riid == __uuidof(IAccessible)) { *out = this; AddRef(); return S_OK; }
+            *out = nullptr;
+            return E_NOINTERFACE;
+        }
+        STDMETHODIMP_(ULONG) AddRef() override { return InterlockedIncrement(&refs); }
+        STDMETHODIMP_(ULONG) Release() override { LONG r = InterlockedDecrement(&refs); if (!r) delete this; return r; }
+
+        // IDispatch: not used by screen readers
+        STDMETHODIMP GetTypeInfoCount(UINT* n) override { *n = 0; return S_OK; }
+        STDMETHODIMP GetTypeInfo(UINT, LCID, ITypeInfo**) override { return E_NOTIMPL; }
+        STDMETHODIMP GetIDsOfNames(REFIID, LPOLESTR*, UINT, LCID, DISPID*) override { return E_NOTIMPL; }
+        STDMETHODIMP Invoke(DISPID, REFIID, LCID, WORD, DISPPARAMS*, VARIANT*, EXCEPINFO*, UINT*) override { return E_NOTIMPL; }
+
+        // IAccessible
+        STDMETHODIMP get_accParent(IDispatch** out) override { *out = nullptr; return base ? base->get_accParent(out) : S_FALSE; }
+        STDMETHODIMP get_accChildCount(long* n) override { TabsState* s = State(); if (!s) return E_FAIL; *n = (long)s->names.size(); return S_OK; }
+        STDMETHODIMP get_accChild(VARIANT, IDispatch** out) override { *out = nullptr; return S_FALSE; }   // simple elements
+        STDMETHODIMP get_accName(VARIANT v, BSTR* out) override
+        {
+            *out = nullptr;
+            int i;
+            if (Child(v, i)) { *out = SysAllocString(TabsOf(h)->names[i].c_str()); return S_OK; }
+            return Self(v) ? S_FALSE : E_INVALIDARG;
+        }
+        STDMETHODIMP get_accValue(VARIANT, BSTR* out) override { *out = nullptr; return S_FALSE; }
+        STDMETHODIMP get_accDescription(VARIANT, BSTR* out) override { *out = nullptr; return S_FALSE; }
+        STDMETHODIMP get_accRole(VARIANT v, VARIANT* out) override
+        {
+            int i;
+            if (Child(v, i)) { Int(out, ROLE_SYSTEM_PAGETAB); return S_OK; }
+            if (Self(v)) { Int(out, ROLE_SYSTEM_PAGETABLIST); return S_OK; }
+            return E_INVALIDARG;
+        }
+        STDMETHODIMP get_accState(VARIANT v, VARIANT* out) override
+        {
+            TabsState* s = State();
+            if (!s) return E_FAIL;
+            bool focused = GetFocus() == h;
+            int i;
+            if (Child(v, i))
+            {
+                long st = STATE_SYSTEM_SELECTABLE | STATE_SYSTEM_FOCUSABLE;
+                if (i == s->sel) st |= STATE_SYSTEM_SELECTED | (focused ? STATE_SYSTEM_FOCUSED : 0);
+                Int(out, st);
+                return S_OK;
+            }
+            if (Self(v)) { Int(out, STATE_SYSTEM_FOCUSABLE | (focused ? STATE_SYSTEM_FOCUSED : 0)); return S_OK; }
+            return E_INVALIDARG;
+        }
+        STDMETHODIMP get_accHelp(VARIANT, BSTR* out) override { *out = nullptr; return S_FALSE; }
+        STDMETHODIMP get_accHelpTopic(BSTR* file, VARIANT, long* topic) override { *file = nullptr; *topic = 0; return S_FALSE; }
+        STDMETHODIMP get_accKeyboardShortcut(VARIANT v, BSTR* out) override
+        {
+            *out = nullptr;
+            int i;
+            if (Child(v, i)) { *out = SysAllocString(L"Ctrl+Tab"); return S_OK; }
+            return S_FALSE;
+        }
+        STDMETHODIMP get_accFocus(VARIANT* out) override
+        {
+            TabsState* s = State();
+            if (!s) return E_FAIL;
+            if (GetFocus() == h && s->sel >= 0) Int(out, s->sel + 1); else out->vt = VT_EMPTY;
+            return S_OK;
+        }
+        STDMETHODIMP get_accSelection(VARIANT* out) override
+        {
+            TabsState* s = State();
+            if (!s) return E_FAIL;
+            if (s->sel >= 0) Int(out, s->sel + 1); else out->vt = VT_EMPTY;
+            return S_OK;
+        }
+        STDMETHODIMP get_accDefaultAction(VARIANT v, BSTR* out) override
+        {
+            *out = nullptr;
+            int i;
+            if (Child(v, i)) { *out = SysAllocString(L"Switch"); return S_OK; }
+            return S_FALSE;
+        }
+        STDMETHODIMP accSelect(long flags, VARIANT v) override
+        {
+            int i;
+            if (!Child(v, i)) return E_INVALIDARG;
+            if (flags & (SELFLAG_TAKEFOCUS)) SetFocus(h);
+            if (flags & (SELFLAG_TAKESELECTION | SELFLAG_ADDSELECTION)) TabSelect(h, i);
+            return S_OK;
+        }
+        STDMETHODIMP accLocation(long* x, long* y, long* w, long* hh, VARIANT v) override
+        {
+            int i;
+            if (Child(v, i))
+            {
+                RECT r = TabRects(h)[i];
+                MapWindowPoints(h, nullptr, (POINT*)&r, 2);
+                *x = r.left; *y = r.top; *w = r.right - r.left; *hh = r.bottom - r.top;
+                return S_OK;
+            }
+            return base ? base->accLocation(x, y, w, hh, v) : E_FAIL;
+        }
+        STDMETHODIMP accNavigate(long dir, VARIANT start, VARIANT* out) override
+        {
+            TabsState* s = State();
+            if (!s) return E_FAIL;
+            out->vt = VT_EMPTY;
+            long n = (long)s->names.size();
+            int i;
+            if (Child(start, i))
+            {
+                long to = 0;
+                if (dir == NAVDIR_NEXT || dir == NAVDIR_RIGHT) to = i + 2;
+                else if (dir == NAVDIR_PREVIOUS || dir == NAVDIR_LEFT) to = i;
+                if (to >= 1 && to <= n) { Int(out, to); return S_OK; }
+                return S_FALSE;
+            }
+            if (Self(start) && n > 0)
+            {
+                if (dir == NAVDIR_FIRSTCHILD) { Int(out, 1); return S_OK; }
+                if (dir == NAVDIR_LASTCHILD) { Int(out, n); return S_OK; }
+            }
+            return base ? base->accNavigate(dir, start, out) : S_FALSE;
+        }
+        STDMETHODIMP accHitTest(long x, long y, VARIANT* out) override
+        {
+            POINT p = { x, y };
+            ScreenToClient(h, &p);
+            std::vector<RECT> r = TabRects(h);
+            for (size_t i = 0; i < r.size(); i++) if (PtInRect(&r[i], p)) { Int(out, (long)i + 1); return S_OK; }
+            return base ? base->accHitTest(x, y, out) : S_FALSE;
+        }
+        STDMETHODIMP accDoDefaultAction(VARIANT v) override
+        {
+            int i;
+            if (!Child(v, i)) return E_INVALIDARG;
+            TabSelect(h, i);
+            return S_OK;
+        }
+        STDMETHODIMP put_accName(VARIANT, BSTR) override { return E_NOTIMPL; }
+        STDMETHODIMP put_accValue(VARIANT, BSTR) override { return E_NOTIMPL; }
+    };
+
+    // Ctrl+Tab / Ctrl+Shift+Tab, Ctrl+PgDn / Ctrl+PgUp: the next / previous tab
+    // of the window the key was pressed in (from any control in it)
+    static std::vector<HWND> tabStrips;
+
+    static bool TabKeys(const MSG& m)
+    {
+        if (m.message != WM_KEYDOWN || GetKeyState(VK_CONTROL) >= 0 || GetKeyState(VK_MENU) < 0) return false;
+        int step = 0;
+        if (m.wParam == VK_TAB) step = GetKeyState(VK_SHIFT) < 0 ? -1 : 1;
+        else if (m.wParam == VK_NEXT) step = 1;
+        else if (m.wParam == VK_PRIOR) step = -1;
+        if (!step) return false;
+        HWND root = GetAncestor(m.hwnd, GA_ROOT);
+        for (HWND t : tabStrips)
+        {
+            if (!IsWindowVisible(t) || GetAncestor(t, GA_ROOT) != root) continue;
+            TabsState* s = TabsOf(t);
+            int n = (int)s->names.size();
+            if (n == 0) return false;
+            TabSelect(t, ((s->sel + step) % n + n) % n);
+            return true;
+        }
+        return false;
+    }
+
     static LRESULT CALLBACK TabsProc(HWND h, UINT m, WPARAM wp, LPARAM lp)
     {
         TabsState* s = TabsOf(h);
@@ -943,10 +1254,48 @@ namespace ui
         {
         case WM_NCCREATE:
             SetWindowLongPtrW(h, GWLP_USERDATA, (LONG_PTR)new TabsState());
+            tabStrips.push_back(h);
             break;
         case WM_NCDESTROY:
+            tabStrips.erase(std::remove(tabStrips.begin(), tabStrips.end(), h), tabStrips.end());
             delete s;
             SetWindowLongPtrW(h, GWLP_USERDATA, 0);
+            break;
+        case WM_GETOBJECT:
+            if ((LONG)lp == OBJID_CLIENT && Oleacc())
+            {
+                typedef LRESULT(WINAPI* ResultFn)(REFIID, WPARAM, LPUNKNOWN);
+                ResultFn result = (ResultFn)GetProcAddress(Oleacc(), "LresultFromObject");
+                if (result)
+                {
+                    TabsAccessible* acc = new TabsAccessible(h);
+                    LRESULT r = result(__uuidof(IAccessible), wp, acc);
+                    acc->Release();
+                    return r;
+                }
+            }
+            break;
+        case WM_GETDLGCODE:
+            return DLGC_WANTARROWS;
+        case WM_KEYDOWN:
+        {
+            // Left / Right: the previous / next tab, Home / End: the first / last
+            int n = (int)s->names.size(), to = -1;
+            if (wp == VK_LEFT) to = std::max(0, s->sel - 1);
+            else if (wp == VK_RIGHT) to = std::min(n - 1, s->sel + 1);
+            else if (wp == VK_HOME) to = 0;
+            else if (wp == VK_END) to = n - 1;
+            else break;
+            if (to >= 0) TabSelect(h, to);
+            return 0;
+        }
+        case WM_SETFOCUS:
+            InvalidateRect(h, nullptr, FALSE);
+            if (s->sel >= 0) NotifyWinEvent(EVENT_OBJECT_FOCUS, h, OBJID_CLIENT, s->sel + 1);
+            return 0;
+        case WM_KILLFOCUS:
+        case WM_UPDATEUISTATE:
+            InvalidateRect(h, nullptr, FALSE);
             break;
         case WM_LBUTTONDOWN:
         {
@@ -1004,6 +1353,12 @@ namespace ui
                 {
                     RECT u = { r[i].left + S(4), head - S(2), r[i].right - S(4), head };
                     FillRect(dc, &u, Brush(color::Accent));
+                    // keyboard focus: a frame around the selected tab
+                    if (GetFocus() == h)
+                    {
+                        RECT f = { r[i].left + S(2), r[i].top + S(3), r[i].right - S(2), head - S(4) };
+                        FrameRect(dc, &f, Brush(color::Dim));
+                    }
                 }
             }
             BitBlt(target, 0, 0, rc.right, rc.bottom, dc, 0, 0, SRCCOPY);
@@ -1033,6 +1388,8 @@ namespace ui
         if (index == s->sel || index < 0 || index >= (int)s->names.size()) return;
         s->sel = index;
         InvalidateRect(h, nullptr, FALSE);
+        NotifyWinEvent(EVENT_OBJECT_SELECTION, h, OBJID_CLIENT, index + 1);
+        if (GetFocus() == h) NotifyWinEvent(EVENT_OBJECT_FOCUS, h, OBJID_CLIENT, index + 1);
         Fire(h, false);
     }
 
@@ -1112,7 +1469,16 @@ namespace ui
     {
         ProgressState* s = ProgressOf(p);
         int v = std::max(0, std::min(100, value));
-        if (v != s->value) { s->value = v; InvalidateRect(p, nullptr, FALSE); }
+        if (v != s->value)
+        {
+            s->value = v;
+            InvalidateRect(p, nullptr, FALSE);
+            if (!s->marquee)
+            {
+                AccStr(p, PROPID_ACC_VALUE, std::to_wstring(v) + L"%");
+                NotifyWinEvent(EVENT_OBJECT_VALUECHANGE, p, OBJID_CLIENT, CHILDID_SELF);
+            }
+        }
     }
 
     void ProgressMarquee(HWND p, bool on)
@@ -1123,6 +1489,11 @@ namespace ui
         s->still = on && !Animations();
         if (on && !s->still) ::SetTimer(p, 1, 30, nullptr); else ::KillTimer(p, 1);
         InvalidateRect(p, nullptr, FALSE);
+        // busy without an amount: no value for a screen reader
+        AccStr(p, PROPID_ACC_VALUE, on ? wstring() : std::to_wstring(s->value) + L"%");
+        if (on) AccInt(p, PROPID_ACC_STATE, STATE_SYSTEM_BUSY | STATE_SYSTEM_READONLY);
+        else if (IAccPropServices* a = AccProps()) { MSAAPROPID st = PROPID_ACC_STATE; a->ClearHwndProps(p, (DWORD)OBJID_CLIENT, CHILDID_SELF, &st, 1); }
+        NotifyWinEvent(EVENT_OBJECT_VALUECHANGE, p, OBJID_CLIENT, CHILDID_SELF);
     }
 
     // ---------- menus ----------
@@ -1362,6 +1733,7 @@ namespace ui
         while (GetMessageW(&msg, nullptr, 0, 0) > 0)
         {
             HWND top = GetAncestor(msg.hwnd, GA_ROOT);
+            if (TabKeys(msg)) continue;
             if (!(top && IsDialogMessageW(top, &msg)))
             {
                 TranslateMessage(&msg);
@@ -1493,8 +1865,12 @@ namespace ui
 
     HWND Link(HWND parent, const wstring& text)
     {
-        HWND h = Label(parent, text, FontUI, color::AccentSoft, SS_LEFT | SS_NOTIFY);
-        SetWindowSubclass(h, LinkSub, 1, 0);
+        // an owner-drawn button drawn as a link (DrawButton, kind 3): a tab stop,
+        // Space / Enter open it, a screen reader knows it as a button
+        HWND h = Button(parent, text);
+        buttonKinds[h] = 3;
+        foreColors[h] = color::AccentSoft;
+        SetWindowSubclass(h, LinkSub, 2, 0);
         return h;
     }
 
@@ -1577,6 +1953,7 @@ namespace ui
         CheckState* s = StateOf(h);
         s->radio = radio;
         s->group = group;
+        AccCheck(h, false);
         return h;
     }
 
@@ -1585,7 +1962,8 @@ namespace ui
 
     HWND Tabs(HWND parent)
     {
-        HWND h = CreateWindowExW(0, TabsClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 10, 10, parent, nullptr, Inst, nullptr);
+        // a tab stop: the arrow keys switch the tabs (Ctrl+Tab from anywhere)
+        HWND h = CreateWindowExW(0, TabsClass, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 10, 10, parent, nullptr, Inst, nullptr);
         return h;
     }
 
@@ -1796,7 +2174,11 @@ namespace ui
 
     HWND Progress(HWND parent)
     {
-        return CreateWindowExW(0, ProgressClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 10, 10, parent, nullptr, Inst, nullptr);
+        HWND h = CreateWindowExW(0, ProgressClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 10, 10, parent, nullptr, Inst, nullptr);
+        // a screen reader: a progress bar with its percentage as the value
+        AccInt(h, PROPID_ACC_ROLE, ROLE_SYSTEM_PROGRESSBAR);
+        AccStr(h, PROPID_ACC_VALUE, L"0%");
+        return h;
     }
 
     void Tooltip(HWND control, const wstring& text)
@@ -1943,6 +2325,44 @@ namespace ui
         return MessageBoxW(o, text.c_str(), L"WimSmith", MB_YESNO | icon | Front(o)) == IDYES;
     }
 
+    // a task dialog without an owner: in front, like MB_SETFOREGROUND | MB_TOPMOST
+    static HRESULT CALLBACK ConfirmFront(HWND h, UINT n, WPARAM, LPARAM, LONG_PTR)
+    {
+        if (n == TDN_CREATED)
+        {
+            SetWindowPos(h, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            SetForegroundWindow(h);
+        }
+        return S_OK;
+    }
+
+    bool Confirm(const wstring& text, const wstring& action, const wstring& cancel, UINT icon)
+    {
+        // TaskDialogIndirect: comctl32 6 only, looked up at run time (no import
+        // that could stop the exe from starting); without it a Yes / No box
+        typedef HRESULT(WINAPI* TaskDialogFn)(const TASKDIALOGCONFIG*, int*, int*, BOOL*);
+        HMODULE cc = GetModuleHandleW(L"comctl32.dll");
+        TaskDialogFn dialog = cc ? (TaskDialogFn)GetProcAddress(cc, "TaskDialogIndirect") : nullptr;
+        if (!dialog) return YesNo(text, icon);
+        HWND o = ActiveOwner();
+        const int Act = 100;
+        TASKDIALOG_BUTTON buttons[] = { { Act, action.c_str() }, { IDCANCEL, cancel.c_str() } };
+        TASKDIALOGCONFIG c = { sizeof c };
+        c.hwndParent = o;
+        c.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | (o ? TDF_POSITION_RELATIVE_TO_WINDOW : 0);
+        c.pszWindowTitle = L"WimSmith";
+        c.pszMainIcon = (icon & MB_ICONMASK) == MB_ICONWARNING ? TD_WARNING_ICON
+            : (icon & MB_ICONMASK) == MB_ICONERROR ? TD_ERROR_ICON : TD_INFORMATION_ICON;
+        c.pszContent = text.c_str();
+        c.cButtons = 2;
+        c.pButtons = buttons;
+        c.nDefaultButton = IDCANCEL;   // Enter does not destroy anything
+        if (!o) c.pfCallback = ConfirmFront;
+        int pressed = 0;
+        if (FAILED(dialog(&c, &pressed, nullptr, nullptr))) return YesNo(text, icon);
+        return pressed == Act;
+    }
+
     void OnKeys(HWND top, Fn ok, Fn cancel) { keyHandlers[top] = std::make_pair(ok, cancel); }
 
     void EndModal(HWND dlg, int result) { modalResults[dlg] = result; }
@@ -2002,6 +2422,25 @@ namespace ui
         Row r;
         r.label = Label(parent, label, FontBold, color::Dim, SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS);
         r.items.assign(items.begin(), items.end());
+        // the label just before the first control of its row in the z order:
+        // a screen reader names a field after the label before it (the
+        // controls are made before the row, so the label would come last)
+        HWND first = r.items.empty() ? nullptr : r.items.front().h;
+        if (!label.empty() && first && GetParent(first) == parent)
+        {
+            HWND above = GetWindow(first, GW_HWNDPREV);
+            SetWindowPos(r.label, above ? above : HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+            // a field later in the row with no text of its own before it (after
+            // a check box, as in "Drivers: [x] Add with DISM [folder]"): the row label
+            for (size_t i = 1; i < r.items.size(); i++)
+            {
+                HWND c = r.items[i].h;
+                wstring cls = c ? ClassOf(c) : wstring();
+                bool field = _wcsicmp(cls.c_str(), L"Edit") == 0 || _wcsicmp(cls.c_str(), L"ComboBox") == 0;
+                bool labelled = ClassOf(r.items[i - 1].h) == L"Static";
+                if (field && !labelled) AccName(c, label);
+            }
+        }
         rows.push_back(r);
     }
 

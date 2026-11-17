@@ -508,7 +508,8 @@ namespace wimsmith
         Job job;
         wstring drivers;
         if (!DriversJob(job, windows, drivers)) return;
-        if (!YesNo(L::F(L"bk.confirm_apply", tgt.Letter, tgt.Text, imgText, wim, windows), MB_ICONWARNING)) return;
+        if (!Confirm(L::F(L"bk.confirm_apply", tgt.Letter, tgt.Text, imgText, wim, windows),
+            L::F(L"bk.btn_confirm_apply", tgt.Letter), L::T(L"bk.btn_cancel"), MB_ICONWARNING)) return;
         if (!app.ConfirmTyped(L::F(L"bk.confirm_type", tgt.Letter), letter)) return;
 
         job[L"mode"] = L"apply";
@@ -563,7 +564,7 @@ namespace wimsmith
         Job job;
         wstring drivers;
         if (!DriversJob(job, question, drivers)) return;
-        if (!YesNo(question, MB_ICONQUESTION)) return;
+        if (!Confirm(question, L::T(L"bk.btn_confirm_folder"), L::T(L"bk.btn_cancel"))) return;
 
         job[L"mode"] = L"apply";
         job[L"wim"] = wim;
