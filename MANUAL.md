@@ -1,435 +1,435 @@
-# WimSmith User Manual
+# WimSmith 사용 설명서
 
-WimSmith is a Windows tool that backs up volumes or folders into WIM images and restores WIM images to volumes or folders. It can also prepare disks, export images, split and join WIM files, verify them, and browse the files inside an image. Everything is done with [wimlib](https://wimlib.net).
+WimSmith는 볼륨이나 폴더를 WIM 이미지로 백업하고, WIM 이미지를 볼륨이나 폴더에 복구하는 Windows 도구입니다. 디스크 초기화, 이미지 내보내기, 나누기 / 합치기, 검증, 이미지 안의 파일 탐색도 할 수 있습니다. 모든 작업은 [wimlib](https://wimlib.net)으로 합니다.
 
-[한국어](MANUAL.ko.md)
+[English](MANUAL.en.md)
 
-## Contents
+## 목차
 
-1. [Getting started](#1-getting-started)
-2. [The window](#2-the-window)
-3. [Restore (apply a WIM)](#3-restore-apply-a-wim)
-4. [Disk (partitions)](#4-disk-partitions)
-5. [Backup (save as WIM)](#5-backup-save-as-wim)
-6. [Export](#6-export)
-7. [Split / Join](#7-split--join)
-8. [Info and Verify](#8-info-and-verify)
-9. [Browse](#9-browse)
-10. [Common tasks](#10-common-tasks)
-11. [Settings file and logs](#11-settings-file-and-logs)
-12. [Troubleshooting](#12-troubleshooting)
-
----
-
-## 1. Getting started
-
-### Requirements
-
-- Windows 8.1 / 10 / 11 x64, or x64 Windows PE. No runtime (.NET or other) needs to be installed.
-- Backup, restore and disk jobs need administrator rights; Windows asks for them each time. Export, split / join, info, verify and browse do not.
-
-### What is in the package
-
-| File | Description |
-|---|---|
-| `WimSmith.exe` | the program (a single exe) |
-| `lib\` | wimlib (`libwim-15.dll`) and its license texts |
-| `WimSmith.ini` | the settings; created on the first run |
-
-When a file is missing from `lib\`, its newest version is downloaded the first time it is needed. To use the program without internet (Windows PE, for example), copy a filled `lib\` folder along with it.
-
-### Using it in Windows PE
-
-- Copy `WimSmith.exe` and the `lib\` folder to a USB drive and run it from there.
-- Explorer is not needed: the file and folder dialogs are drawn by the program itself.
-- WIM files on a network drive (`net use Z: \\server\share`) work too.
-- On a small screen without a video driver (640 × 480, 800 × 600, …) the window opens maximized.
-  - A tab larger than the screen gets scroll bars: the mouse wheel scrolls up and down, Shift + wheel left and right.
-  - Moving to a field with Tab scrolls it into view.
-  - The footer (progress, Cancel) always stays visible.
-- For a higher resolution, set `bcdedit /store <BCD file> /set {default} highestmode on` on the PE boot entry: it boots in the highest mode the firmware offers.
+1. [시작하기](#1-시작하기)
+2. [화면 구성](#2-화면-구성)
+3. [복구 (WIM 적용)](#3-복구-wim-적용)
+4. [디스크 (파티션)](#4-디스크-파티션)
+5. [백업 (WIM으로 저장)](#5-백업-wim으로-저장)
+6. [내보내기](#6-내보내기)
+7. [나누기 / 합치기](#7-나누기--합치기)
+8. [정보와 검증](#8-정보와-검증)
+9. [탐색](#9-탐색)
+10. [자주 하는 작업](#10-자주-하는-작업)
+11. [설정 파일과 로그](#11-설정-파일과-로그)
+12. [문제 해결](#12-문제-해결)
 
 ---
 
-## 2. The window
+## 1. 시작하기
 
-The tabs are at the top. With the keyboard: **Ctrl+Tab** / **Ctrl+Shift+Tab** (or **Ctrl+PgDn** / **Ctrl+PgUp**) go to the next / previous tab from anywhere in the window; when the tab strip has the focus (Tab), the arrow keys, Home and End switch tabs. Screen readers (Narrator, NVDA) read the tabs, the names of the fields and the state of the check boxes.
+### 필요한 것
 
-The footer at the bottom has:
+- Windows 8.1 / 10 / 11 x64 또는 x64 Windows PE. 런타임(.NET 등)을 설치할 필요가 없습니다.
+- 백업, 복구, 디스크 작업에는 관리자 권한이 필요합니다. 작업마다 Windows가 권한을 묻습니다. 내보내기, 나누기 / 합치기, 정보, 검증, 탐색에는 관리자 권한이 필요 없습니다.
 
-| Item | Description |
+### 배포 파일
+
+| 파일 | 설명 |
 |---|---|
-| State | phase, progress and elapsed time of the running job |
-| Last log line | click it to open the log window |
-| Show log | opens the log window (copy, clear) |
-| When done | *Do nothing / Shut down / Restart* when the job ends; shut down and restart can be cancelled during a countdown (10 seconds; up to 60 in [Settings]) |
-| Cancel | stops the running job at wimlib's next progress step |
-| Settings | opens the settings (below) |
-| Language | 한국어 / English |
+| `WimSmith.exe` | 프로그램 (exe 하나) |
+| `lib\` | wimlib(`libwim-15.dll`)과 그 라이선스 문서 |
+| `WimSmith.ini` | 설정 파일. 처음 실행할 때 생깁니다 |
 
-**[Settings]**:
+`lib\` 폴더에 파일이 없으면 처음 필요할 때 최신 버전을 인터넷에서 자동으로 받습니다. 인터넷이 없는 곳(Windows PE 등)에서 쓰려면 미리 받아 둔 `lib\` 폴더를 함께 복사하세요.
 
-| Setting | Description |
-|---|---|
-| Theme | Dark / Light; the window is rebuilt in the new colors |
-| Open with WimSmith | `.wim`, `.esd`, `.swm`, each on its own: a double-click on such a file in Explorer starts WimSmith with it. These files get their own icons (a page with the layers and the extension: WIM teal, ESD violet, SWM orange). Set for your Windows user only, no administrator rights; clear a box to undo it (the program used before comes back) |
-| Open a WIM file in | the tab a WIM / ESD / SWM file opens in: Browse (default), Info, Restore, Add an image (the backup tab with the file as its target and *Add a new image*), Export or Split / Join. Also for a file opened with *Open with* or dropped on `WimSmith.exe`. With *Put the opened file into the other tabs too* (on by default) the other tabs get the file as well: restore, export, info and browse always; the backup tab (as its target, with *Add a new image*) and split only for a `.wim`; join for a `.swm` |
-| Right-click menu | adds a **WimSmith ▸** submenu to the right-click menu of `.wim`, `.esd` and `.swm` files in Explorer, whichever program opens them: *Extract*, *Extract each* (see [Extract from the right-click menu](#extract-from-the-right-click-menu)), *Restore*, *Add an image* (.wim only), *Export*, *Split / Join* (.wim: split, .swm: join), *Info*, *Browse*. On Windows 11 it is under *Show more options*. Its texts follow the language of WimSmith |
-| Right-click menu of folders | adds a **WimSmith ▸** submenu to the right-click menu of folders in Explorer: *Make a WIM file*, *Make a WIM file of each*, *Open with WimSmith* (see [Make a WIM from folders](#make-a-wim-from-folders)). On Windows 11 it is under *Show more options* |
-| DISM (drivers) | the DISM that adds drivers on the restore tab: **DISM of Windows** (`System32`) or **dism.exe in this folder** (e.g. the `DISM` folder of the Windows ADK; a relative folder is read against `WimSmith.exe`). **[Import]** copies the DISM of the running Windows (`System32\dism.exe`, `System32\Dism\`, `dismapi.dll`, `wimgapi.dll` and their language files) into the `dism` folder next to `WimSmith.exe` and chooses that folder: run it once on a newer Windows, and a Windows PE with an older DISM uses this one |
-| When done: wait | the seconds of the countdown before *Shut down* / *Restart* when done: 1 to 60, 10 by default |
-| Restore: path | the restore tab remembers its last WIM file; with this on, it is saved relative to `WimSmith.exe` (e.g. `WIM\pc.wim` or `..\Backup\pc.wim`) when it is on the same drive, so a WimSmith on a USB drive still finds it when the drive gets another letter. Off by default; other drives and network paths stay full paths |
+### Windows PE에서 쓰기
 
-When another program was chosen for one of these extensions in Windows before, Windows keeps it, and WimSmith says so: right-click such a file > *Open with* > *Choose another app*, select WimSmith and *Always*. If `WimSmith.exe` is moved to another folder, its boxes are shown cleared: check them again.
-
-Language and theme cannot be changed while a job runs. Closing the window during a job leaves the job running, but its progress can no longer be seen.
-
-The last tab, **?**, shows the version, the author, the e-mail address (click it to write a mail, or [Copy]), the web page, the license (MIT, with its full text) and the wimlib in `lib\` with its license. Without a browser or mail program (Windows PE) a clicked address is copied to the clipboard.
-
-Every start button asks for confirmation first. Formatting a volume and clearing a disk ask a second time, and you must type the drive letter or disk number. In the confirmation of a restore the button names the action (*Format D: and restore*); *Cancel* is the default, so Enter does nothing harmful.
+- `WimSmith.exe`와 `lib\` 폴더를 USB 등에 복사해 그대로 실행합니다.
+- 탐색기가 없어도 됩니다. 파일 / 폴더 선택 창은 프로그램이 직접 그립니다.
+- 네트워크 드라이브(`net use Z: \\서버\공유`)에 있는 WIM 파일도 쓸 수 있습니다.
+- 비디오 드라이버가 없어 화면이 작으면(640 × 480, 800 × 600 등) 창이 최대화되어 열립니다.
+  - 탭 내용이 화면보다 크면 스크롤바가 생깁니다. 마우스 휠로 위아래, Shift + 휠로 좌우로 움직입니다.
+  - Tab 키로 다음 칸에 가면 그 칸이 보이도록 자동으로 스크롤됩니다.
+  - 하단 바(진행 상태, 취소)는 항상 보입니다.
+- 해상도를 올리려면 PE 부팅 항목에 `bcdedit /store <BCD 파일> /set {default} highestmode on`을 설정하세요. 펌웨어가 지원하는 가장 높은 해상도로 부팅합니다.
 
 ---
 
-## 3. Restore (apply a WIM)
+## 2. 화면 구성
 
-Applies one image of a WIM file to a volume or to an empty folder.
+창 위쪽에 탭이 있습니다. 키보드로는 창 어디에서나 **Ctrl+Tab** / **Ctrl+Shift+Tab**(또는 **Ctrl+PgDn** / **Ctrl+PgUp**)으로 다음 / 이전 탭으로 갑니다. 탭 줄에 포커스가 있으면(Tab 키) 화살표 키, Home, End로 탭을 바꿉니다. 화면 낭독기(내레이터, NVDA)는 탭, 입력 칸의 이름, 체크박스의 상태를 읽습니다.
 
-| Item | Description |
+아래쪽 하단 바에 다음이 있습니다.
+
+| 항목 | 설명 |
 |---|---|
-| WIM file | `.wim`, `.esd` or `.swm` (split WIM); [Read images] lists its images |
-| Image | the image to restore |
-| Restore to | a volume from the list, or an empty folder through [Folde… |
-| New volume label | the label given when formatting |
-| UEFI/BIOS/None | which boot files to write afterwards, and the boot manager language (default `ko-kr`) |
-| System partition | where the boot files go |
-| Compression | **Off**, or **Compact OS** XPRESS 4K / 8K / 16K / LZX: the restored files are compressed by Windows (see below). The last choice is kept |
-| Drivers | **Add with DISM**: after the restore, DISM adds the drivers of a folder to the restored Windows (see below). The folder is kept, the box is not |
-| Integrity | check the WIM file against its integrity table first (`--check`); a damaged file stops the job before anything is formatted. Off by default |
+| 상태 | 진행 중인 작업의 단계, 진행률, 경과 시간 |
+| 마지막 로그 줄 | 누르면 로그 창이 열립니다 |
+| 로그 보기 | 로그 창 열기 (복사, 지우기 가능) |
+| 완료 후 | 작업이 끝나면 *아무것도 안 함 / 시스템 종료 / 다시 시작*. 종료와 다시 시작은 카운트다운(10초, [설정]에서 최대 60초) 중에 취소할 수 있습니다 |
+| 취소 | 진행 중인 작업을 멈춥니다. wimlib의 다음 진행 단계에서 멈춥니다 |
+| 설정 | 설정 창을 엽니다 (아래) |
+| 언어 | 한국어 / English |
 
-### To a volume
+**[설정]**:
 
-- The volume is **quick-formatted as NTFS**, then the image is applied to its root. All data on the volume is lost.
-- Not listed: the drive of the running Windows, the drive of WimSmith and the drive of the WIM file.
-- A volume smaller than the image is refused.
+| 설정 | 설명 |
+|---|---|
+| 테마 | 다크 / 라이트. 바꾸면 창이 새 색으로 다시 만들어집니다 |
+| WimSmith로 열기 | `.wim`, `.esd`, `.swm`을 각각 고릅니다: 탐색기에서 그 파일을 두 번 누르면 WimSmith로 열립니다. 이 파일들은 전용 아이콘(레이어와 확장자가 그려진 문서: WIM 청록, ESD 보라, SWM 주황)으로 보입니다. 현재 Windows 사용자에게만 설정되며 관리자 권한은 필요 없습니다. 체크를 끄면 원래대로 돌아갑니다(전에 쓰던 프로그램이 다시 연결됩니다) |
+| WIM 파일을 열 탭 | WIM / ESD / SWM 파일을 열 때 보여 줄 탭: 탐색(기본), 정보, 복구, 이미지 추가(백업 탭에 그 파일을 대상으로, *이미지 추가* 선택), 내보내기, 나누기 / 합치기. *연결 프로그램*으로 열거나 `WimSmith.exe`에 끌어다 놓은 파일도 같습니다. *연 파일을 다른 탭에도 넣기*(기본 켜짐)를 켜면 다른 탭에도 그 파일이 들어갑니다: 복구, 내보내기, 정보, 탐색은 항상, 백업 탭(대상으로, *이미지 추가* 선택)과 나누기는 `.wim`만, 합치기는 `.swm`만 |
+| 오른쪽 클릭 메뉴 | 탐색기에서 `.wim`, `.esd`, `.swm` 파일의 오른쪽 클릭 메뉴에 **WimSmith ▸** 하위 메뉴를 넣습니다(어떤 프로그램으로 열리든 상관없음): *압축 풀기*, *각각 압축 풀기*([오른쪽 클릭 메뉴로 압축 풀기](#오른쪽-클릭-메뉴로-압축-풀기) 참고), *복구*, *이미지 추가*(.wim만), *내보내기*, *나누기 / 합치기*(.wim: 나누기, .swm: 합치기), *정보*, *탐색*. Windows 11에서는 *추가 옵션 표시* 안에 있습니다. 메뉴 문구는 WimSmith의 언어를 따릅니다 |
+| 폴더의 오른쪽 클릭 메뉴 | 탐색기에서 폴더의 오른쪽 클릭 메뉴에 **WimSmith ▸** 하위 메뉴(*WIM 파일로 만들기*, *각각 WIM 파일로 만들기*, *WimSmith로 열기*)를 넣습니다([폴더로 WIM 만들기](#폴더로-wim-만들기) 참고). Windows 11에서는 *추가 옵션 표시* 안에 있습니다 |
+| DISM (드라이버) | 복구 탭에서 드라이버를 추가할 DISM: **Windows의 DISM**(`System32`) 또는 **이 폴더의 dism.exe**(예: Windows ADK의 `DISM` 폴더, 상대 경로는 `WimSmith.exe` 기준). **[가져오기]**는 실행 중인 Windows의 DISM(`System32\dism.exe`, `System32\Dism\`, `dismapi.dll`, `wimgapi.dll`과 언어 파일)을 `WimSmith.exe` 옆 `dism` 폴더로 복사하고 그 폴더를 선택합니다. 최신 Windows에서 한 번 해 두면 DISM이 오래된 Windows PE에서도 이 DISM을 씁니다 |
+| 완료 후 대기 | 작업 완료 후 *시스템 종료* / *다시 시작* 전 카운트다운 시간: 1 - 60초, 기본 10초 |
+| 복구: 경로 | 복구 탭은 마지막으로 연 WIM 파일을 기억합니다. 이 항목을 켜면 그 파일이 `WimSmith.exe`와 같은 드라이브에 있을 때 그 기준 상대 경로(예: `WIM\pc.wim`, `..\Backup\pc.wim`)로 저장합니다. USB에서 쓰다가 드라이브 문자가 바뀌어도 같은 파일을 찾습니다. 기본은 꺼짐이며, 다른 드라이브와 네트워크 경로는 전체 경로로 저장합니다 |
 
-### Boot files
+Windows에서 전에 이 확장자에 다른 프로그램을 골라 두었다면 Windows가 그 프로그램을 그대로 쓰며, WimSmith가 그렇다고 알려 줍니다: 그 파일을 마우스 오른쪽 버튼으로 누르고 > *연결 프로그램* > *다른 앱 선택*에서 WimSmith를 고른 뒤 *항상*을 누르세요. `WimSmith.exe`를 다른 폴더로 옮기면 체크가 꺼진 것으로 보이니 다시 켜세요.
 
-- With **UEFI** and/or **BIOS** checked, `bcdboot` writes the boot files to the chosen system partition after the image is applied.
-- A system partition without a drive letter gets one for that time and loses it again afterwards.
-- UEFI boot files can only go to a FAT32 partition (the EFI system partition).
-- On an MBR disk without a System Reserved partition, the restored partition itself is the system partition, and it is made **active** automatically.
-- **None** writes no boot files; you can run `bcdboot X:\Windows` yourself later.
+작업 중에는 언어와 테마를 바꿀 수 없습니다. 작업 중에 창을 닫으면 작업은 계속되지만 진행 상황은 볼 수 없습니다.
 
-### Compact OS (compressed restore)
+마지막 탭 **?** 에는 버전, 제작자, 이메일(누르면 메일 쓰기, [복사]로 복사), 웹 페이지, 라이선스(MIT, 전문 포함), `lib\`의 wimlib과 그 라이선스가 나옵니다. 브라우저나 메일 프로그램이 없으면(Windows PE) 누른 주소가 클립보드에 복사됩니다.
 
-The files are written with the *System Compression* of Windows 10 (`wimapply --compact`): a Windows volume usually needs several GB less, which helps on small SSDs and eMMC tablets. XPRESS 4K is fast and recommended; LZX is the smallest and the slowest.
-
-- The running Windows or WinPE must be Windows 10 or later (without it the box stays at Off), and the restored Windows must be Windows 10 or later too.
-- Files that Windows needs to start are left uncompressed by wimlib.
-- The size check before the restore is skipped: the compressed image may fit a volume smaller than its size.
-- Files written later by Windows are not compressed; files changed later are written uncompressed again.
-
-### Drivers (DISM)
-
-With **Add with DISM** checked, DISM adds the drivers of the chosen folder (`.inf` files, subfolders included) to the restored Windows right after the image is applied, before the boot files are written (`dism /Image:<target> /Add-Driver /Driver:<folder> /Recurse`). Use it for storage, network or chipset drivers that the restored Windows needs on this PC.
-
-- It works for a volume and for a folder target; the image must contain Windows.
-- Which DISM is used is chosen in [Settings]: the DISM of Windows (`System32\dism.exe`, also in Windows PE) or `dism.exe` in a folder, e.g. the `DISM` folder of the Windows ADK (`...\Deployment Tools\amd64\DISM`). A DISM older than the restored Windows may fail: then use the one of the ADK. A relative folder is read against the folder of `WimSmith.exe`.
-- When DISM fails, the image stays applied and the boot files are still written; the job ends with the DISM error, and DISM's log is kept as `dism.log` in the job folder.
-
-### To a folder
-
-Choose an empty folder with [Folde…: nothing is formatted and the image is extracted into that folder, without boot files. A drive root, a folder overlapping the running Windows or WimSmith, and a folder that is not empty cannot be chosen.
-
-### If a restore is cancelled
-
-The volume is left incomplete: format it or restore again. For a folder, empty it and restore again.
+모든 실행 버튼은 실행 전에 확인 창을 보여 줍니다. 볼륨 포맷과 디스크 초기화는 한 번 더, 드라이브 문자나 디스크 번호를 직접 입력해야 진행됩니다. 복구 확인 창의 버튼은 할 일을 이름으로 보여 주며(*D: 포맷 후 복구*), 기본 버튼은 *취소*라서 Enter를 눌러도 아무것도 지우지 않습니다.
 
 ---
 
-## 4. Disk (partitions)
+## 3. 복구 (WIM 적용)
 
-**Clears a whole disk**, initializes it as GPT or MBR and creates partitions. Every partition and all data on that disk are lost.
+WIM 이미지 하나를 볼륨이나 빈 폴더에 풉니다.
 
-| Item | Description |
+| 항목 | 설명 |
 |---|---|
-| Disk | the disk to clear. The disk of the running Windows, the disk of WimSmith, and read-only or offline disks cannot be chosen |
-| Partition style | **GPT (UEFI)** or **MBR (BIOS / legacy)**; MBR can use 2 TB at most |
-| Layout | see the table below |
-| System partition | size in MB; on GPT the *MSR (16 MB)* box, on MBR the *Create* box for the System Reserved partition |
-| Recovery partition | when checked, an NTFS recovery partition at the end of the disk (default 1024 MB) |
-| Windows label | the volume label of the Windows partition |
-| Data partition | Windows share (%), file system (NTFS / exFAT / FAT32), label |
-| Partitions | a preview of the result |
+| WIM 파일 | `.wim`, `.esd`, `.swm`(나눈 WIM). [이미지 읽기]로 이미지 목록을 읽습니다 |
+| 이미지 | 복구할 이미지 |
+| 복구 대상 | 볼륨 목록. [폴…로 비어 있는 폴더를 고를 수도 있습니다 |
+| 새 볼륨 이름 | 포맷할 때 붙일 볼륨 레이블 |
+| UEFI/BIOS/None | 복구 뒤 쓸 부트 파일의 종류와 부트 관리자 언어(기본 `ko-kr`) |
+| 시스템 파티션 | 부트 파일을 쓸 파티션 |
+| 압축 | **사용 안 함**, 또는 **Compact OS** XPRESS 4K / 8K / 16K / LZX: 복구한 파일을 Windows 압축으로 씁니다(아래 참고). 마지막 선택이 저장됩니다 |
+| 드라이버 | **DISM으로 추가**: 복구한 뒤 DISM으로 폴더의 드라이버를 복구한 Windows에 넣습니다(아래 참고). 폴더는 저장되고 체크는 저장되지 않습니다 |
+| 무결성 | 먼저 무결성 테이블로 WIM 파일을 확인합니다(`--check`). 손상되어 있으면 포맷하지 않고 멈춥니다. 기본값은 꺼짐 |
 
-### Layouts
+### 볼륨에 복구
 
-| Layout | GPT | MBR |
+- 고른 볼륨을 **NTFS로 빠른 포맷**한 뒤 볼륨 루트에 이미지를 적용합니다. 볼륨의 모든 데이터가 지워집니다.
+- 다음 드라이브는 목록에 나오지 않습니다: 실행 중인 Windows의 드라이브, WimSmith가 있는 드라이브, WIM 파일이 있는 드라이브.
+- 볼륨이 이미지보다 작으면 시작하지 않습니다.
+
+### 부트 파일
+
+- **UEFI**나 **BIOS**를 체크하면 적용 뒤 `bcdboot`로 고른 시스템 파티션에 부트 파일을 씁니다. 둘 다 체크할 수도 있습니다.
+- 드라이브 문자가 없는 시스템 파티션은 잠시 문자를 붙였다가 다시 뺍니다.
+- UEFI 부트 파일은 FAT32 파티션(EFI 시스템 파티션)에만 쓸 수 있습니다.
+- MBR 디스크에 시스템 예약 파티션이 없으면 복구 대상 파티션 자신이 시스템 파티션이 되며, 그 파티션을 자동으로 **활성** 파티션으로 만듭니다.
+- **None**이면 부트 파일을 쓰지 않습니다. 나중에 직접 `bcdboot X:\Windows`를 실행할 수 있습니다.
+
+### Compact OS (압축 복구)
+
+파일을 Windows 10의 *시스템 압축*으로 씁니다(`wimapply --compact`). Windows 볼륨이 보통 수 GB 작아져, 용량이 작은 SSD나 eMMC 태블릿에 좋습니다. XPRESS 4K가 빠르고 추천하는 값이며, LZX가 가장 작고 가장 느립니다.
+
+- 실행 중인 Windows나 WinPE가 Windows 10 이상이어야 합니다(아니면 *사용 안 함*으로 고정). 복구하는 Windows도 Windows 10 이상이어야 합니다.
+- Windows 시작에 필요한 파일은 wimlib이 압축하지 않고 둡니다.
+- 복구 전 크기 확인은 하지 않습니다. 압축하면 이미지 크기보다 작은 볼륨에도 들어갈 수 있기 때문입니다.
+- 나중에 Windows가 새로 쓰거나 바꾼 파일은 압축되지 않은 상태로 써집니다.
+
+### 드라이버 (DISM)
+
+**DISM으로 추가**를 체크하면 이미지를 푼 직후, 부트 파일을 쓰기 전에 DISM이 고른 폴더의 드라이버(`.inf` 파일, 하위 폴더 포함)를 복구한 Windows에 추가합니다(`dism /Image:<대상> /Add-Driver /Driver:<폴더> /Recurse`). 이 PC에서 복구한 Windows에 필요한 저장 장치, 네트워크, 칩셋 드라이버를 넣을 때 씁니다.
+
+- 볼륨과 폴더 대상 모두에 쓸 수 있으며, 이미지에 Windows가 있어야 합니다.
+- 사용할 DISM은 [설정]에서 고릅니다: Windows의 DISM(`System32\dism.exe`, Windows PE에도 있음) 또는 폴더의 `dism.exe`(예: Windows ADK의 `DISM` 폴더, `...\Deployment Tools\amd64\DISM`). 복구한 Windows보다 오래된 DISM은 실패할 수 있으니 그때는 ADK의 DISM을 쓰세요. 상대 경로 폴더는 `WimSmith.exe` 폴더 기준입니다.
+- DISM이 실패해도 이미지는 그대로 남고 부트 파일도 씁니다. 작업은 DISM 오류로 끝나며, DISM 로그는 작업 폴더의 `dism.log`로 남습니다.
+
+### 폴더에 복구
+
+[폴…로 비어 있는 폴더를 고르면 포맷하지 않고 그 폴더 안에 이미지를 풉니다. 부트 파일은 쓰지 않습니다. 드라이브 루트, 실행 중인 Windows 폴더, WimSmith 폴더와 겹치는 폴더, 비어 있지 않은 폴더는 고를 수 없습니다.
+
+### 작업을 취소하면
+
+볼륨이 완전하지 않은 상태로 남습니다. 다시 포맷하거나 다시 복구하세요. 폴더에 복구하다 취소했다면 폴더를 비우고 다시 복구하세요.
+
+---
+
+## 4. 디스크 (파티션)
+
+디스크 하나를 **통째로 지우고** GPT 또는 MBR로 초기화한 뒤 파티션을 만듭니다. 그 디스크의 모든 파티션과 데이터가 사라집니다.
+
+| 항목 | 설명 |
+|---|---|
+| 디스크 | 초기화할 디스크. 실행 중인 Windows의 디스크, WimSmith가 있는 디스크, 읽기 전용 / 오프라인 디스크는 고를 수 없습니다 |
+| 파티션 형식 | **GPT (UEFI)** 또는 **MBR (BIOS / 레거시)**. MBR은 2TB까지 쓸 수 있습니다 |
+| 구성 | 아래 표 참고 |
+| 시스템 파티션 | 크기(MB). GPT는 *MSR (16 MB)* 체크, MBR은 시스템 예약 파티션 *만들기* 체크 |
+| 복구 파티션 | 체크하면 디스크 맨 끝에 NTFS 복구 파티션(기본 1024 MB) |
+| Windows 레이블 | Windows 파티션의 볼륨 레이블 |
+| 데이터 파티션 | Windows 비율(%), 파일 시스템(NTFS / exFAT / FAT32), 레이블 |
+| 만들 파티션 | 만들어질 파티션 목록 미리보기 |
+
+### 구성
+
+| 구성 | GPT | MBR |
 |---|---|---|
-| For Windows | EFI system (FAT32, 260 MB) + MSR (16 MB) + Windows (NTFS) | System Reserved (NTFS, 500 MB, active) + Windows (NTFS) |
-| Windows + data | the same + a data partition | the same + a data partition |
-| One data partition | the whole disk as one partition | the whole disk as one partition |
+| Windows 설치용 | EFI 시스템(FAT32, 260 MB) + MSR(16 MB) + Windows(NTFS) | 시스템 예약(NTFS, 500 MB, 활성) + Windows(NTFS) |
+| Windows + 데이터 | 위 구성 + 데이터 파티션 | 위 구성 + 데이터 파티션 |
+| 데이터 파티션 1개 | 디스크 전체를 파티션 하나로 | 디스크 전체를 파티션 하나로 |
 
-- **Windows + data**: of the remaining space, Windows gets the chosen share in %, the data partition the rest.
-- **Without MSR**: Windows boots, but Windows Setup and some disk tools expect an MSR on a GPT disk.
-- **MBR without System Reserved**: the Windows partition becomes the active partition and also holds the BIOS boot files.
-- A FAT32 data partition can be at most 32 GB.
+- **Windows + 데이터**: 남는 공간에서 Windows 파티션이 정한 비율(%)만큼, 데이터 파티션이 나머지를 가집니다.
+- **MSR을 빼면**: Windows는 부팅되지만, Windows 설치 프로그램과 일부 디스크 도구는 GPT 디스크에 MSR이 있다고 가정합니다.
+- **MBR에서 시스템 예약 파티션을 빼면**: Windows 파티션이 활성 파티션이 되고 BIOS 부트 파일도 그 파티션에 씁니다.
+- FAT32 데이터 파티션은 32 GB까지만 만들 수 있습니다.
 
-### Next step
+### 다음 단계
 
-A layout with Windows goes on to the restore tab by itself, with the new Windows partition as the target and the new system partition and boot type (UEFI for GPT, BIOS for MBR) already set: just choose the WIM file and the image. A data partition gets the next free drive letter.
+Windows가 들어가는 구성을 만들면 자동으로 복구 탭으로 넘어갑니다. 새 Windows 파티션이 복구 대상으로, 새 시스템 파티션과 부트 방식(GPT는 UEFI, MBR은 BIOS)이 미리 설정되어 있으니 WIM 파일과 이미지만 고르면 됩니다. 데이터 파티션에는 비어 있는 다음 드라이브 문자가 붙습니다.
 
 ---
 
-## 5. Backup (save as WIM)
+## 5. 백업 (WIM으로 저장)
 
-Saves a volume or folder as an image in a WIM file. The **job preview** below the options shows source, target, method, rights and verification.
+볼륨이나 폴더를 WIM 파일에 이미지로 저장합니다. 옵션 아래의 **작업 미리보기**에 원본, 대상, 방식, 권한, 검증 여부가 표시됩니다.
 
-| Item | Description |
+| 항목 | 설명 |
 |---|---|
-| Source | a volume from the list, or a folder through [Folde… |
-| WIM file | the `.wim` file to write |
-| Image name / description | name and description inside the WIM; the name must be unique in the file |
-| Compression | **LZX** (default: fair size, fast restore), **XPRESS** (fastest, larger file), **LZMS solid** (smallest file, slow); threads 0 = automatic |
-| Existing file | **Replace the file**: a new file is written and replaces the old one at the end (the old one stays until then). **Add a new image**: the image is appended to the existing file (with that file's compression). **Fast**: see below |
-| Exclude | *Exclude these paths* and [Lis…: leave out more paths (see below) |
-| Snapshot | *Back up from a VSS snapshot* |
-| Verify | read the new file once more and verify it after the backup |
-| Integrity | add an integrity table to the WIM file (wimlib `--check`); when adding to an existing file, that file is checked against its integrity table first. Off by default |
+| 원본 | 볼륨 목록, 또는 [폴…로 고른 폴더 |
+| WIM 파일 | 저장할 `.wim` 파일 |
+| 이미지 이름 / 설명 | WIM 안의 이미지 이름과 설명. 이름은 파일 안에서 겹치면 안 됩니다 |
+| 압축 | **LZX**(기본: 적당한 크기, 빠른 복구), **XPRESS**(가장 빠름, 파일이 큼), **LZMS solid**(가장 작은 파일, 느림). 스레드 0 = 자동 |
+| 기존 파일 | **파일 바꾸기**: 새 파일로 저장하고 끝나면 기존 파일과 바꿉니다(그때까지 기존 파일은 그대로). **새 이미지로 추가**: 기존 파일에 다음 번호의 이미지로 추가합니다(압축은 기존 파일과 같음). **빠르게**: 아래 참고 |
+| 제외 | *이 경로 제외*와 [목…: 더 뺄 경로(아래 참고) |
+| 스냅샷 | VSS 스냅샷으로 백업 |
+| 검증 | 백업이 끝나면 새 파일을 한 번 더 읽어 검증 |
+| 무결성 | WIM 파일에 무결성 테이블을 넣습니다(wimlib `--check`). 기존 파일에 추가할 때는 그 파일을 먼저 무결성 테이블로 확인합니다. 기본값은 꺼짐 |
 
-### Backing up the running Windows
+### 실행 중인 Windows 백업
 
-- The running Windows (its system drive or its Windows folder) can only be saved with **VSS snapshot** on. The snapshot is made at the start and deleted at the end; files in use are saved as they were at that moment.
-- Without a snapshot, connect the source PC's disk to another PC, or boot Windows PE and back up from there.
-- The WIM file must not be inside the source; with a snapshot, put it on another drive.
-- `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` and the like are left out (wimlib's default exclusion list for Windows).
+- 실행 중인 Windows(시스템 드라이브 전체나 Windows 폴더)는 **VSS 스냅샷**을 켰을 때만 저장할 수 있습니다. 스냅샷은 시작할 때 만들고 끝나면 지웁니다. 사용 중인 파일도 그 시점 그대로 저장됩니다.
+- 스냅샷 없이 저장하려면 원본 PC의 디스크를 다른 PC에 연결하거나, Windows PE로 부팅해서 백업하세요.
+- WIM 파일은 원본 안에 둘 수 없습니다. 스냅샷을 쓸 때는 다른 드라이브에 두세요.
+- `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` 등은 저장하지 않습니다(wimlib의 Windows 기본 제외 목록).
 
-### Fast backup into an existing file
+### 기존 파일에 빠르게 추가
 
-With **Add a new image** and **Fast: unchanged files from the last image** (on by default), files whose size and times are the same as in the last image of the file are not read again: their data is taken from that image (wimlib `--update-of`). Backing up the same drive into the same file again is then much faster. Changed and new files are read as usual.
+**새 이미지로 추가**와 **빠르게: 바뀌지 않은 파일은 마지막 이미지에서**(기본 켜짐)를 함께 쓰면, 파일의 마지막 이미지와 크기와 시간이 같은 파일은 다시 읽지 않고 그 이미지의 데이터를 씁니다(wimlib `--update-of`). 같은 드라이브를 같은 파일에 다시 백업할 때 훨씬 빨라집니다. 바뀐 파일과 새 파일은 평소처럼 읽습니다.
 
-The comparison is by size and times only, as wimlib does it. A program that changes a file and restores its times would not be noticed; turn the box off for such a case.
+비교는 wimlib 방식대로 크기와 시간만 봅니다. 파일 내용을 바꾸고 시간을 되돌려 놓는 프로그램이 있다면 알아채지 못하니, 그런 경우에는 체크를 끄세요.
 
-### Exclusions
+### 제외 목록
 
-wimlib always leaves out `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin` and `\Windows\CSC`. With **Exclude these paths** checked, the paths of the list are left out too. [Lis… edits the list, one path per line:
+wimlib은 `pagefile.sys`, `hiberfil.sys`, `swapfile.sys`, `System Volume Information`, `$Recycle.Bin`, `\Windows\CSC`를 항상 뺍니다. **이 경로 제외**를 켜면 목록의 경로도 뺍니다. [목…에서 한 줄에 경로 하나씩 고칩니다.
 
-- paths start at the root of the source: `\Users\*\Downloads\*` (for a volume that is `X:\Users\...`; for a folder source, inside that folder)
-- `*` and `?` are wildcards, also in the middle of a path
-- `\folder\*` leaves the empty folder in the image; `\folder` leaves it out altogether
-- a name without `\` (e.g. `*.tmp`) matches in every folder
+- 경로는 원본의 루트부터 씁니다: `\Users\*\Downloads\*` (볼륨이면 `X:\Users\...`, 폴더 원본이면 그 폴더 안)
+- `*`와 `?`를 쓸 수 있고, 경로 중간에도 쓸 수 있습니다
+- `\폴더\*`는 빈 폴더를 이미지에 남기고, `\폴더`는 폴더까지 뺍니다
+- `\` 없는 이름(예: `*.tmp`)은 모든 폴더에서 찾습니다
 
-[Recommended list] fills in data Windows makes again by itself: `\Windows\Temp`, the Windows Update download cache, `\Windows\Prefetch`, error reports, the users' temporary folders and web caches. The list is kept in `WimSmith.ini`.
+[추천 목록]은 Windows가 다시 만드는 데이터로 채웁니다: `\Windows\Temp`, Windows 업데이트 다운로드 캐시, `\Windows\Prefetch`, 오류 보고서, 사용자 임시 폴더와 웹 캐시. 목록은 `WimSmith.ini`에 저장됩니다.
 
-### Verify and the integrity table
+### 검증과 무결성 테이블
 
-- **Verify** checks all data against its SHA-1 hashes right after the backup. The file is read once more, so it takes longer.
-- The **integrity table** holds a hash of every 10 MB of the file; later verifications check it too. Writing it takes extra time.
-- The integrity option is also on the restore, export and split / join tabs. A file with an integrity table is checked against it before the job (a file without one is used as it is), and a newly written file gets a table. A damaged file stops the job with "failed integrity check", and no result file is made.
-
----
-
-## 6. Export
-
-Copies images of a WIM / ESD file into another WIM file. No administrator rights needed.
-
-- change the compression (for example LZMS → LZX)
-- convert ESD → WIM
-- gather images of several files into one (**Add the image(s)**)
-- rename an image or change its description (only when exporting one image; empty = those of the source)
-
-With **Integrity** checked, the source is checked against its integrity table and the target gets one (`--check`).
-
-Export one image or *all*. The bootable-image mark is kept. If the target already has an image with the same name, export that image alone under another name.
+- **검증**을 켜면 백업 직후 모든 데이터를 SHA-1 해시로 확인합니다. 파일을 한 번 더 읽으므로 시간이 늘어납니다.
+- **무결성 테이블**은 파일 전체를 10 MB 단위로 해시한 표입니다. 나중에 검증할 때 이 표도 확인합니다. 만드는 데 시간이 더 걸립니다.
+- 무결성 옵션은 복구, 내보내기, 나누기 / 합치기 탭에도 있습니다. 무결성 테이블이 있는 파일은 작업 전에 그 표로 확인하고(없는 파일은 그냥 진행), 새로 쓰는 파일에는 표를 넣습니다. 손상된 파일은 "failed integrity check" 오류로 멈추며, 결과 파일은 만들지 않습니다.
 
 ---
 
-## 7. Split / Join
+## 6. 내보내기
 
-No administrator rights needed.
+WIM / ESD 파일의 이미지를 다른 WIM 파일로 복사합니다. 관리자 권한이 필요 없습니다.
 
-### Split (WIM → SWM parts)
+- 압축 방식 바꾸기 (예: LZMS → LZX)
+- ESD → WIM 변환
+- 여러 파일의 이미지를 한 파일로 모으기 (**이미지로 추가**)
+- 이미지 이름 / 설명 바꾸기 (이미지 하나를 내보낼 때만. 비우면 원본 것을 씁니다)
 
-- Splits a WIM file into `.swm` parts of a given size in MB, named `<name>.swm`, `<name>2.swm`, `<name>3.swm`, …
-- For a FAT32 USB drive use **4000 MB or less**. A part holding a single file larger than the part size gets bigger than that.
-- With **Integrity** checked, the WIM file is checked against its integrity table and every part gets one (`--check`).
-- Files with solid resources (ESD, LZMS solid) cannot be split: export them as LZX or XPRESS on the export tab first, then split the new file.
+**무결성**을 체크하면 원본을 무결성 테이블로 확인하고, 내보낼 파일에 무결성 테이블을 넣습니다(`--check`).
 
-### Join (SWM parts → WIM)
-
-- Choose any part: the other parts in the same folder are found by themselves.
-- All parts must be in the same folder under their original names.
-- With **Integrity** checked, the parts are checked against their integrity tables and the joined file gets one (`--check`).
-
-A split WIM can be used as it is, without joining, for restore, export, info, verify and browse.
+이미지는 하나 또는 *전체*를 고를 수 있습니다. 부팅 이미지 표시는 유지됩니다. 대상 파일에 같은 이름의 이미지가 있으면 그 이미지만 다른 이름으로 내보내세요.
 
 ---
 
-## 8. Info and Verify
+## 7. 나누기 / 합치기
 
-### Info
+관리자 권한이 필요 없습니다.
 
-Shows the WIM file's image count, compression, size, boot image, GUID and flags (such as the integrity table), and for each image its edition, architecture, version, languages, size, file count and dates.
+### 나누기 (WIM → SWM 조각)
 
-- [Copy all]: copies the information to the clipboard
-- [Restore this image] / [Export this image] / [Browse this image]: takes the selected image to that tab
+- WIM 파일을 정한 크기(MB)의 `.swm` 조각으로 나눕니다. 조각 이름은 `<이름>.swm`, `<이름>2.swm`, `<이름>3.swm` …입니다.
+- FAT32 USB에 담으려면 조각 크기를 **4000 MB 이하**로 하세요. 파일 하나가 조각 크기보다 크면 그 조각은 더 커집니다.
+- **무결성**을 체크하면 WIM 파일을 무결성 테이블로 확인하고, 조각마다 무결성 테이블을 넣습니다(`--check`).
+- solid 리소스가 있는 파일(ESD, LZMS solid)은 나눌 수 없습니다. 먼저 내보내기 탭에서 LZX나 XPRESS로 내보낸 뒤 새 파일을 나누세요.
 
-### Manage
+### 합치기 (SWM 조각 → WIM)
 
-[Manage ▾] changes the WIM file:
+- 아무 조각이나 고르면 같은 폴더의 나머지 조각을 자동으로 찾습니다.
+- 모든 조각이 같은 폴더에 원래 이름 그대로 있어야 합니다.
+- **무결성**을 체크하면 조각을 무결성 테이블로 확인하고, 합친 파일에 무결성 테이블을 넣습니다(`--check`).
 
-| Command | What it does |
+나눈 WIM은 합치지 않고도 복구, 내보내기, 정보, 검증, 탐색에 그대로 쓸 수 있습니다.
+
+---
+
+## 8. 정보와 검증
+
+### 정보
+
+WIM 파일의 이미지 수, 압축, 크기, 부팅 이미지, GUID, 플래그(무결성 테이블 등)와 이미지별 에디션, 아키텍처, 버전, 언어, 크기, 파일 수, 날짜를 보여 줍니다.
+
+- [모두 복사]: 정보를 클립보드로 복사
+- [이 이미지 복구] / [이 이미지 내보내기] / [이 이미지 탐색]: 고른 이미지를 해당 탭으로 넘깁니다
+
+### 관리
+
+[관리 ▾]로 WIM 파일을 바꿉니다.
+
+| 명령 | 설명 |
 |---|---|
-| Image inf… the name, description and edition (`FLAGS`, e.g. Professional) of the selected image, and whether it is the boot image |
-| Mark as the boot image / Remove the boot image mark | the image Windows Setup or WinPE starts from a boot WIM (`boot.wim`) |
-| Delete this imag… deletes the selected image; the images after it are numbered again. The only image of a file cannot be deleted |
-| Optimize the fil… writes the file again without the data no image uses any more: data left by files deleted on the browse tab, by deleted images and by cancelled jobs. The file becomes smaller |
+| 이미지 정… 고른 이미지의 이름, 설명, 에디션(`FLAGS`, 예: Professional)과 부팅 이미지 여부 |
+| 부팅 이미지로 지정 / 부팅 이미지 지정 해제 | 부팅용 WIM(`boot.wim`)에서 Windows 설치나 WinPE가 시작하는 이미지 |
+| 이 이미지 삭… 고른 이미지를 지웁니다. 뒤의 이미지는 번호가 당겨집니다. 파일의 유일한 이미지는 지울 수 없습니다 |
+| 파일 최적… 어느 이미지도 쓰지 않는 데이터(탐색 탭에서 지운 파일, 지운 이미지, 취소한 작업이 남긴 것)를 빼고 파일을 다시 씁니다. 파일이 작아집니다 |
 
-- Image info and the boot mark are written at once (only the header and the image list change).
-- Deleting and optimizing write the whole file again next to the old one and then replace it: this takes about as long as an export, needs as much free space on its drive as the file's size, and can be cancelled (the old file stays).
-- A split WIM and a read-only file cannot be changed; the menu says why. For a file in a place a normal user may not write (the root of `C:\`, `Program Files`), Windows asks for administrator rights.
-- The other tabs showing the file read it again afterwards.
+- 이미지 정보와 부팅 이미지 지정은 바로 써집니다(헤더와 이미지 목록만 바뀜).
+- 삭제와 최적화는 파일 전체를 옆에 새로 쓴 뒤 바꿉니다. 내보내기만큼 시간이 걸리고, 그 드라이브에 파일 크기만큼 빈 공간이 필요하며, 취소할 수 있습니다(기존 파일은 그대로).
+- 나눈 WIM과 읽기 전용 파일은 바꿀 수 없고 메뉴에 이유가 나옵니다. 일반 사용자가 쓸 수 없는 곳(`C:\` 루트, `Program Files`)의 파일이면 Windows가 관리자 권한을 묻습니다.
+- 같은 파일을 보고 있는 다른 탭은 그 뒤 파일을 다시 읽습니다.
 
-### Verify
+### 검증
 
-[Verify] reads all data of a WIM / ESD / SWM file and checks it against the SHA-1 hashes, together with the image metadata, and checks the integrity table when there is one. The file is not changed. Do not restore from a file found damaged.
+[검증]은 WIM / ESD / SWM 파일의 모든 데이터를 읽어 SHA-1 해시와 이미지 메타데이터를 확인합니다. 무결성 테이블이 있으면 그것도 확인합니다. 파일은 바꾸지 않습니다. 손상이 발견된 파일은 복구에 쓰지 마세요.
 
 ---
 
-## 9. Browse
+## 9. 탐색
 
-Shows the files inside an image, read with wimlib (a split WIM too: choose any part). Administrator rights are not needed. Viewing and extracting do not change the WIM file; only the edit commands below do.
+wimlib으로 이미지 안의 파일을 봅니다. 나눈 WIM도 아무 조각이나 고르면 열립니다. 관리자 권한이 필요 없습니다. 보기와 풀기는 WIM 파일을 바꾸지 않고, 아래의 편집 명령만 바꿉니다.
 
-- Folder tree on the left, file list on the right; [Up] goes to the parent folder.
-- Typing selects as in Explorer: a letter selects the next file or folder whose name starts with it (typing it again goes on to the next one, around the end), and several letters typed quickly select the first name starting with them (`ce` → `cello.txt`).
-- [Extract selecte…: extracts the selected files / folders to a folder of your choice; asks before overwriting.
-- [Open file]: extracts the file to a temporary folder and opens it with its program. In Windows PE without Explorer, text files open in Notepad, and for other files without a program the extracted location is shown.
-- Programs (.exe and the like) are not started: their location is shown in Explorer, or as a path without Explorer.
-- [Cancel] stops listing, extracting or editing; a cancelled extraction leaves nothing in the target folder.
+- 왼쪽 폴더 트리, 오른쪽 파일 목록. [위로]로 상위 폴더로 갑니다.
+- 탐색기처럼 글자를 입력해 고를 수 있습니다: 글자 하나를 누르면 그 글자로 시작하는 다음 파일이나 폴더가 선택되고(다시 누르면 그다음 항목, 끝에서는 처음으로), 여러 글자를 빠르게 입력하면 그 글자들로 시작하는 첫 이름이 선택됩니다(`ce` → `cello.txt`).
+- [선택 항목 풀…: 고른 파일 / 폴더를 원하는 폴더에 풉니다. 같은 이름이 있으면 덮어쓸지 묻습니다.
+- [파일 열기]: 파일을 임시 폴더에 풀어 연결된 프로그램으로 엽니다. 탐색기가 없는 Windows PE에서는 텍스트 파일을 메모장으로 열고, 열 프로그램이 없는 파일은 풀린 위치를 알려 줍니다.
+- 프로그램(.exe 등)은 실행하지 않습니다. 탐색기로 풀린 위치를 보여 주고, 탐색기가 없으면 경로를 알려 줍니다.
+- [취소]: 목록 읽기, 풀기, 편집을 멈춥니다. 풀기를 취소하면 대상 폴더에는 아무것도 남지 않습니다.
 
-### Editing (changing the files of the image)
+### 편집 (이미지 안의 파일 바꾸기)
 
-The [Edit ▾] button, the **right-click menu** of the list or the folder tree, and the keys change the image shown.
+[편집 ▾] 버튼, 목록이나 폴더 트리의 **마우스 오른쪽 클릭 메뉴**, 단축키로 보이는 이미지를 바꿀 수 있습니다.
 
-| Command | Key | What it does |
+| 명령 | 단축키 | 설명 |
 |---|---|---|
-| New folde… | an empty folder in the current folder (in the tree: in that folder) |
-| Add file… | files of the PC into the current folder; files of the same name are replaced after a question |
-| Add a folde… | a whole folder of the PC; a folder of the same name is merged after a question |
-| Renam… F2 | the one selected file or folder |
-| Delete | Del | the selected files and folders (folders with their content), after a question |
-| Refresh | F5 | reads the list again |
+| 새 폴… | 지금 폴더(트리에서는 그 폴더) 안에 빈 폴더를 만듭니다 |
+| 파일 추… | PC의 파일을 골라 지금 폴더에 넣습니다. 같은 이름의 파일이 있으면 바꿀지 묻습니다 |
+| 폴더 추… | PC의 폴더를 통째로 넣습니다. 같은 이름의 폴더가 있으면 합칠지 묻습니다 |
+| 이름 바꾸… F2 | 고른 파일이나 폴더 하나의 이름을 바꿉니다 |
+| 삭제 | Del | 고른 파일과 폴더를 지웁니다(폴더는 안의 내용까지). 한 번 더 묻습니다 |
+| 새로 고침 | F5 | 목록을 다시 읽습니다 |
 
-- Every command writes the WIM file right away. There is no undo: copy important files first.
-- The new content is appended to the file, so a cancelled or failed command leaves the WIM file usable as it was. Deleting does not make the file smaller: use [Manage ▾] → *Optimize the file...* on the info tab for that.
-- Added files get no access rights (ACLs): a restore gives them the rights of their place.
-- Usually no administrator rights are needed. For a WIM file where a normal user may not write (the root of `C:\`, `Program Files`, …) Windows asks for them, and the change is done with them; the menu then says "Changes ask for administrator rights", and the progress and [Cancel] are in the footer.
-- A WIM file another program holds open (7-Zip, …) cannot be changed (wimlib error 47): close that program and try again.
-- A split WIM (.swm) and a read-only file cannot be changed: the edit commands are grey in the menu, with the reason. Join a split WIM first.
-- Other tabs showing the same WIM file read its images again after an edit.
-
----
-
-## 10. Common tasks
-
-### Install Windows on a new disk (UEFI)
-
-1. **Disk** tab: choose the disk, *GPT (UEFI)* and *For Windows*, then [Clear disk and create partitions].
-2. The **Restore** tab opens. Choose the WIM file (for example `sources\install.wim` or `install.esd` of Windows setup media), [Read images], and pick the edition.
-3. [Format and restore]. When it is done, the disk can boot.
-
-### Older PCs (BIOS)
-
-As above, with *MBR (BIOS / legacy)* in step 1. The System Reserved partition can be left out (uncheck *Create*).
-
-### Back up the current Windows
-
-On the **Backup** tab choose the system drive as the source and turn on *Back up from a VSS snapshot*. Put the WIM file on another drive (external disk, network drive, …).
-
-### A large WIM on a FAT32 USB drive
-
-On the **Split / Join** tab split it into 4000 MB parts and copy all `.swm` parts to the USB drive. On the restore tab choose the first part and restore as usual.
-
-### Extract from the right-click menu
-
-With *Right-click menu* on in [Settings], select one or more `.wim`, `.esd` or `.swm` files in Explorer and right-click > **WimSmith ▸**:
-
-- **Extract**: a new folder named after the (first) file is made next to it, and every selected file is extracted into it.
-- **Extract each**: each file gets a new folder of its own name next to it.
-
-A file with one image goes straight into its folder; a file with several images (e.g. `install.wim`) gets a subfolder per image, `<number> <image name>`. When a folder of that name exists already, the new one is called `<name> (2)`, `(3)`, … Any part of a split WIM stands for the whole set (all parts in one folder). It runs without administrator rights and without the main window, in a small window with the progress and [Cancel]; permissions (ACLs) are not restored, as in the browse tab. To restore a Windows with its permissions, use the restore tab (to a folder).
-
-### Make a WIM from folders
-
-With *Right-click menu of folders* on in [Settings], select one or more folders in Explorer and right-click > **WimSmith ▸**:
-
-- **Make a WIM file**: all the selected folders go into one WIM file, an image per folder, and the job starts by itself (only Windows asks for administrator rights).
-- **Make a WIM file of each**: each folder becomes its own WIM file next to it, and the job starts by itself.
-- **Open with WimSmith**: only the window opens, with the selected folders: choose the file, the way and the options, then [Start].
-
-A small window opens in each case, without the main window (Explorer starts WimSmith once per folder; they all end up in the same window, and the first two start once no more folders come in). It shows the progress, and [Cancel] stops the job. The first two use the defaults below (LZX, no verification); when a folder cannot be saved (e.g. the WIM file would be inside it), the window stays open to change it. In the window, [Ad… and [Remove] change the list.
-
-- **One WIM file (an image per folder)**: all folders go into one file, each as its own image named after the folder. The file is `<folder>.wim` next to a single folder, or `<parent folder name>.wim` in the parent folder for several folders of one parent; type or browse another one.
-- **A WIM file per folder**: each folder becomes `<folder name>.wim` in the folder shown (by default, the folder that holds the selected folders).
-- When a WIM file exists already, the folders are added to it as new images (with its own compression); a name used already gets " (2)".
-- Compression, threads, *From a VSS snapshot*, *Verify afterwards* and *Integrity table* work as on the backup tab. The WIM file must not be inside one of the folders.
-- [Start] asks once for administrator rights.
+- 명령마다 바로 WIM 파일에 씁니다. 되돌리기는 없으니, 중요한 파일은 먼저 복사해 두세요.
+- 새 내용은 파일 끝에 덧붙여 씁니다. 그래서 중간에 취소하거나 실패해도 WIM 파일은 이전 상태 그대로 쓸 수 있습니다. 삭제해도 파일 크기는 줄지 않습니다. 줄이려면 정보 탭의 [관리 ▾] → *파일 최적화...*를 쓰세요.
+- 추가한 파일에는 권한 정보(ACL)를 넣지 않습니다. 복구하면 그 위치의 권한을 물려받습니다.
+- 보통은 관리자 권한 없이 바로 바뀝니다. 드라이브 루트(`C:\`)나 `Program Files`처럼 일반 사용자가 쓸 수 없는 곳의 WIM 파일이면 Windows가 관리자 권한을 묻고, 허용하면 그 권한으로 바꿉니다. 이때 메뉴 아래에 "바꿀 때 관리자 권한을 묻습니다"가 표시되고, 진행 상황과 [취소]는 하단 바에 나옵니다.
+- 다른 프로그램(7-Zip 등)이 WIM 파일을 열고 있으면 바꿀 수 없습니다(wimlib 오류 47). 그 프로그램을 닫고 다시 하세요.
+- 나눈 WIM(.swm)과 읽기 전용 파일은 바꿀 수 없습니다. 메뉴의 편집 명령이 회색으로 표시되고 이유가 함께 나옵니다. 나눈 WIM은 먼저 합치세요.
+- 다른 탭에서 같은 WIM 파일을 보고 있으면, 편집 뒤 그 탭도 이미지 정보를 다시 읽습니다.
 
 ---
 
-## 11. Settings file and logs
+## 10. 자주 하는 작업
+
+### 새 디스크에 Windows 설치 (UEFI)
+
+1. **디스크** 탭: 디스크를 고르고 *GPT (UEFI)*, *Windows 설치용*을 선택한 뒤 [디스크 초기화 및 파티션 생성].
+2. 자동으로 **복구** 탭으로 넘어갑니다. WIM 파일(예: Windows 설치 미디어의 `sources\install.wim` 또는 `install.esd`)을 고르고 [이미지 읽기] → 에디션을 고릅니다.
+3. [포맷 후 복구]. 끝나면 그 디스크로 부팅할 수 있습니다.
+
+### 오래된 PC (BIOS)
+
+위와 같되 1단계에서 *MBR (BIOS / 레거시)*를 고릅니다. 시스템 예약 파티션 없이 만들 수도 있습니다(*만들기* 체크 해제).
+
+### 현재 Windows 백업
+
+**백업** 탭에서 원본으로 시스템 드라이브를 고르고 *VSS 스냅샷으로 백업*을 켭니다. WIM 파일은 다른 드라이브(외장 디스크, 네트워크 드라이브 등)에 둡니다.
+
+### FAT32 USB에 큰 WIM 담기
+
+**나누기 / 합치기** 탭에서 조각 크기 4000 MB로 나눈 뒤 `.swm` 조각을 모두 USB에 복사합니다. 복구 탭에서 첫 조각을 고르면 그대로 복구할 수 있습니다.
+
+### 오른쪽 클릭 메뉴로 압축 풀기
+
+[설정]에서 *오른쪽 클릭 메뉴*를 켜고, 탐색기에서 `.wim`, `.esd`, `.swm` 파일을 하나 또는 여러 개 고른 뒤 오른쪽 클릭 > **WimSmith ▸**:
+
+- **압축 풀기**: (첫) 파일 옆에 그 이름으로 새 폴더를 만들고, 고른 파일을 모두 그 안에 풉니다.
+- **각각 압축 풀기**: 파일마다 그 옆에 자기 이름으로 새 폴더를 만들어 풉니다.
+
+이미지가 하나인 파일은 폴더에 바로 풀고, 이미지가 여러 개인 파일(예: `install.wim`)은 이미지마다 `<번호> <이미지 이름>` 하위 폴더에 풉니다. 같은 이름의 폴더가 이미 있으면 `<이름> (2)`, `(3)` … 으로 만듭니다. 나뉜 WIM은 어느 조각을 골라도 전체를 한 번 풉니다(모든 조각이 한 폴더에 있어야 함). 관리자 권한과 메인 창 없이, 진행 상황과 [취소]가 있는 작은 창에서 풉니다. 탐색 탭처럼 권한(ACL)은 복원하지 않습니다. 권한까지 그대로 복원하려면 복구 탭(폴더에 복구)을 쓰세요.
+
+### 폴더로 WIM 만들기
+
+[설정]에서 *폴더의 오른쪽 클릭 메뉴*를 켜고, 탐색기에서 폴더를 하나 또는 여러 개 고른 뒤 오른쪽 클릭 > **WimSmith ▸**:
+
+- **WIM 파일로 만들기**: 고른 폴더를 모두 WIM 파일 하나에 넣고(폴더마다 이미지 하나) 바로 시작합니다(Windows가 관리자 권한만 묻습니다).
+- **각각 WIM 파일로 만들기**: 폴더마다 그 옆에 WIM 파일을 하나씩 만들고 바로 시작합니다.
+- **WimSmith로 열기**: 고른 폴더가 들어간 창만 엽니다. 파일, 저장 방식, 옵션을 고른 뒤 [시작]을 누릅니다.
+
+어느 경우나 메인 창 없이 작은 창이 열립니다(탐색기는 폴더마다 WimSmith를 따로 실행하지만 모두 같은 창에 모이며, 앞의 두 항목은 폴더가 더 들어오지 않으면 시작합니다). 창에 진행 상황이 나오고 [취소]로 멈출 수 있습니다. 앞의 두 항목은 아래의 기본값(LZX, 검증 안 함)을 씁니다. 저장할 수 없는 폴더가 있으면(예: WIM 파일이 그 폴더 안에 생기는 경우) 창이 그대로 남아 고칠 수 있습니다. 창에서는 [추… / [빼기]로 목록을 바꿀 수 있습니다.
+
+- **WIM 파일 하나 (폴더마다 이미지 하나)**: 모든 폴더를 한 파일에 넣고, 폴더마다 그 이름으로 이미지를 하나씩 만듭니다. 파일은 폴더가 하나면 그 옆의 `<폴더>.wim`, 같은 상위 폴더의 여러 폴더면 상위 폴더 안의 `<상위 폴더 이름>.wim`이며, 직접 입력하거나 [찾아보기]로 바꿀 수 있습니다.
+- **폴더마다 WIM 파일 하나**: 각 폴더를 보여 준 폴더(기본: 고른 폴더들이 있는 폴더) 안의 `<폴더 이름>.wim`으로 만듭니다.
+- WIM 파일이 이미 있으면 폴더를 새 이미지로 추가합니다(압축은 그 파일의 방식). 같은 이름의 이미지가 있으면 " (2)"를 붙입니다.
+- 압축, 스레드, *VSS 스냅숏에서 읽기*, *만든 뒤 검증*, *무결성 테이블*은 백업 탭과 같습니다. WIM 파일은 고른 폴더 안에 둘 수 없습니다.
+- [시작]을 누르면 관리자 권한을 한 번 묻습니다.
+
+---
+
+## 11. 설정 파일과 로그
 
 ### WimSmith.ini
 
-Next to `WimSmith.exe`. Values changed in the window are saved here; it can also be edited by hand while the program is closed.
+`WimSmith.exe`와 같은 폴더에 있습니다. 화면에서 바꾼 값이 저장되며, 직접 고쳐도 됩니다(프로그램을 닫은 상태에서).
 
-| Key | Value |
+| 키 | 값 |
 |---|---|
 | `language` | `ko`, `en` |
-| `theme` | `dark` (default), `light` |
-| `open_tab` | the tab a WIM file opens in: `browse` (default), `info`, `restore`, `append`, `export`, `splitjoin` |
-| `image_folder` | the folder of the last WIM file backed up to |
-| `restore.wim` | the last WIM file of the restore tab (relative to `WimSmith.exe` with *Restore: path* on) |
-| `relative_paths` | `1`: *Restore: path* in [Settings] is on |
-| `after_seconds` | the countdown before shut down / restart when done, 1 - 60 (default 10) |
-| `restore.boot_lang` | boot manager language (default `ko-kr`) |
-| `backup.snapshot` | the VSS snapshot box |
-| `backup.update_of` | the *Fast* box of the backup tab (default on) |
-| `backup.exclude_on`, `backup.exclude` | the *Exclude these paths* box and the list (paths separated by `\|`) |
-| `restore.compact` | the compression of the restore tab: 0 = off, 1-4 = XPRESS 4K / 8K / 16K / LZX |
-| `restore.drivers` | the driver folder of the restore tab |
-| `dism`, `dism.folder` | the DISM for drivers: `system` or `folder`, and that folder |
-| `disk.*` | the last choices of the disk tab (style, layout, sizes, labels, …) |
+| `theme` | `dark`(기본), `light` |
+| `open_tab` | WIM 파일을 열 탭: `browse`(기본), `info`, `restore`, `append`, `export`, `splitjoin` |
+| `image_folder` | 마지막으로 백업한 WIM 파일의 폴더 |
+| `restore.wim` | 복구 탭에서 마지막으로 연 WIM 파일 (*복구: 경로*를 켜면 `WimSmith.exe` 기준 상대 경로) |
+| `relative_paths` | `1`: [설정]의 *복구: 경로*가 켜져 있음 |
+| `after_seconds` | 완료 후 종료 / 다시 시작 전 카운트다운, 1 - 60 (기본 10) |
+| `restore.boot_lang` | 부트 관리자 언어 (기본 `ko-kr`) |
+| `backup.snapshot` | VSS 스냅샷 체크 상태 |
+| `backup.update_of` | 백업 탭의 *빠르게* 체크 상태(기본 켜짐) |
+| `backup.exclude_on`, `backup.exclude` | *이 경로 제외* 체크 상태와 목록(경로를 `\|`로 구분) |
+| `restore.compact` | 복구 탭의 압축: 0 = 사용 안 함, 1-4 = XPRESS 4K / 8K / 16K / LZX |
+| `restore.drivers` | 복구 탭의 드라이버 폴더 |
+| `dism`, `dism.folder` | 드라이버에 쓸 DISM: `system` 또는 `folder`, 그리고 그 폴더 |
+| `disk.*` | 디스크 탭의 마지막 선택(형식, 구성, 크기, 레이블 등) |
 
-Verify and integrity table are not saved; they are off at every start.
+검증과 무결성 체크는 저장되지 않고 시작할 때마다 꺼져 있습니다.
 
-### Logs
+### 로그
 
-- [Show log] in the footer shows the log of this session.
-- Jobs with administrator rights write their log files to `%TEMP%\WimSmith_job\<time>\` (`status.txt`, `wimlib_errors.txt`). They are deleted after a success and kept after a failure or cancel.
+- 하단 바의 [로그 보기]로 이번 실행의 로그를 볼 수 있습니다.
+- 관리자 권한 작업의 로그 파일은 `%TEMP%\WimSmith_job\<시각>\`에 생깁니다(`status.txt`, `wimlib_errors.txt`). 성공하면 자동으로 지우고, 실패하거나 취소하면 남겨 둡니다.
 
-### Language files
+### 언어 파일
 
-A `lang\` folder next to `WimSmith.exe` with `ko.ini` / `en.ini` is read before the copies built into the exe: texts can be changed and languages added there.
+`WimSmith.exe` 옆에 `lang\` 폴더를 만들고 `ko.ini`, `en.ini`를 두면 exe에 들어 있는 것보다 그 파일을 먼저 읽습니다. 문구를 고치거나 새 언어를 추가할 수 있습니다.
 
 ---
 
-## 12. Troubleshooting
+## 12. 문제 해결
 
-| Problem | Cause and fix |
+| 증상 | 원인과 해결 |
 |---|---|
-| "libwim-15.dll cannot be used" | wimlib is missing from `lib\` and could not be downloaded. Put `libwim-15.dll` of the wimlib Windows release (x64) into `lib\` |
-| The drivers were not added | DISM ended with an error (its code is in the log; `dism.log` is in the job folder). A DISM older than the restored Windows: choose the DISM of the Windows ADK in [Settings] |
-| Administrator request cancelled | backup, restore and disk jobs need administrator rights; start again and answer Yes |
-| The running Windows cannot be backed up | turn on *Back up from a VSS snapshot*, or back up from Windows PE |
-| A volume is missing from the restore targets | the drives of the running Windows, of WimSmith and of the WIM file are not listed; move the WIM file or choose another target |
-| A WIM on a network drive is not found | elevated jobs cannot see that drive letter, so the program uses the `\\server\share` path instead; if it still fails, check the credentials for the share |
-| No boot after a restore | check that the boot type (UEFI / BIOS) matches the PC's firmware setting and that the right system partition was chosen; after a restore with None, run `bcdboot X:\Windows` |
-| Split is refused | ESD / LZMS solid files cannot be split; export them as LZX first |
-| Deleting an image or optimizing stops with "free" | the drive of the WIM file needs as much free space as the file, for the new copy |
-| Compact OS stays at Off | the running Windows / WinPE is older than Windows 10 |
-| The disk is offline | bring it online first in Disk Management (or `online disk` in `diskpart`) |
+| 드라이버가 추가되지 않음 | DISM이 오류로 끝났습니다(코드는 로그에, `dism.log`는 작업 폴더에 있음). 복구한 Windows보다 오래된 DISM이면 [설정]에서 Windows ADK의 DISM을 고르세요 |
+| "libwim-15.dll을 사용할 수 없습니다" | `lib\` 폴더에 wimlib이 없고 인터넷에서 받지 못했습니다. wimlib Windows 배포판(x64)의 `libwim-15.dll`을 `lib\`에 넣으세요 |
+| 관리자 권한 요청에서 취소 | 백업 / 복구 / 디스크 작업은 관리자 권한이 있어야 합니다. 다시 실행하고 [예]를 누르세요 |
+| 실행 중인 Windows를 백업할 수 없음 | *VSS 스냅샷으로 백업*을 켜거나, Windows PE에서 백업하세요 |
+| 복구 대상 목록에 볼륨이 없음 | 실행 중인 Windows, WimSmith, WIM 파일이 있는 드라이브는 나오지 않습니다. WIM 파일을 다른 드라이브로 옮기거나 다른 대상을 고르세요 |
+| 네트워크 드라이브의 WIM을 찾지 못함 | 관리자 권한 작업은 그 드라이브 문자를 보지 못하므로 프로그램이 `\\서버\공유` 경로로 바꿔 씁니다. 그래도 실패하면 공유에 접근할 자격 증명이 있는지 확인하세요 |
+| 복구 뒤 부팅되지 않음 | 부트 방식(UEFI / BIOS)이 PC 펌웨어 설정과 맞는지, 시스템 파티션을 맞게 골랐는지 확인하세요. None으로 복구했다면 `bcdboot X:\Windows`를 실행하세요 |
+| 나누기가 거부됨 | ESD / LZMS solid 파일은 나눌 수 없습니다. LZX로 내보낸 뒤 나누세요 |
+| 이미지 삭제나 최적화가 "free"로 멈춤 | 새 사본을 쓰려면 WIM 파일의 드라이브에 파일 크기만큼 빈 공간이 필요합니다 |
+| Compact OS가 *사용 안 함*에서 바뀌지 않음 | 실행 중인 Windows / WinPE가 Windows 10보다 오래되었습니다 |
+| 디스크가 오프라인 | 디스크 관리(또는 `diskpart`의 `online disk`)에서 먼저 온라인으로 바꾸세요 |
 
 ---
 
-WimSmith is under the MIT License (see the **?** tab or `LICENSE`). WimSmith uses wimlib (LGPL v2.1 or later, or GPL v3 or later) as a separate DLL. Its license texts are in the `lib\` folder.
+WimSmith는 MIT 라이선스입니다(**?** 탭 또는 `LICENSE`). WimSmith는 wimlib(LGPL v2.1 이상 또는 GPL v3 이상)을 별도 DLL로 사용합니다. 라이선스 문서는 `lib\` 폴더에 있습니다.

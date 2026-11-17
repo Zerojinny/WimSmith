@@ -1,69 +1,69 @@
 # WimSmith
 
-A Windows tool that backs up volumes or folders into WIM images, and restores WIM images to volumes or folders. It is a single exe that needs no installation, and it runs in Windows PE too.
+볼륨이나 폴더를 WIM 이미지로 백업하고, WIM 이미지를 볼륨이나 폴더에 복구하는 Windows 도구입니다. 설치 없이 exe 하나로 실행되며, Windows PE에서도 쓸 수 있습니다.
 
-[한국어](README.ko.md) · User manual: [MANUAL.md](MANUAL.md)
+[English](README.en.md) · 사용 설명서: [MANUAL.md](MANUAL.md)
 
-## What it does
+## 할 수 있는 일
 
-- **Backup**: saves a volume or folder to a WIM file. A VSS snapshot lets you back up the running Windows. A new image of an existing file takes the unchanged files from the last image (fast), and your own exclusion list leaves out temporary files and caches. You can verify the file afterwards and add an integrity table (`--check`).
-- **Restore**: applies a WIM / ESD / SWM image to a volume (formatted first) or to an empty folder, adds drivers with DISM (the DISM of Windows or one in a folder, e.g. of the ADK), and writes UEFI / BIOS boot files. With Compact OS the files are compressed by Windows 10 (several GB less).
-- **Disk**: initializes a disk as GPT or MBR and creates the partitions for Windows.
-- **Export**: changes the compression, converts ESD to WIM, and gathers several WIM files into one.
-- **Split / Join**: splits a WIM into `.swm` parts that fit on a FAT32 USB drive, and joins them again.
-- **Info / Verify**: shows WIM file and image details, and checks a file for damage. Changes the name, description and edition of an image and the boot image, deletes images, and optimizes the file (makes it smaller).
-- **Browse**: shows the files inside an image and extracts the ones you need; adds, renames and deletes files in the image.
+- **백업**: 볼륨이나 폴더를 WIM 파일로 저장합니다. VSS 스냅샷으로 실행 중인 Windows도 백업할 수 있습니다. 기존 파일에 추가할 때는 바뀌지 않은 파일을 마지막 이미지에서 가져와 빠르고, 제외 목록으로 임시 파일과 캐시를 뺄 수 있습니다. 백업 뒤 검증과 무결성 테이블(`--check`)을 고를 수 있습니다.
+- **복구**: WIM / ESD / SWM 이미지를 볼륨(포맷 후)이나 빈 폴더에 풀고, DISM으로 드라이버를 추가하며(Windows의 DISM 또는 ADK 등 폴더의 DISM), UEFI / BIOS 부트 파일을 씁니다. Compact OS를 고르면 Windows 10 압축으로 풀어 수 GB를 아낍니다.
+- **디스크**: 디스크를 GPT 또는 MBR로 초기화하고 Windows 설치용 파티션을 만듭니다.
+- **내보내기**: 압축 방식 바꾸기, ESD → WIM 변환, 여러 WIM을 하나로 모으기.
+- **나누기 / 합치기**: FAT32 USB에 담을 수 있게 `.swm` 조각으로 나누고 다시 합칩니다.
+- **정보 / 검증**: WIM 파일과 이미지 정보를 보고, 파일이 손상되지 않았는지 확인합니다. 이미지 이름·설명·에디션과 부팅 이미지를 바꾸고, 이미지를 지우고, 파일을 최적화(크기 줄이기)합니다.
+- **탐색**: 이미지 안의 파일을 보고 필요한 파일만 꺼냅니다. 이미지 안에 파일을 추가하고, 이름을 바꾸고, 지울 수 있습니다.
 
-Korean and English UI, with a dark and a light theme. In [Settings], `.wim`, `.esd` and `.swm` files can be set to open with WimSmith, in the tab you choose (Browse by default), and their right-click menu can get a **WimSmith ▸** submenu (Extract, Extract each, Restore, Add an image, Export, Split / Join, Info, Browse). Folders can get a **WimSmith ▸** submenu: make one WIM file of the selected folders (an image per folder), a WIM file of each, or open them in a window with the options.
+한국어 / 영어 화면, 다크 / 라이트 테마를 지원합니다. [설정]에서 `.wim`, `.esd`, `.swm` 파일을 WimSmith로 열도록 연결할 수 있고, 열 때 보여 줄 탭(기본: 탐색)도 고를 수 있습니다. 이 파일들의 오른쪽 클릭 메뉴에 **WimSmith ▸** 하위 메뉴(압축 풀기, 각각 압축 풀기, 복구, 이미지 추가, 내보내기, 나누기 / 합치기, 정보, 탐색)를 넣을 수도 있습니다. 폴더의 오른쪽 클릭 메뉴에는 **WimSmith ▸** 하위 메뉴를 넣을 수 있습니다: 고른 폴더들을 WIM 파일 하나로(폴더마다 이미지 하나), 각각 WIM 파일로 만들거나, 옵션을 고를 수 있는 창으로 엽니다.
 
-## Requirements
+## 필요한 것
 
-- Windows 8.1 / 10 / 11 x64, or x64 Windows PE
-- Administrator rights for backup, restore and disk jobs (Windows asks each time)
+- Windows 8.1 / 10 / 11 x64 또는 x64 Windows PE
+- 백업, 복구, 디스크 작업에는 관리자 권한 (실행할 때마다 Windows가 묻습니다)
 
-No runtime such as .NET is needed.
+.NET 같은 런타임은 필요 없습니다.
 
-## Package contents
+## 배포 파일
 
-| File | Description |
+| 파일 | 설명 |
 |---|---|
-| `WimSmith.exe` | the program |
-| `lang\` | the language files (also built into the exe; the ones here are used first, so the texts can be edited) |
-| `MANUAL.md`, `MANUAL.ko.md` | user manual (English, Korean) |
-| `README.md`, `README.ko.md` | this file |
-| `LICENSE` | the license of WimSmith |
+| `WimSmith.exe` | 프로그램 |
+| `lang\` | 언어 파일 (exe에도 들어 있으며, 이 폴더의 파일을 먼저 씁니다. 화면 문구를 고칠 수 있습니다) |
+| `MANUAL.md`, `MANUAL.en.md` | 사용 설명서 (한국어, 영어) |
+| `README.md`, `README.en.md` | 이 문서 |
+| `LICENSE` | WimSmith의 라이선스 |
 
-The package does not contain wimlib: `lib\` with `libwim-15.dll` and its license texts is made next to `WimSmith.exe` the first time wimlib is needed.
+배포 파일에는 wimlib이 없습니다. wimlib이 처음 필요할 때 `WimSmith.exe` 옆에 `lib\` 폴더(`libwim-15.dll`과 그 라이선스 문서)가 만들어집니다.
 
-## Getting started
+## 시작하기
 
-1. Unpack the package into any folder, a USB drive included.
-2. Run `WimSmith.exe`.
-3. Settings are saved in `WimSmith.ini` in the same folder.
+1. 압축을 원하는 폴더(USB 가능)에 풉니다.
+2. `WimSmith.exe`를 실행합니다.
+3. 설정은 같은 폴더의 `WimSmith.ini`에 저장됩니다.
 
-When a file in `lib\` is missing, its newest version is downloaded the first time it is needed. `WimSmith.exe` and the `lib\` folder must stay together. To work without internet, keep the `lib\` folder and copy it along.
+`lib\` 폴더의 파일이 없으면 처음 필요할 때 인터넷에서 최신 버전을 자동으로 받습니다. `WimSmith.exe`와 `lib\` 폴더는 같은 폴더에 있어야 합니다. 인터넷이 없는 곳에서 쓰려면 `lib\` 폴더를 지우지 말고 함께 복사하세요.
 
-See the [user manual](MANUAL.md) for details.
+자세한 사용 방법은 [사용 설명서](MANUAL.md)를 보세요.
 
 ### PhoenixPE
 
-[`phoenixpe/WimSmith.script`](phoenixpe/WimSmith.script) adds WimSmith to a [PhoenixPE](https://github.com/PhoenixPE/PhoenixPE) build: copy it to `Projects\MyApps\Applications\` of PhoenixPE. It takes WimSmith from the latest release here or from a local folder, puts wimlib into `lib\` at build time (a PE often has no internet), and can add shortcuts, the file associations and the right-click menu.
+[`phoenixpe/WimSmith.script`](phoenixpe/WimSmith.script)는 [PhoenixPE](https://github.com/PhoenixPE/PhoenixPE) 빌드에 WimSmith를 넣는 플러그인입니다. PhoenixPE의 `Projects\MyApps\Applications\`에 복사하세요. 이 저장소의 최신 릴리스나 로컬 폴더에서 WimSmith를 가져오고, 빌드할 때 wimlib을 `lib\`에 넣으며(PE에는 인터넷이 없는 경우가 많음), 바로 가기, 파일 연결, 오른쪽 클릭 메뉴를 추가할 수 있습니다.
 
-## Caution
+## 주의
 
-- **Restore** formats the target volume, and **Disk** clears the whole disk. Check the target before you start. Both ask twice; the second time you must type the drive letter or the disk number.
-- The drive and disk of the running Windows, and the drive of WimSmith, cannot be chosen as a restore or disk target.
+- **복구**는 대상 볼륨을 포맷하고, **디스크** 작업은 디스크 전체를 지웁니다. 실행 전에 대상을 꼭 확인하세요. 두 작업 모두 두 번 확인하며, 마지막에는 드라이브 문자나 디스크 번호를 직접 입력해야 합니다.
+- 실행 중인 Windows의 드라이브와 디스크, WimSmith가 있는 드라이브는 복구나 초기화 대상으로 고를 수 없습니다.
 
-## License
+## 라이선스
 
-The code of WimSmith is under the MIT license ([LICENSE](LICENSE)).
+WimSmith의 코드는 MIT 라이선스입니다([LICENSE](LICENSE)).
 
-wimlib in `lib\` is not part of WimSmith and keeps its own license. WimSmith uses it unchanged, as a separate DLL; replace the DLL to use another version.
+`lib\` 폴더의 wimlib은 WimSmith의 일부가 아니며 자체 라이선스를 따릅니다. WimSmith는 wimlib을 고치지 않고 별도 DLL로 불러 씁니다. DLL을 바꾸면 다른 버전으로 교체할 수 있습니다.
 
-| Program | Files | License | License texts | Source |
+| 프로그램 | 파일 | 라이선스 | 라이선스 문서 | 소스 |
 |---|---|---|---|---|
-| [wimlib](https://wimlib.net) | `libwim-15.dll` | LGPL v2.1 or later (or GPL v3 or later); includes libdivsufsort-lite (MIT) | `wimlib_COPYING*.txt` | https://wimlib.net/ |
+| [wimlib](https://wimlib.net) | `libwim-15.dll` | LGPL v2.1 이상(또는 GPL v3 이상), libdivsufsort-lite(MIT) 포함 | `wimlib_COPYING*.txt` | https://wimlib.net/ |
 
-When you pass the package on, keep the license texts in `lib\`. The wimlib version is recorded in `lib\versions.ini`.
+다시 배포할 때는 `lib\`의 라이선스 문서를 그대로 두세요. wimlib 버전은 `lib\versions.ini`에 적혀 있습니다.
 
-7-Zip is not used any more. A `lib\` of an older version may still hold `7z.exe`, `7z.dll`, `7zFM.exe` and `7-Zip_License.txt`: they can be deleted.
+이제 7-Zip은 쓰지 않습니다. 이전 버전의 `lib\`에 남아 있는 `7z.exe`, `7z.dll`, `7zFM.exe`, `7-Zip_License.txt`는 지워도 됩니다.
