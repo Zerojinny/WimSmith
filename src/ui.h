@@ -38,7 +38,9 @@ namespace ui
         inline COLORREF Panel = RGB(0x20, 0x23, 0x28);      // fields, boxes
         inline COLORREF Button = RGB(0x2A, 0x2E, 0x34);
         inline COLORREF ButtonHover = RGB(0x34, 0x39, 0x40);
+        inline COLORREF ButtonDown = RGB(0x3F, 0x45, 0x4D);  // a pressed button: one step past hover
         inline COLORREF Border = RGB(0x35, 0x3A, 0x40);
+        inline COLORREF FieldBorder = RGB(0x6E, 0x75, 0x7E); // edits, combo boxes, lists: 3:1 against Back and Panel
         inline COLORREF Line = RGB(0x2C, 0x30, 0x35);
         inline COLORREF Footer = RGB(0x11, 0x13, 0x16);
         inline COLORREF Text = RGB(0xE6, 0xE8, 0xEB);
@@ -105,6 +107,9 @@ namespace ui
     void Primary(HWND button, bool danger);            // filled in the accent / danger color
     HWND Edit(HWND parent, DWORD style = 0);
     HWND Combo(HWND parent, bool editable = false);
+    // the 1 px frame of a field (FieldBorder, Dim with focus) for a control
+    // with WS_BORDER not made here (Edit and List have it already)
+    void FieldFrame(HWND h);
     HWND Number(HWND parent, int min, int max, int value);
     HWND Check(HWND parent, const wstring& text);
     HWND Radio(HWND parent, const wstring& text, int group);

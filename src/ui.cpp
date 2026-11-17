@@ -70,8 +70,8 @@ namespace ui
         if (dark)
         {
             Back = RGB(0x17, 0x19, 0x1C); color::Panel = RGB(0x20, 0x23, 0x28);
-            color::Button = RGB(0x2A, 0x2E, 0x34); ButtonHover = RGB(0x34, 0x39, 0x40);
-            Border = RGB(0x35, 0x3A, 0x40); Line = RGB(0x2C, 0x30, 0x35); Footer = RGB(0x11, 0x13, 0x16);
+            color::Button = RGB(0x2A, 0x2E, 0x34); ButtonHover = RGB(0x34, 0x39, 0x40); ButtonDown = RGB(0x3F, 0x45, 0x4D);
+            Border = RGB(0x35, 0x3A, 0x40); FieldBorder = RGB(0x6E, 0x75, 0x7E); Line = RGB(0x2C, 0x30, 0x35); Footer = RGB(0x11, 0x13, 0x16);
             Text = RGB(0xE6, 0xE8, 0xEB); Dim = RGB(0xA0, 0xA6, 0xAE);
             Accent = RGB(0x3D, 0xD6, 0xC6); AccentText = RGB(0x08, 0x20, 0x1E); AccentSoft = RGB(0x7F, 0xE3, 0xD8);
             Danger = RGB(0xF4, 0x70, 0x67); DangerText = RGB(0x1A, 0x08, 0x07);
@@ -80,8 +80,8 @@ namespace ui
         else
         {
             Back = RGB(0xF3, 0xF4, 0xF6); color::Panel = RGB(0xFF, 0xFF, 0xFF);
-            color::Button = RGB(0xE4, 0xE7, 0xEB); ButtonHover = RGB(0xD8, 0xDC, 0xE1);
-            Border = RGB(0xB8, 0xBE, 0xC6); Line = RGB(0xD3, 0xD7, 0xDC); Footer = RGB(0xE6, 0xE8, 0xEB);
+            color::Button = RGB(0xE4, 0xE7, 0xEB); ButtonHover = RGB(0xD8, 0xDC, 0xE1); ButtonDown = RGB(0xB8, 0xBE, 0xC6);
+            Border = RGB(0xB8, 0xBE, 0xC6); FieldBorder = RGB(0x84, 0x8C, 0x96); Line = RGB(0xD3, 0xD7, 0xDC); Footer = RGB(0xE6, 0xE8, 0xEB);
             Text = RGB(0x1E, 0x22, 0x27); Dim = RGB(0x5C, 0x63, 0x6C);
             Accent = RGB(0x0E, 0x8A, 0x7F); AccentText = RGB(0xFF, 0xFF, 0xFF); AccentSoft = RGB(0x0A, 0x6E, 0x65);
             Danger = RGB(0xC6, 0x35, 0x2B); DangerText = RGB(0xFF, 0xFF, 0xFF);
@@ -171,7 +171,7 @@ namespace ui
         int kind = k == buttonKinds.end() ? 0 : k->second;
         bool enabled = !(d->itemState & ODS_DISABLED), down = (d->itemState & ODS_SELECTED) != 0, hover = hovered == h;
         COLORREF fill, border, fore;
-        if (!enabled) { fill = kind ? color::Button : color::Panel; border = color::Line; fore = color::Dim; }
+        if (!enabled) { fill = color::Panel; border = color::Line; fore = color::Dim; }
         else if (kind)
         {
             COLORREF base = kind == 2 ? color::Danger : color::Accent;
@@ -181,7 +181,7 @@ namespace ui
         }
         else
         {
-            fill = down ? color::Border : hover ? color::ButtonHover : color::Button;
+            fill = down ? color::ButtonDown : hover ? color::ButtonHover : color::Button;
             border = (d->itemState & ODS_FOCUS) && !(d->itemState & ODS_NOFOCUSRECT) ? color::Dim : color::Border;
             fore = color::Text;
         }
@@ -198,8 +198,16 @@ namespace ui
         SelectObject(d->hDC, old);
     }
 
+    // a mouse message made by Windows from a touch or a pen: no hover for it
+    // (a tap never "leaves", so the hover would stay on)
+    static bool FromTouch()
+    {
+        return (GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700;   // MI_WP_SIGNATURE
+    }
+
     static void TrackHover(HWND h, UINT m)
     {
+        if (m == WM_MOUSEMOVE && FromTouch()) return;
         if (m == WM_MOUSEMOVE && hovered != h)
         {
             HWND before = hovered;
@@ -222,26 +230,153 @@ namespace ui
         return DefSubclassProc(h, m, wp, lp);
     }
 
-    // ---------- edits: a 1 px frame in the border color ----------
+    // ---------- fields: edits, combo boxes, lists, the tree ----------
+    // one frame for all of them: FieldBorder, Dim with focus, Border disabled
 
-    static LRESULT CALLBACK EditSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR)
+    static COLORREF FieldEdge(bool enabled, bool active)
     {
-        if (m == WM_NCPAINT)
+        return !enabled ? color::Border : active ? color::Dim : color::FieldBorder;
+    }
+
+    static void FrameField(HWND h, HDC dc)
+    {
+        RECT rc;
+        GetWindowRect(h, &rc);
+        OffsetRect(&rc, -rc.left, -rc.top);
+        FrameRect(dc, &rc, Brush(FieldEdge(IsWindowEnabled(h) != 0, GetFocus() == h)));
+    }
+
+    static LRESULT CALLBACK FrameSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR)
+    {
+        switch (m)
+        {
+        case WM_NCPAINT:
+        case WM_PAINT:   // an edit draws its border with its text, not in WM_NCPAINT
         {
             LRESULT r = DefSubclassProc(h, m, wp, lp);
             HDC dc = GetWindowDC(h);
-            RECT rc;
-            GetWindowRect(h, &rc);
-            OffsetRect(&rc, -rc.left, -rc.top);
-            FrameRect(dc, &rc, Brush(GetFocus() == h ? color::Dim : color::Border));
+            FrameField(h, dc);
             ReleaseDC(h, dc);
             return r;
         }
-        if (m == WM_SETFOCUS || m == WM_KILLFOCUS)
+        case WM_PRINT:
         {
             LRESULT r = DefSubclassProc(h, m, wp, lp);
-            SetWindowPos(h, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+            if (lp & PRF_NONCLIENT) FrameField(h, (HDC)wp);
             return r;
+        }
+        case WM_SETFOCUS:
+        case WM_KILLFOCUS:
+        case WM_ENABLE:
+        {
+            LRESULT r = DefSubclassProc(h, m, wp, lp);
+            SendMessageW(h, WM_NCPAINT, 1, 0);
+            return r;
+        }
+        }
+        return DefSubclassProc(h, m, wp, lp);
+    }
+
+    void FieldFrame(HWND h) { SetWindowSubclass(h, FrameSub, 7, 0); }
+
+    // a combo box drawn here like an edit (the theme would draw it grey with a
+    // light frame): the field, the frame, the text of a drop-down list and the
+    // arrow. The edit part of an editable one paints itself.
+    static void PaintCombo(HWND h, HDC target)
+    {
+        RECT rc;
+        GetClientRect(h, &rc);
+        COMBOBOXINFO ci = { sizeof ci };
+        GetComboBoxInfo(h, &ci);
+        // a drop-down list reports itself as its "item": only an editable one has an edit part
+        if ((GetWindowLongW(h, GWL_STYLE) & 3) == CBS_DROPDOWNLIST || ci.hwndItem == h) ci.hwndItem = nullptr;
+        HWND focus = GetFocus();
+        bool en = IsWindowEnabled(h) != 0;
+        bool active = focus == h || (ci.hwndItem && focus == ci.hwndItem) || SendMessageW(h, CB_GETDROPPEDSTATE, 0, 0) || hovered == h;
+        HDC dc = CreateCompatibleDC(target);
+        HBITMAP bmp = CreateCompatibleBitmap(target, std::max(1L, rc.right), std::max(1L, rc.bottom));
+        HGDIOBJ oldBmp = SelectObject(dc, bmp);
+        FillRect(dc, &rc, Brush(color::Panel));
+        FrameRect(dc, &rc, Brush(FieldEdge(en, active)));
+        if (!ci.hwndItem)
+        {
+            int sel = (int)SendMessageW(h, CB_GETCURSEL, 0, 0);
+            if (sel >= 0)
+            {
+                int len = (int)SendMessageW(h, CB_GETLBTEXTLEN, sel, 0);
+                std::vector<wchar_t> text(std::max(0, len) + 1, 0);
+                if (len > 0) SendMessageW(h, CB_GETLBTEXT, sel, (LPARAM)text.data());
+                RECT tr = { S(3) + 1, 0, ci.rcButton.left > 0 ? ci.rcButton.left : rc.right - S(20), rc.bottom };
+                SetBkMode(dc, TRANSPARENT);
+                SetTextColor(dc, en ? color::Text : color::Dim);
+                HGDIOBJ of = SelectObject(dc, FontOf(h));
+                DrawTextW(dc, text.data(), -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+                SelectObject(dc, of);
+            }
+        }
+        // the arrow: a chevron in the middle of the button part
+        RECT b = ci.rcButton;
+        if (b.right <= b.left) b = { rc.right - S(20), 0, rc.right, rc.bottom };
+        int cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2, half = S(4);
+        HPEN pen = CreatePen(PS_SOLID, std::max(1, S(1)), en ? color::Dim : color::Border);
+        HGDIOBJ op = SelectObject(dc, pen);
+        POINT p[3] = { { cx - half, cy - half / 2 }, { cx, cy + half / 2 }, { cx + half + 1, cy - half / 2 - 1 } };
+        Polyline(dc, p, 3);
+        SelectObject(dc, op);
+        DeleteObject(pen);
+        if (ci.hwndItem)
+        {
+            // leave the edit part alone: it paints itself
+            RECT er;
+            GetWindowRect(ci.hwndItem, &er);
+            MapWindowPoints(nullptr, h, (POINT*)&er, 2);
+            ExcludeClipRect(target, er.left, er.top, er.right, er.bottom);
+        }
+        BitBlt(target, 0, 0, rc.right, rc.bottom, dc, 0, 0, SRCCOPY);
+        SelectObject(dc, oldBmp);
+        DeleteObject(bmp);
+        DeleteDC(dc);
+    }
+
+    static LRESULT CALLBACK ComboSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR)
+    {
+        switch (m)
+        {
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC dc = BeginPaint(h, &ps);
+            PaintCombo(h, dc);
+            EndPaint(h, &ps);
+            return 0;
+        }
+        case WM_PRINTCLIENT:
+            PaintCombo(h, (HDC)wp);
+            return 0;
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_MOUSEMOVE:
+        case WM_MOUSELEAVE:
+            TrackHover(h, m);
+            break;
+        case WM_SETFOCUS:
+        case WM_KILLFOCUS:
+        case WM_ENABLE:
+        case WM_SETTEXT:
+        case CB_SETCURSEL:
+        case CB_RESETCONTENT:
+        {
+            LRESULT r = DefSubclassProc(h, m, wp, lp);
+            InvalidateRect(h, nullptr, FALSE);
+            return r;
+        }
+        case WM_COMMAND:
+        {
+            // the edit part of an editable combo box got or lost the focus
+            LRESULT r = DefSubclassProc(h, m, wp, lp);
+            if (HIWORD(wp) == EN_SETFOCUS || HIWORD(wp) == EN_KILLFOCUS) InvalidateRect(h, nullptr, FALSE);
+            return r;
+        }
         }
         return DefSubclassProc(h, m, wp, lp);
     }
@@ -560,7 +695,7 @@ namespace ui
 
     struct CheckState
     {
-        bool checked = false, radio = false, down = false;
+        bool checked = false, radio = false, down = false, key = false;   // down: mouse, key: Space held
         int group = 0;
         HFONT font = nullptr;
     };
@@ -589,7 +724,14 @@ namespace ui
         bool en = IsWindowEnabled(h) != 0, hover = hovered == h;
         int box = S(14), y = (rc.bottom - box) / 2;
         RECT b = { 0, y, box, y + box };
-        COLORREF edge = !en ? color::Line : (s->checked ? color::Accent : hover ? color::Dim : color::Border);
+        // pressed (mouse or Space held): the accent edge, a checked box lighter
+        // (like a pressed primary button)
+        POINT cur = {};
+        GetCursorPos(&cur);
+        ScreenToClient(h, &cur);
+        bool press = en && (s->key || (s->down && PtInRect(&rc, cur)));
+        COLORREF edge = !en ? color::Line : (s->checked || press ? color::Accent : hover ? color::Dim : color::Border);
+        COLORREF mark = !en ? color::Dim : press ? Lighter(color::Accent, 0.3f) : color::Accent;
         if (s->radio)
         {
             HPEN pen = CreatePen(PS_SOLID, 1, edge);
@@ -597,7 +739,7 @@ namespace ui
             Ellipse(dc, b.left, b.top, b.right, b.bottom);
             if (s->checked)
             {
-                SelectObject(dc, Brush(en ? color::Accent : color::Dim));
+                SelectObject(dc, Brush(mark));
                 SelectObject(dc, GetStockObject(NULL_PEN));
                 int i = S(4);
                 Ellipse(dc, b.left + i, b.top + i, b.right - i + 1, b.bottom - i + 1);
@@ -608,7 +750,7 @@ namespace ui
         }
         else
         {
-            FillRect(dc, &b, Brush(s->checked ? (en ? color::Accent : color::Dim) : color::Panel));
+            FillRect(dc, &b, Brush(s->checked ? mark : color::Panel));
             FrameRect(dc, &b, Brush(edge));
             if (s->checked)
             {
@@ -664,31 +806,49 @@ namespace ui
             return (LRESULT)(s ? s->font : nullptr);
         case WM_GETDLGCODE:
             return DLGC_BUTTON | (s && s->radio ? DLGC_RADIOBUTTON : 0);
+        case WM_KEYDOWN:
+            if (wp != VK_SPACE) break;
+            if (s && !s->key) { s->key = true; InvalidateRect(h, nullptr, FALSE); }
+            return 0;
         case WM_KEYUP:
-            if (wp == VK_SPACE) UserToggle(h);
+            if (wp == VK_SPACE && s && s->key)
+            {
+                s->key = false;
+                InvalidateRect(h, nullptr, FALSE);
+                UserToggle(h);
+            }
             return 0;
         case WM_LBUTTONDOWN:
             SetFocus(h);
             SetCapture(h);
             if (s) s->down = true;
+            InvalidateRect(h, nullptr, FALSE);
             return 0;
         case WM_LBUTTONUP:
             if (s && s->down)
             {
                 s->down = false;
                 ReleaseCapture();
+                InvalidateRect(h, nullptr, FALSE);
                 POINT p = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
                 RECT rc;
                 GetClientRect(h, &rc);
                 if (PtInRect(&rc, p)) UserToggle(h);
             }
             return 0;
+        case WM_CAPTURECHANGED:
+            if (s && s->down && (HWND)lp != h) { s->down = false; InvalidateRect(h, nullptr, FALSE); }
+            return 0;
         case WM_MOUSEMOVE:
         case WM_MOUSELEAVE:
             TrackHover(h, m);
+            if (s && s->down) InvalidateRect(h, nullptr, FALSE);   // pressed only while over it
+            return 0;
+        case WM_KILLFOCUS:
+            if (s) s->key = false;
+            InvalidateRect(h, nullptr, FALSE);
             return 0;
         case WM_SETFOCUS:
-        case WM_KILLFOCUS:
         case WM_ENABLE:
             InvalidateRect(h, nullptr, FALSE);
             return 0;
@@ -798,6 +958,7 @@ namespace ui
         }
         case WM_MOUSEMOVE:
         {
+            if (FromTouch()) return 0;
             POINT p = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
             std::vector<RECT> r = TabRects(h);
             int over = -1;
@@ -880,8 +1041,22 @@ namespace ui
     struct ProgressState
     {
         int value = 0, phase = 0;
-        bool marquee = false;
+        bool marquee = false, still = false;   // still: a marquee without motion
     };
+
+    // "Show animations in Windows" (Settings > Accessibility > Visual effects)
+    static bool Animations()
+    {
+        BOOL on = TRUE;
+        if (!SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0)) return true;
+        return on != FALSE;
+    }
+
+    static COLORREF Mix(COLORREF a, COLORREF b, float t)
+    {
+        auto m = [t](int x, int y) { return (int)(x + (y - x) * t + 0.5f); };
+        return RGB(m(GetRValue(a), GetRValue(b)), m(GetGValue(a), GetGValue(b)), m(GetBValue(a), GetBValue(b)));
+    }
 
     static ProgressState* ProgressOf(HWND h) { return (ProgressState*)GetWindowLongPtrW(h, GWLP_USERDATA); }
 
@@ -911,6 +1086,13 @@ namespace ui
             GetClientRect(h, &rc);
             FillRect(dc, &rc, Brush(color::Line));
             RECT f = rc;
+            if (s->marquee && s->still)
+            {
+                // without animations: the whole bar, half toned (busy, no amount)
+                FillRect(dc, &rc, Brush(Mix(color::Line, color::Accent, 0.4f)));
+                EndPaint(h, &ps);
+                return 0;
+            }
             if (s->marquee)
             {
                 int w = std::max(S(40), (int)rc.right / 4);
@@ -938,7 +1120,8 @@ namespace ui
         ProgressState* s = ProgressOf(p);
         if (s->marquee == on) return;
         s->marquee = on;
-        if (on) ::SetTimer(p, 1, 30, nullptr); else ::KillTimer(p, 1);
+        s->still = on && !Animations();
+        if (on && !s->still) ::SetTimer(p, 1, 30, nullptr); else ::KillTimer(p, 1);
         InvalidateRect(p, nullptr, FALSE);
     }
 
@@ -1336,15 +1519,16 @@ namespace ui
         // dark scroll bars; a single line edit keeps the classic look, so that
         // WM_CTLCOLORSTATIC colors it when disabled (the theme would draw it grey)
         SetWindowTheme(h, style & ES_MULTILINE ? ThemeApp(L"DarkMode_Explorer") : L"", style & ES_MULTILINE ? nullptr : L"");
-        SetWindowSubclass(h, EditSub, 1, 0);
+        FieldFrame(h);
         return h;
     }
 
     HWND Combo(HWND parent, bool editable)
     {
         HWND h = Child(L"COMBOBOX", parent, L"", WS_TABSTOP | WS_VSCROLL | CBS_AUTOHSCROLL | (editable ? CBS_DROPDOWN : CBS_DROPDOWNLIST));
-        SetWindowTheme(h, ThemeApp(L"DarkMode_CFD"), nullptr);
+        SetWindowTheme(h, ThemeApp(L"DarkMode_CFD"), nullptr);   // still for the drop-down list
         if (editable) SetWindowSubclass(h, EditComboSub, 1, 0);
+        SetWindowSubclass(h, ComboSub, 2, 0);
         return h;
     }
 
@@ -1550,6 +1734,7 @@ namespace ui
             }
         }
         SetWindowSubclass(h, ListSub, 1, 0);
+        FieldFrame(h);
         // no dotted focus frame around the selected row
         SendMessageW(h, WM_CHANGEUISTATE, MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS), 0);
         handlers[h].notify = [h](NMHDR* n) -> LRESULT

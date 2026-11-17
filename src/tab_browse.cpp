@@ -104,6 +104,7 @@ namespace wimsmith
             | TVS_SHOWSELALWAYS, 0, 0, 10, 10, page, nullptr, Inst, nullptr);
         SendMessageW(tree, WM_SETFONT, (WPARAM)FontUI, FALSE);
         SetWindowTheme(tree, ThemeApp(L"DarkMode_Explorer"), nullptr);
+        FieldFrame(tree);
         TreeView_SetBkColor(tree, color::Panel);
         TreeView_SetTextColor(tree, color::Text);
         TreeView_SetLineColor(tree, color::Dim);
