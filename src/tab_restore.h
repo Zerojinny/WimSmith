@@ -48,6 +48,10 @@ namespace wimsmith
         wstring ImageText(int index) const;
         void LoadPartitions();
         wstring TargetText(const Volume& v) const;   // the volume line + "GPT disk 1" once the partitions are read
+        // the WIM file on a USB device at USB 2.0 or slower while this PC has
+        // USB 3.0 ports: a warning (show) or a log line, once per file
+        void CheckUsb(const wstring& wim, bool show);
+        wstring usbWarned, usbLogged;
         void ShowTargetStyles();
         const DiskPartition* TargetPartition() const;
         void BootBoxChanged(HWND box);

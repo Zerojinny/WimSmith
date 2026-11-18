@@ -96,7 +96,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 
 | Item | Description |
 |---|---|
-| WIM file | `.wim`, `.esd` or `.swm` (split WIM); [Read images] lists its images |
+| WIM file | `.wim`, `.esd` or `.swm` (split WIM); [Read images] lists its images. When the file is on a USB device connected at USB 2.0 or slower and this PC has USB 3.0 (or faster) ports, a warning suggests a faster port (or a USB 3.0 device and cable) |
 | Image | the image to restore |
 | Restore to | a volume from the list, or an empty folder through [Folder…]. Each volume ends with the style and number of its disk (e.g. `GPT disk 0`, `MBR disk 1`; a GPT disk starts with UEFI, an MBR disk with BIOS) |
 | New volume label | the label given when formatting |
