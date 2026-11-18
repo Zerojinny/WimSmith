@@ -46,6 +46,8 @@ namespace wimsmith
         const wl::WimImage* Image() const;
         wstring ImageText(int index) const;
         void LoadPartitions();
+        wstring TargetText(const Volume& v) const;   // the volume line + "GPT disk 1" once the partitions are read
+        void ShowTargetStyles();
         const DiskPartition* TargetPartition() const;
         void BootBoxChanged(HWND box);
         wstring Firmware() const;

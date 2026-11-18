@@ -165,7 +165,7 @@ namespace wimsmith
         targets.clear();
         ComboClear(cboTarget);
         targets = list;
-        for (const Volume& v : targets) ComboAdd(cboTarget, v.Text);
+        for (const Volume& v : targets) ComboAdd(cboTarget, TargetText(v));
         SelectTarget(keep);
         if (volumes == 0) app.Log(L::T(L"bk.no_targets"));
         LoadPartitions();
@@ -278,9 +278,32 @@ namespace wimsmith
                 partitions = list;
                 partsKnown = ok;
                 if (!ok) app.Log(L::F(L"bk.syspart_failed", err));
+                ShowTargetStyles();
                 UpdateBoot();
             });
         }).detach();
+    }
+
+    // a volume of the target list with the partition style of its disk
+    // ("D:  Windows  (NTFS, …)  ·  GPT disk 1"), once the partitions are read
+    wstring RestoreTab::TargetText(const Volume& v) const
+    {
+        if (v.Letter == 0 || !partsKnown) return v.Text;
+        for (const DiskPartition& p : partitions)
+            if (p.Letter == v.Letter && (p.Style == L"GPT" || p.Style == L"MBR"))
+                return v.Text + L"  ·  " + L::F(L"rs.target_style", p.Style, p.Disk);
+        return v.Text;
+    }
+
+    // the partitions came in: the lines of the target list get the style;
+    // the selection stays and no change is fired (nothing else changed)
+    void RestoreTab::ShowTargetStyles()
+    {
+        int sel = ComboIndex(cboTarget);
+        SendMessageW(cboTarget, CB_RESETCONTENT, 0, 0);
+        for (const Volume& v : targets) ComboAdd(cboTarget, TargetText(v));
+        if (sel >= 0) SendMessageW(cboTarget, CB_SETCURSEL, (WPARAM)sel, 0);
+        InvalidateRect(cboTarget, nullptr, FALSE);
     }
 
     const DiskPartition* RestoreTab::TargetPartition() const
