@@ -16,7 +16,8 @@
 //    apply  : formats a volume (NTFS) and applies one image to it, or
 //             (folder = ...) applies it into an empty folder; with
 //             drivers = <folder> DISM adds the drivers (dism = <dism.exe>),
-//             then with boot = UEFI|BIOS|ALL bcdboot writes the boot files;
+//             then with boot = UEFI|BIOS|ALL bcdboot writes the boot files
+//             (bcd_delete = 1: the existing BCD store is deleted first);
 //    disk   : see disk.cpp.
 //  wimlib's own messages go to wimlib_errors.txt.
 // ============================================================
@@ -855,6 +856,32 @@ namespace wimsmith
 
     // ---------- apply ----------
 
+    // bcd_delete = 1: the BCD store of the firmware on the system partition
+    // (UEFI: \EFI\Microsoft\Boot\BCD, BIOS: \Boot\BCD, ALL: both) and its
+    // .LOG files are deleted, so that bcdboot makes a new one with only this
+    // Windows. A missing file is fine; one that cannot be deleted stops the job.
+    static DWORD DeleteBcd(wchar_t sysLetter, const wstring& fw)
+    {
+        std::vector<wstring> stores;
+        if (fw == L"UEFI" || fw == L"ALL") stores.push_back(L"EFI\\Microsoft\\Boot\\BCD");
+        if (fw == L"BIOS" || fw == L"ALL") stores.push_back(L"Boot\\BCD");
+        for (const wstring& store : stores)
+            for (const wchar_t* ext : { L"", L".LOG", L".LOG1", L".LOG2" })
+            {
+                wstring path = wstring(1, sysLetter) + L":\\" + store + ext;
+                if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
+                SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_NORMAL);   // BCD is hidden and system
+                if (!DeleteFileW(path.c_str()))
+                {
+                    DWORD e = GetLastError();
+                    Status(L"The existing BCD was not deleted: " + path + L": " + ErrorMessage(e));
+                    return e;
+                }
+                Status(L"Deleted: " + path);
+            }
+        return 0;
+    }
+
     // boot = UEFI | BIOS | ALL; sys_disk, sys_part, sys_offset name the
     // system partition. A partition without a drive letter gets one for
     // bcdboot; that letter is removed again afterwards.
@@ -914,6 +941,11 @@ namespace wimsmith
             Status(L"Disk " + Num(disk) + L": partition " + Num(part) + L" is made the active partition.");
             DWORD e = storage::SetActive(disk, part);
             if (e != 0) { Status(L"The partition was not made active: " + ErrorMessage(e)); return (int)e; }
+        }
+        if (Get(job, L"bcd_delete") == L"1")
+        {
+            DWORD e = DeleteBcd(sysLetter, fw);
+            if (e != 0) return (int)e;
         }
         wstring args = windows + L" /s " + wstring(1, sysLetter) + L": /f " + fw;
         wstring bootLang = Lower(Get(job, L"boot_lang"));

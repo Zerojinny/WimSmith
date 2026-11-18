@@ -27,6 +27,7 @@ namespace wimsmith
         HWND page;
         HWND txtWim, btnWim, btnRead, cboImage, cboTarget, btnTgtFolder, btnTgtRefresh, txtLabel;
         HWND chkUefi, chkBios, chkNoBoot, chkCheck, lblBootLang, cboBootLang, cboSysPart, btnPartRefresh, btnApply;
+        HWND chkBcdDelete;                    // the existing BCD of the system partition is deleted first (not saved)
         HWND cboCompact;                      // Compact OS: 0 = off, 1..4 = XPRESS4K / 8K / 16K / LZX
         HWND chkDrivers, txtDrivers, btnDrivers;   // drivers added with DISM after the restore
         int Compact() const;

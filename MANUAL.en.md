@@ -119,6 +119,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 - UEFI boot files can only go to a FAT32 partition (the EFI system partition).
 - On an MBR disk without a System Reserved partition, the restored partition itself is the system partition, and it is made **active** automatically.
 - **None** writes no boot files; you can run `bcdboot X:\Windows` yourself later.
+- **BCD** *Delete the existing BCD*: before `bcdboot`, the existing BCD of the system partition (UEFI: `\EFI\Microsoft\Boot\BCD`, BIOS: `\Boot\BCD`) is deleted, so the new BCD has only the restored Windows. The boot entries of other Windows installations on that partition are lost. Use it to clear entries of old installations from the boot menu. Off by default and not saved. The system partition of the running Windows cannot be chosen.
 
 ### Compact OS (compressed restore)
 

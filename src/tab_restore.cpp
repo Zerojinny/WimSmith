@@ -60,6 +60,11 @@ namespace wimsmith
         cboSysPart = Combo(page);
         btnPartRefresh = Button(page, L::T(L"adk.btn_refresh"));
         grid.Add(L::T(L"bk.row_syspart"), { Field(cboSysPart, 520), Btn(btnPartRefresh, 90) });
+        // the existing BCD of the system partition deleted before bcdboot: a new
+        // one with only this Windows (off by default, not saved: it drops the
+        // other boot entries)
+        chkBcdDelete = Check(page, L::T(L"rs.bcd_delete"));
+        grid.Add(L::T(L"rs.row_bcd"), { Box(chkBcdDelete) });
         // Compact OS: the files compressed by Windows (wimlib --compact); the last choice is kept
         cboCompact = Combo(page);
         for (const wchar_t* k : { L"rs.compact_off", L"rs.compact_x4", L"rs.compact_x8", L"rs.compact_x16", L"rs.compact_lzx" }) ComboAdd(cboCompact, L::T(k));
@@ -410,6 +415,7 @@ namespace wimsmith
         ComboSelect(cboSysPart, std::max(0, pick));
         Enable(cboSysPart, volume && !fw.empty() && tpp);
         Enable(cboBootLang, volume && !fw.empty());
+        Enable(chkBcdDelete, volume && !fw.empty() && tpp);
     }
 
     // UEFI: the EFI partition of the target disk; BIOS: its system reserved
@@ -438,7 +444,7 @@ namespace wimsmith
         for (HWND c : { btnApply, cboTarget, cboImage, txtWim, btnPartRefresh, chkCheck, chkDrivers }) Enable(c, !busy);
         Enable(cboCompact, !busy && Windows10OrLater());
         UpdateDrivers();
-        if (busy) for (HWND c : { chkUefi, chkBios, chkNoBoot, cboSysPart, cboBootLang }) Enable(c, false);
+        if (busy) for (HWND c : { chkUefi, chkBios, chkNoBoot, cboSysPart, cboBootLang, chkBcdDelete }) Enable(c, false);
         else UpdateBoot();
     }
 
@@ -526,6 +532,8 @@ namespace wimsmith
         // BIOS on MBR starts the active partition: the helper makes the system partition active
         if (hasSys && fw != L"UEFI" && !sys.Gpt() && !sys.Active)
             windows += L"\r\n" + L::F(L"bk.confirm_make_active", sys.Disk, sys.Number);
+        bool bcdDelete = hasSys && Checked(chkBcdDelete) && IsWindowEnabled(chkBcdDelete);
+        if (bcdDelete) windows += L"\r\n" + L::F(L"rs.confirm_bcd_delete", sys.Disk, sys.Number);
         if (Checked(chkCheck)) windows += L"\r\n\r\n" + L::T(L"rs.confirm_check");
         if (Compact()) windows += L"\r\n\r\n" + L::F(L"rs.confirm_compact", CompactNames[Compact()]);
         Job job;
@@ -549,6 +557,7 @@ namespace wimsmith
             job[L"sys_disk"] = Num(sys.Disk);
             job[L"sys_part"] = Num(sys.Number);
             job[L"sys_offset"] = Num(sys.Offset);
+            job[L"bcd_delete"] = bcdDelete ? L"1" : L"0";
         }
         app.job = App::JobInfo();
         app.job.boot = hasSys ? fw : wstring();
