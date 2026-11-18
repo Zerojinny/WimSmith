@@ -17,8 +17,12 @@
 #include "tab_splitjoin.h"
 #include "version.h"
 #include "tab_restore.h"
+#include "net.h"
+#include "usb.h"
 #include <shellapi.h>
 #include <algorithm>
+#include <cwctype>
+#include <thread>
 
 namespace wimsmith
 {
@@ -84,6 +88,55 @@ namespace wimsmith
         Log(err);
         Info(L::F(L"bk.no_wimlib", err, ToolDir()), MB_ICONWARNING);
         return false;
+    }
+
+    static const unsigned long long SlowNetwork = 100000000ULL;   // 100 Mbit/s
+
+    // what is read of the link (any thread) and the warning made of it (the UI thread)
+    struct LinkFacts
+    {
+        net::PathLink link;
+        usb::DriveInfo d;
+        bool netSlow = false, usbSlow = false, usb3 = false;
+    };
+
+    static LinkFacts ReadLink(const wstring& path)
+    {
+        LinkFacts f;
+        f.netSlow = net::OfPath(path, f.link) && f.link.speed <= SlowNetwork;
+        // a local drive letter (a network path is not on a local USB device)
+        if (f.link.server.empty() && path.size() >= 3 && path[1] == L':' && iswalpha(path[0]))
+        {
+            f.usbSlow = usb::OfDrive((wchar_t)towupper(path[0]), f.d) && f.d.speed >= usb::SpeedLow && f.d.speed <= usb::SpeedHigh;
+            f.usb3 = f.usbSlow && (f.d.portUsb3 || usb::SystemHasUsb3Port());
+        }
+        return f;
+    }
+
+    static wstring LinkText(const wstring& path, const LinkFacts& f)
+    {
+        if (f.netSlow)
+            return L::F(L"rs.net_slow", path, f.link.adapter, net::SpeedText(f.link.speed), f.link.server);
+        if (!f.usbSlow || !f.usb3) return wstring();
+        const usb::DriveInfo& d = f.d;
+        wstring speed = L::T(d.speed == usb::SpeedLow ? L"rs.usb_speed_low" : d.speed == usb::SpeedFull ? L"rs.usb_speed_full" : L"rs.usb_speed_high");
+        // the port can do USB 3.0: the device or its cable cannot; else another port
+        return L::F(d.portUsb3 ? L"rs.usb_slow_device" : L"rs.usb_slow_port", path, d.name.empty() ? wstring(L"USB") : d.name, speed);
+    }
+
+    wstring SlowLinkText(const wstring& path)
+    {
+        return LinkText(path, ReadLink(path));
+    }
+
+    void App::CheckLink(const wstring& path, std::function<void(const wstring& text)> done)
+    {
+        HWND target = win.hwnd;
+        std::thread([target, path, done]
+        {
+            LinkFacts f = ReadLink(path);
+            ui::Post(target, [path, f, done] { done(LinkText(path, f)); });
+        }).detach();
     }
 
     bool App::Images(const wstring& wim, bool show, std::vector<wl::WimImage>& list)

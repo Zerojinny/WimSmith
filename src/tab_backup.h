@@ -40,6 +40,10 @@ namespace wimsmith
         void FillSources();
         void ChooseSourceFolder();
         void ChooseWim();
+        // the WIM file written through a slow link (App::CheckLink): a warning
+        // when the user chose it (show), else a log line; once per file
+        void CheckTarget(const wstring& wim, bool show);
+        wstring tgtWarned, tgtLogged;
         void UpdatePreview();
         void SetBusy(bool busy);
         void StartCapture();

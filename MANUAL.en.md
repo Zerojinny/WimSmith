@@ -96,7 +96,7 @@ Applies one image of a WIM file to a volume or to an empty folder.
 
 | Item | Description |
 |---|---|
-| WIM file | `.wim`, `.esd` or `.swm` (split WIM); [Read images] lists its images. When the file is on a USB device connected at USB 2.0 or slower and this PC has USB 3.0 (or faster) ports, a warning suggests a faster port (or a USB 3.0 device and cable) |
+| WIM file | `.wim`, `.esd` or `.swm` (split WIM); [Read images] lists its images. When the file is on a USB device connected at USB 2.0 or slower and this PC has USB 3.0 (or faster) ports, a warning suggests a faster port (or a USB 3.0 device and cable). When the file is on the network (`\\server\share` or a network drive) and this PC's link to that server is 100 Mbit/s or slower, a warning suggests a faster connection or copying the file to a local drive first |
 | Image | the image to restore |
 | Restore to | a volume from the list, or an empty folder through [Folder…]. Each volume ends with the style and number of its disk (e.g. `GPT disk 0`, `MBR disk 1`; a GPT disk starts with UEFI, an MBR disk with BIOS) |
 | New volume label | the label given when formatting |
@@ -189,7 +189,7 @@ Saves a volume or folder as an image in a WIM file. The **job preview** below th
 | Item | Description |
 |---|---|
 | Source | a volume from the list, or a folder through [Folder…] |
-| WIM file | the `.wim` file to write |
+| WIM file | the `.wim` file to write. When the file chosen with [Browse…] is on a USB device connected at USB 2.0 or slower (while this PC has USB 3.0 ports) or on the network with a link of 100 Mbit/s or slower, a warning follows, as on the restore tab |
 | Image name / description | name and description inside the WIM; the name must be unique in the file |
 | Compression | **LZX** (default: fair size, fast restore), **XPRESS** (fastest, larger file), **LZMS solid** (smallest file, slow); threads 0 = automatic |
 | Existing file | **Replace the file**: a new file is written and replaces the old one at the end (the old one stays until then). **Add a new image**: the image is appended to the existing file (with that file's compression). **Fast**: see below |
@@ -375,6 +375,7 @@ A small window opens in each case, without the main window (Explorer starts WimS
 - When a WIM file exists already, the folders are added to it as new images (with its own compression); a name used already gets " (2)".
 - Compression, threads, *From a VSS snapshot*, *Verify afterwards* and *Integrity table* work as on the backup tab. The WIM file must not be inside one of the folders.
 - [Start] asks once for administrator rights.
+- Before it starts, the place to save to is checked: on a USB device connected at USB 2.0 or slower (while this PC has USB 3.0 ports) or on the network with a link of 100 Mbit/s or slower, the same warning as on the restore / backup tabs is shown, and then the job goes on. A place is warned about once.
 
 ---
 

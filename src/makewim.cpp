@@ -207,6 +207,7 @@ namespace wimsmith
         bool autoStart = mode != L"open";
         ULONGLONG lastFolder = GetTickCount64();
         wstring autoTarget[2], typed[2];   // [0] the WIM file, [1] the folder of one WIM file per folder
+        wstring linkChecked;               // the target whose link was checked (a warning once per target)
         wstring workDir;
         HANDLE process = nullptr;
         std::vector<wstring> written;
@@ -356,6 +357,18 @@ namespace wimsmith
             // no folders come in while it asks (the others wait)
             struct Asking { bool& b; ~Asking() { b = false; } } guard{ asking };
             asking = true;
+            // the target on a slow link (USB 2.0 while the PC has USB 3.0, or a
+            // network link of 100 Mbit/s or slower): a warning, then on as before.
+            // Checked here, not in the background: [Start] may come by itself
+            // a second after the folders, and a later message would cross it.
+            if (!EqualsI(target, linkChecked))
+            {
+                linkChecked = target;
+                HCURSOR wait = SetCursor(LoadCursorW(nullptr, IDC_WAIT));
+                wstring warn = SlowLinkText(target);
+                SetCursor(wait);
+                if (!warn.empty()) Info(warn, MB_ICONWARNING);
+            }
             if (confirm && !YesNo(L::F(L"mw.confirm", TrimEnd(lines), comp), MB_ICONQUESTION)) return;
 
             // wimlib for the helper (downloaded when missing)

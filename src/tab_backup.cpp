@@ -264,6 +264,7 @@ namespace wimsmith
         SetText(txtWim, wim);
         SetChecked(rbAppend, true);
         UpdatePreview();
+        CheckTarget(FullPath(wim), false);
     }
 
     const Volume* BackupTab::Source() const
@@ -320,6 +321,29 @@ namespace wimsmith
         if (!SaveFile({ { L"WIM (*.wim)", L"*.wim" } }, cur.empty() ? wstring() : DirName(full),
                 cur.empty() ? wstring(L"backup.wim") : FileName(full), false, file)) return;
         SetText(txtWim, file);
+        CheckTarget(FullPath(file), true);
+    }
+
+    void BackupTab::CheckTarget(const wstring& wim, bool show)
+    {
+        if (wim.empty() || (EqualsI(wim, tgtLogged) && (!show || EqualsI(wim, tgtWarned)))) return;
+        app.CheckLink(wim, [this, wim, show](const wstring& text)
+        {
+            if (text.empty()) return;
+            if (!EqualsI(wim, tgtLogged))
+            {
+                tgtLogged = wim;
+                wstring one = text;
+                for (size_t p; (p = one.find(L"\r\n")) != wstring::npos;) one.replace(p, 2, L" ");
+                app.Log(one);
+            }
+            // still the file of the tab (the user may have chosen another meanwhile)
+            if (show && !EqualsI(wim, tgtWarned) && EqualsI(FullPath(Trim(GetText(txtWim))), wim))
+            {
+                tgtWarned = wim;
+                Info(text, MB_ICONWARNING);
+            }
+        });
     }
 
     void BackupTab::UpdatePreview()

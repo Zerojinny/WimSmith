@@ -6,9 +6,7 @@
 #include "helper.h"
 #include "lang.h"
 #include "settings.h"
-#include "usb.h"
 #include <algorithm>
-#include <cwctype>
 #include <thread>
 
 namespace wimsmith
@@ -247,43 +245,31 @@ namespace wimsmith
         app.Log(L::F(L"bk.log_read", wim, (long long)images.size()));
         wstring full = FullPath(wim);
         if (!full.empty()) SetRestoreWim(full);
-        if (!full.empty()) CheckUsb(full, show);
+        if (!full.empty()) CheckSource(full, show);
     }
 
-    // read in the background (the device tree and every hub port); a warning
-    // when the user chose the file (show), else only a log line
-    void RestoreTab::CheckUsb(const wstring& wim, bool show)
+    // a slow link to the WIM file (App::CheckLink): a warning when the user
+    // chose the file (show), else only a log line; once per file
+    void RestoreTab::CheckSource(const wstring& wim, bool show)
     {
-        if (wim.size() < 3 || wim[1] != L':' || !iswalpha(wim[0])) return;   // a drive letter, not \\server\share
-        if (EqualsI(wim, usbLogged) && (!show || EqualsI(wim, usbWarned))) return;
-        wchar_t letter = (wchar_t)towupper(wim[0]);
-        HWND target = app.win.hwnd;
-        std::thread([this, target, wim, letter, show]
+        if (EqualsI(wim, srcLogged) && (!show || EqualsI(wim, srcWarned))) return;
+        app.CheckLink(wim, [this, wim, show](const wstring& text)
         {
-            usb::DriveInfo d;
-            bool slow = usb::OfDrive(letter, d) && d.speed >= usb::SpeedLow && d.speed <= usb::SpeedHigh;
-            bool usb3 = slow && (d.portUsb3 || usb::SystemHasUsb3Port());
-            Post(target, [this, wim, d, slow, usb3, show]
+            if (text.empty()) return;
+            if (!EqualsI(wim, srcLogged))
             {
-                if (!slow || !usb3) return;
-                wstring speed = L::T(d.speed == usb::SpeedLow ? L"rs.usb_speed_low" : d.speed == usb::SpeedFull ? L"rs.usb_speed_full" : L"rs.usb_speed_high");
-                // the port can do USB 3.0: the device or its cable cannot; else another port
-                wstring text = L::F(d.portUsb3 ? L"rs.usb_slow_device" : L"rs.usb_slow_port", wim, d.name.empty() ? wstring(L"USB") : d.name, speed);
-                if (!EqualsI(wim, usbLogged))
-                {
-                    usbLogged = wim;
-                    wstring one = text;
-                    for (size_t p; (p = one.find(L"\r\n")) != wstring::npos;) one.replace(p, 2, L" ");
-                    app.Log(one);
-                }
-                // still the file of the tab (the user may have chosen another meanwhile)
-                if (show && !EqualsI(wim, usbWarned) && EqualsI(FullPath(Trim(GetText(txtWim))), wim))
-                {
-                    usbWarned = wim;
-                    Info(text, MB_ICONWARNING);
-                }
-            });
-        }).detach();
+                srcLogged = wim;
+                wstring one = text;
+                for (size_t p; (p = one.find(L"\r\n")) != wstring::npos;) one.replace(p, 2, L" ");
+                app.Log(one);
+            }
+            // still the file of the tab (the user may have chosen another meanwhile)
+            if (show && !EqualsI(wim, srcWarned) && EqualsI(FullPath(Trim(GetText(txtWim))), wim))
+            {
+                srcWarned = wim;
+                Info(text, MB_ICONWARNING);
+            }
+        });
     }
 
     void RestoreTab::SetWim(const wstring& wim, int image)

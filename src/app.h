@@ -34,6 +34,14 @@ namespace wimsmith
         long long Size = -1;
     };
 
+    // the warning for a WIM file read or written through a slow link, or ""
+    // (a fast or unknown link): on the network at 100 Mbit/s or slower
+    // (rs.net_slow), or on a USB device at USB 2.0 or slower while the PC has
+    // USB 3.0 ports (rs.usb_slow_device / rs.usb_slow_port). Takes up to a
+    // second (the device tree, every hub port, a name lookup): App::CheckLink
+    // does it in the background; the make-WIM window calls it before [Start].
+    wstring SlowLinkText(const wstring& path);
+
     class App
     {
     public:
@@ -69,6 +77,9 @@ namespace wimsmith
         void Status(const wstring& text) { win.SetStatus(text); }
         // the images of a WIM file (false with a log line / message)
         bool Images(const wstring& wim, bool show, std::vector<wl::WimImage>& list);
+        // how a WIM file is read or written, in the background: done gets, on
+        // this thread, the text of SlowLinkText (a warning or "")
+        void CheckLink(const wstring& path, std::function<void(const wstring& text)> done);   // SlowLinkText in the background
         // a WIM file was written: the tabs that show it read it again; an
         // empty restore tab (backup) or an empty info tab (export, join) takes it
         void WimWritten(const wstring& wim, bool toRestore = true);
