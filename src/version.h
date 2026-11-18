@@ -7,11 +7,11 @@
 
 #define WS_VER_MAJOR    1
 #define WS_VER_MINOR    3
-#define WS_VER_PATCH    0
+#define WS_VER_PATCH    1
 #define WS_VER_BUILD    0
 
-#define WS_VERSION_STR      "1.3"
-#define WS_FILEVERSION_STR  "1.3.0.0"
+#define WS_VERSION_STR      "1.3.1"
+#define WS_FILEVERSION_STR  "1.3.1.0"
 #define WS_COPYRIGHT_STR    "Copyright (c) 2026 zerojinny. MIT License."
 #define WS_AUTHOR_STR       "zerojinny"
 #define WS_EMAIL_STR        "wimsmith2026@gmail.com"

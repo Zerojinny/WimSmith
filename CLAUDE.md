@@ -79,7 +79,7 @@ GitHub 릴리스에는 zip이 두 번 들어갑니다: `WimSmith-<버전>-x64.zi
 | `src\makewim.*` | 폴더 메뉴의 "WIM 파일로 만들기": 고른 모든 폴더를 위한 창 하나, 메인 창 없이 |
 | `src\extractwim.*` | WIM 파일 메뉴의 압축 풀기 / 각각 압축 풀기: 파일 옆의 새 폴더, 권한 상승 없이 |
 | `src\gather.*` | 탐색기 메뉴 한 번의 클릭으로 들어온 파일 / 폴더를 첫 프로세스로 모음(뮤텍스 + WM_COPYDATA) |
-| `src\version.h` | 버전(1.3), 제작자, 이메일, 웹 페이지, 저작권 / 라이선스 줄: exe의 버전 리소스(파일 속성 -> 자세히), 창 제목, 로그 첫 줄, "?" 탭 |
+| `src\version.h` | 버전(1.3.1), 제작자, 이메일, 웹 페이지, 저작권 / 라이선스 줄: exe의 버전 리소스(파일 속성 -> 자세히), 창 제목, 로그 첫 줄, "?" 탭 |
 | `app.rc`, `app.manifest` | 아이콘(1 = 프로그램, 2 / 3 / 4 = .wim / .esd / .swm 파일, `icons\`), 버전 리소스, `LICENSE`(리소스 형식 TEXT, "?" 탭에 표시), 내장 언어 파일. 매니페스트(DPI, Common Controls 6, Windows 버전) |
 | `lang\en.ini`, `lang\ko.ini` | 문구(en.ini가 기준) |
 | `phoenixpe\WimSmith.script` | PhoenixPE 플러그인([PhoenixPE 플러그인](#phoenixpe-플러그인) 참고) |

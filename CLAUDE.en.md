@@ -79,7 +79,7 @@ Release notes are in Korean first, with the English below in the same body: the 
 | `src\makewim.*` | "Make a WIM file" of the folder menu: one window for all selected folders, without the main window |
 | `src\extractwim.*` | Extract / Extract each of the WIM file menu: new folders next to the files, without elevation |
 | `src\gather.*` | the files / folders of one click in Explorer's menu gathered into the first process (mutex + WM_COPYDATA) |
-| `src\version.h` | the version (1.3), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
+| `src\version.h` | the version (1.3.1), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
 | `app.rc`, `app.manifest` | icon (1 = program, 2 / 3 / 4 = .wim / .esd / .swm files, `icons\`), version resource, `LICENSE` (resource type TEXT, shown on the "?" tab) and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
 | `phoenixpe\WimSmith.script` | the PhoenixPE plugin (see [PhoenixPE plugin](#phoenixpe-plugin)) |
