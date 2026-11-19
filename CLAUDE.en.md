@@ -81,7 +81,7 @@ Release notes are in Korean first, with the English below in the same body: the 
 | `src\net.*` | the link a file on the network is read through (no elevation): the server of a UNC path or network drive (`WNetGetConnection`) -> its address (`GetAddrInfoW`) -> the interface Windows takes (`GetBestInterfaceEx`) -> its receive link speed (`GetIfEntry2`). `iphlpapi.dll` loaded at run time; loopback left out |
 | `src\usb.*` | how a drive is connected over USB (no elevation): disk interface -> the USB device up the device tree -> `IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX(_V2)` on its hub port. The speed, whether the port supports USB 3.0, whether this PC has a USB 3.0 port |
 | `src\gather.*` | the files / folders of one click in Explorer's menu gathered into the first process (mutex + WM_COPYDATA) |
-| `src\version.h` | the version (1.3.1), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
+| `src\version.h` | the version (1.3.2), author, e-mail, web page and the copyright / license line: the version resource of the exe (file properties -> Details), the window title, the first log line and the "?" tab |
 | `app.rc`, `app.manifest` | icon (1 = program, 2 / 3 / 4 = .wim / .esd / .swm files, `icons\`), version resource, `LICENSE` (resource type TEXT, shown on the "?" tab) and embedded language files; manifest (DPI, Common Controls 6, Windows versions) |
 | `lang\en.ini`, `lang\ko.ini` | texts (en.ini is the reference) |
 | `phoenixpe\WimSmith.script` | the PhoenixPE plugin (see [PhoenixPE plugin](#phoenixpe-plugin)) |

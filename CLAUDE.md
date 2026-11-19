@@ -81,7 +81,7 @@ GitHub 릴리스에는 zip이 두 번 들어갑니다: `WimSmith-<버전>-x64.zi
 | `src\gather.*` | 탐색기 메뉴 한 번의 클릭으로 들어온 파일 / 폴더를 첫 프로세스로 모음(뮤텍스 + WM_COPYDATA) |
 | `src\net.*` | 네트워크의 파일을 읽는 링크(권한 상승 없음): UNC나 네트워크 드라이브(`WNetGetConnection`)의 서버 → 주소(`GetAddrInfoW`) → Windows가 고르는 인터페이스(`GetBestInterfaceEx`) → 받기 링크 속도(`GetIfEntry2`). `iphlpapi.dll`은 실행 중에 불러옴, 루프백은 제외 |
 | `src\usb.*` | 드라이브가 USB로 어떻게 연결되어 있는지(권한 상승 없음): 디스크 인터페이스 → 장치 트리의 USB 장치 → 허브 포트에 `IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX(_V2)`. 속도, 포트의 USB 3.0 지원, PC에 USB 3.0 포트가 있는지 |
-| `src\version.h` | 버전(1.3.1), 제작자, 이메일, 웹 페이지, 저작권 / 라이선스 줄: exe의 버전 리소스(파일 속성 -> 자세히), 창 제목, 로그 첫 줄, "?" 탭 |
+| `src\version.h` | 버전(1.3.2), 제작자, 이메일, 웹 페이지, 저작권 / 라이선스 줄: exe의 버전 리소스(파일 속성 -> 자세히), 창 제목, 로그 첫 줄, "?" 탭 |
 | `app.rc`, `app.manifest` | 아이콘(1 = 프로그램, 2 / 3 / 4 = .wim / .esd / .swm 파일, `icons\`), 버전 리소스, `LICENSE`(리소스 형식 TEXT, "?" 탭에 표시), 내장 언어 파일. 매니페스트(DPI, Common Controls 6, Windows 버전) |
 | `lang\en.ini`, `lang\ko.ini` | 문구(en.ini가 기준) |
 | `phoenixpe\WimSmith.script` | PhoenixPE 플러그인([PhoenixPE 플러그인](#phoenixpe-플러그인) 참고) |
