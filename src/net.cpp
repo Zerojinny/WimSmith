@@ -78,9 +78,9 @@ namespace wimsmith
                     unsigned long long speed = row.ReceiveLinkSpeed;
                     if (speed == 0 || speed == ~0ULL) continue;
                     link.speed = speed;
-                    link.adapter = row.Alias;
-                    if (row.Description[0] && wcscmp(row.Alias, row.Description) != 0)
-                        link.adapter += wstring(L" (") + row.Description + L")";
+                    // the connection's name as Windows shows it ("Ethernet 5"); the
+                    // adapter's description only when it has none
+                    link.adapter = row.Alias[0] ? row.Alias : row.Description;
                     found = true;
                 }
                 FreeAddrInfoW(list);

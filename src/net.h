@@ -18,7 +18,7 @@ namespace wimsmith
         {
             wstring server;                 // e.g. "nas" or "192.168.0.10"
             unsigned long long speed = 0;   // the receive link speed in bit/s (0 = unknown)
-            wstring adapter;                // e.g. "Ethernet (Realtek PCIe GbE Family Controller)"
+            wstring adapter;                // the connection's name, e.g. "Ethernet 5" (else the adapter's description)
         };
 
         // a path on the network and the link it is read through; false: a
